@@ -1,75 +1,103 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import kaboom from "kaboom";
 
 const Game = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [showPopup, setShowPopup] = useState(false);
+  const setShowPopupRef = useRef(setShowPopup);
 
   useEffect(() => {
+    setShowPopupRef.current = setShowPopup;
+
     if (!canvasRef.current) return;
 
     const k = kaboom({
       canvas: canvasRef.current,
+      width: 800,
+      height: 600,
       background: [135, 206, 235],
     });
 
     const {
       add,
       pos,
-      rect,
-      color,
       area,
-      body,
       move,
       RIGHT,
-      LEFT,
-      text,
       onKeyDown,
+      sprite,
+      anchor,
+      destroyAll,
+      onCollide,
     } = k;
 
-    const player = add([
-      rect(40, 20),
-      pos(50, 100),
-      color(255, 0, 0),
-      area(),
-      body(),
-      move(RIGHT, 0),
-      "player",
-    ]);
+    Promise.all([
+      k.loadSprite("truck", "./src/assets/truck.png"),
+      k.loadSprite("obstacle", "./src/assets/obstacle.png"),
+    ]).then(() => {
+      k.scene("main", () => {
+        const truck = add([
+          sprite("truck"),
+          pos(100, 400),
+          area(),
+          move(RIGHT, 0),
+          anchor("center"),
+          "truck",
+        ]);
 
-    add([
-      rect(30, 30),
-      pos(300, 100),
-      color(0, 0, 255),
-      area(),
-      body({ isStatic: true }),
-      "obstacle",
-    ]);
+        const obstacle = add([
+          sprite("obstacle"),
+          pos(500, 400),
+          area(),
+          anchor("center"),
+          "obstacle",
+        ]);
 
-    onKeyDown("right", () => {
-      player.move(100, 0);
-    });
+        onKeyDown("right", () => {
+          truck.move(200, 0);
+        });
 
-    onKeyDown("left", () => {
-      player.move(-100, 0);
-    });
+        truck.onCollide("obstacle", () => {
+          destroyAll("truck");
+          destroyAll("obstacle");
 
-    player.onCollide("obstacle", () => {
-      add([
-        text("Colidiu!"),
-        pos(150, 50),
-        color(0, 0, 0),
-      ]);
+          // Exibir pop-up usando React state
+          setShowPopupRef.current(true);
+        });
+      });
+
+      k.go("main");
     });
 
     return () => {
-      // Limpeza se necessário
+      k.destroyAll("truck");
+      k.destroyAll("obstacle");
     };
   }, []);
 
   return (
-    <div style={{ border: "2px solid #000", display: "inline-block" }}>
-      <canvas ref={canvasRef} width={640} height={240} />
-    </div>
+    <>
+      <canvas ref={canvasRef} />
+
+      {showPopup && (
+        <div
+          style={{
+            position: "absolute",
+            top: "30%",
+            left: "30%",
+            background: "white",
+            padding: "2rem",
+            borderRadius: "1rem",
+            boxShadow: "0 0 10px rgba(0,0,0,0.3)",
+            color: "black",
+            zIndex: 999,
+          }}
+        >
+          <h2>🚧 Colisão detectada!</h2>
+          <button onClick={() => setShowPopup(false)}>Fechar</button>
+        </div>
+      )}
+    </>
   );
 };
 
