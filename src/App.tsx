@@ -1,10 +1,9 @@
-import Game from "./game";
+import { GameScene } from "./game";
 
 function App() {
   return (
-    <div>
-      <h1>Jogo com Kaboom!</h1>
-      <Game />
+    <div className="App">
+      <GameScene />
     </div>
   );
 }
