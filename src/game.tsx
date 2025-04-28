@@ -31,6 +31,7 @@ export function GameScene() {
       dt,
       onUpdate,
       z,
+      scale,
     } = k;
     
     loadSprite("background", "/assets/background.png");
@@ -38,12 +39,13 @@ export function GameScene() {
     loadSprite("obstacle", "/assets/obstacle.png");
     
     scene("main", () => {
-      const speed = 1200;
+      const speed = 12000;
     
       // Fundo parallax
       const bg = add([
-        sprite("background", { width: width(), height: height() }),
+        sprite("background"),
         pos(0, 0),
+        scale(width()/ 640, height()/ 480),
         z(0), // camada mais ao fundo
         { speed },
       ]);
@@ -51,26 +53,28 @@ export function GameScene() {
       // Caminhão
       const car = add([
         sprite("car"),
-        pos(10, height() - 250),
+        pos(10, height() - 310),
         area(),
         body(),
-        z(2), // na frente do obstáculo
+        z(2),
+        scale(0.75), // na frente do obstáculo
       ]);
     
       // Obstáculo (parte da camada do mundo)
       const obstacle = add([
         sprite("obstacle"),
-        pos(width(), height() - 250),
+        pos(width(), height() - 290),
         area(),
         body(),
-        z(1), // na frente do fundo
+        z(1),
+        scale(0.5), // na frente do fundo
         "obstacle",
       ]);
     
       onUpdate(() => {
         // Movimento de fundo (parallax mais lento)
         if (isKeyDown("right")) {
-          bg.move(-speed * 0.3 * dt(), 0);     // fundo move mais devagar
+          bg.move(-speed *0.3* dt(), 0);     // fundo move mais devagar
           obstacle.move(-speed * dt(), 0);     // obstáculo move normal
         }
     
