@@ -10,8 +10,8 @@ export function GameScene() {
 
     const k = kaboom({
       canvas: canvasRef.current,
-      width: 640,
-      height: 480,
+      width: 1365,
+      height: 762,
       background: [0, 0, 0],
     });
 
@@ -34,9 +34,9 @@ export function GameScene() {
       scale,
     } = k;
     
-    loadSprite("background", "/assets/background.png");
+    loadSprite("background", "/assets/backgroundd.png");
     loadSprite("car", "/assets/truck.png");
-    loadSprite("obstacle", "/assets/obstacle.png");
+    loadSprite("obstacle", "/assets/obstaclee.png");
     
     scene("main", () => {
       const speed = 12000;
@@ -45,7 +45,6 @@ export function GameScene() {
       const bg = add([
         sprite("background"),
         pos(0, 0),
-        scale(width()/ 640, height()/ 480),
         z(0), // camada mais ao fundo
         { speed },
       ]);
@@ -53,7 +52,7 @@ export function GameScene() {
       // Caminhão
       const car = add([
         sprite("car"),
-        pos(10, height() - 310),
+        pos(10, height() - 250),
         area(),
         body(),
         z(2),
@@ -63,19 +62,20 @@ export function GameScene() {
       // Obstáculo (parte da camada do mundo)
       const obstacle = add([
         sprite("obstacle"),
-        pos(width(), height() - 290),
+        pos(width(), height() - 220),
         area(),
         body(),
         z(1),
-        scale(0.5), // na frente do fundo
+        scale(0.1), // na frente do fundo
         "obstacle",
       ]);
     
       onUpdate(() => {
         // Movimento de fundo (parallax mais lento)
         if (isKeyDown("right")) {
-          bg.move(-speed *0.3* dt(), 0);     // fundo move mais devagar
-          obstacle.move(-speed * dt(), 0);     // obstáculo move normal
+          const moveAmount = -speed * dt();
+          bg.move(moveAmount, 0);
+          obstacle.move(moveAmount, 0); // mesma velocidade do fundo
         }
     
         if (obstacle.pos.x < -obstacle.width) {
