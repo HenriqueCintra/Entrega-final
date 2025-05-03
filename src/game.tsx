@@ -19,14 +19,18 @@ export function GameScene() {
   const destroyRef = useRef<((obj: GameObj) => void) | null>(null); // <-- Aqui
 
   useEffect(() => {
-    if (!canvasRef.current) return;
+  if (!canvasRef.current) return;
 
-    const k = kaboom({
-      canvas: canvasRef.current,
-      width: 1365,
-      height: 762,
-      background: [0, 0, 0],
-    });
+  // Previna múltiplas instâncias
+  if ((window as any).__kaboom_initiated__) return;
+  (window as any).__kaboom_initiated__ = true;
+
+  const k = kaboom({
+    canvas: canvasRef.current,
+    width: 1365,
+    height: 762,
+    background: [0, 0, 0],
+  });
 
     const {
       loadSprite,
@@ -54,97 +58,108 @@ export function GameScene() {
     loadSprite("car", "/assets/truck.png");
     loadSprite("obstacle", "/assets/obstaclee.png");
 
-    scene("main", () => {
-      const speed = 12000;
+scene("main", () => {
+  const speed = 12000;
 
-      const bg1 = add([
-        sprite("background"),
-        pos(0, 0),
-        z(0),
-        { speed },
-      ]);
+  const bg1 = add([
+    sprite("background"),
+    pos(0, 0),
+    z(0),
+    { speed },
+  ]);
 
-      const bg2 = add([
-        sprite("background"),
-        pos(width(), 0),
-        z(0),
-        { speed },
-      ]);
+  const bg2 = add([
+    sprite("background"),
+    pos(width(), 0),
+    z(0),
+    { speed },
+  ]);
 
-      const car = add([
-        sprite("car"),
-        pos(10, height() - 250),
-        area(),
-        body(),
-        z(2),
-        scale(0.75),
-      ]);
+  const car = add([
+    sprite("car"),
+    pos(10, height() - 250),
+    area(),
+    body(),
+    z(2),
+    scale(0.75),
+  ]);
 
-      type Obstacle = GameObj<
-        SpriteComp |
-        PosComp |
-        ZComp |
-        AreaComp |
-        BodyComp |
-        ScaleComp
-      > & { collided: boolean };
+  type Obstacle = GameObj<
+    SpriteComp |
+    PosComp |
+    ZComp |
+    AreaComp |
+    BodyComp |
+    ScaleComp
+  > & { collided: boolean };
 
-      const obstacles: Obstacle[] = [];
+  // Declarar o array de obstáculos fora da lógica de criação
+  const obstacles: Obstacle[] = [];
 
-      for (let i = 0; i < 3; i++) {
-        const obs = add([
-          sprite("obstacle"),
-          pos(width() + i * 400, height() - 220),
-          area(),
-          body(),
-          z(1),
-          scale(0.1),
-          "obstacle",
-          { collided: false },
-        ]) as Obstacle;
+  // Criar obstáculos apenas uma vez
+  for (let i = 0; i < 4; i++) {
+    const obs = add([
+      sprite("obstacle"),
+      pos(width() + i * 400, height() - 220),
+      area(),
+      body(),
+      z(1),
+      scale(0.1),
+      "obstacle",
+      { collided: false },
+    ]) as Obstacle;
 
-        obstacles.push(obs);
+    obstacles.push(obs);
+    console.log("Obstáculo criado com ID:", obs.id);
+  }
+
+  onUpdate(() => {
+    console.log("Quantidade de obstáculos no update:", obstacles.length);
+
+    if (gamePaused.current) return; // Não processar se o jogo estiver pausado
+
+    const moveAmount = -speed * dt();
+
+    bg1.move(moveAmount, 0);
+    bg2.move(moveAmount, 0);
+
+    for (const obs of obstacles) {
+      obs.move(moveAmount, 0);
+
+      // Redefinir o estado do obstáculo quando ele sair da tela
+      if (obs.pos.x < -obs.width) {
+        obs.pos.x = width() + Math.random() * 400;
+        obs.collided = false;
       }
 
-      onUpdate(() => {
-        if (gamePaused.current) return;
+      // Ignorar obstáculos fora da tela
+      if (obs.pos.x + obs.width < 0 || obs.pos.x > width()) {
+        continue;
+      }
 
-        if (isKeyDown("right")) {
-          const moveAmount = -speed * dt();
+      // Verificar colisão e garantir que só ocorra uma vez
+      if (!obs.collided && car.isColliding(obs)) {
+        obs.collided = true; // Marcar como colidido
+        gamePaused.current = true; // Pausar o jogo
+        collidedObstacle.current = obs; // Armazenar o obstáculo colidido
 
-          bg1.move(moveAmount, 0);
-          bg2.move(moveAmount, 0);
+        console.log("Colisão detectada com ID:", obs.id);
 
-          for (const obs of obstacles) {
-            obs.move(moveAmount, 0);
+        setShowPopup(true); // Mostrar o popup
+        break; // Sair do loop após detectar a colisão
+      }
+    }
 
-            if (obs.pos.x < -obs.width) {
-              obs.pos.x = width() + Math.random() * 400;
-              obs.collided = false;
-            }
+    // Reposicionar os fundos para criar o efeito de loop
+    if (bg1.pos.x + bg1.width <= 0) {
+      bg1.pos.x = bg2.pos.x + bg2.width;
+    }
+    if (bg2.pos.x + bg2.width <= 0) {
+      bg2.pos.x = bg1.pos.x + bg1.width;
+    }
+  });
+});
 
-            if (car.isColliding(obs) && !obs.collided && !gamePaused.current) {
-              obs.collided = true;
-              gamePaused.current = true;
-              collidedObstacle.current = obs;
-
-              console.log(obs);
-
-              setTimeout(() => {
-                setShowPopup(true);
-              }, 150);
-            }
-          }
-
-          if (bg1.pos.x + bg1.width <= 0) {
-            bg1.pos.x = bg2.pos.x + bg2.width;
-          }
-          if (bg2.pos.x + bg2.width <= 0) {
-            bg2.pos.x = bg1.pos.x + bg1.width;
-          }
-        }
-      });
-    });
 
     go("main");
   }, []);
