@@ -1,9 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import kaboom from "kaboom";
+import type {
+  GameObj,
+  SpriteComp,
+  PosComp,
+  ZComp,
+  AreaComp,
+  BodyComp,
+  ScaleComp
+} from "kaboom";
 
 export function GameScene() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [showPopup, setShowPopup] = useState(false);
+  const [playerChoice, setPlayerChoice] = useState<string | null>(null);
+  const gamePaused = useRef(false);
+  const collidedObstacle = useRef<GameObj | null>(null);
+  const destroyRef = useRef<((obj: GameObj) => void) | null>(null); // <-- Aqui
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -14,7 +27,6 @@ export function GameScene() {
       height: 762,
       background: [0, 0, 0],
     });
-
 
     const {
       loadSprite,
@@ -32,65 +44,122 @@ export function GameScene() {
       onUpdate,
       z,
       scale,
+      destroy,
     } = k;
-    
+
+    // Armazena a função destroy fora do useEffect
+    destroyRef.current = destroy;
+
     loadSprite("background", "/assets/backgroundd.png");
     loadSprite("car", "/assets/truck.png");
     loadSprite("obstacle", "/assets/obstaclee.png");
-    
+
     scene("main", () => {
       const speed = 12000;
-    
-      // Fundo parallax
-      const bg = add([
+
+      const bg1 = add([
         sprite("background"),
         pos(0, 0),
-        z(0), // camada mais ao fundo
+        z(0),
         { speed },
       ]);
-    
-      // Caminhão
+
+      const bg2 = add([
+        sprite("background"),
+        pos(width(), 0),
+        z(0),
+        { speed },
+      ]);
+
       const car = add([
         sprite("car"),
         pos(10, height() - 250),
         area(),
         body(),
         z(2),
-        scale(0.75), // na frente do obstáculo
+        scale(0.75),
       ]);
-    
-      // Obstáculo (parte da camada do mundo)
-      const obstacle = add([
-        sprite("obstacle"),
-        pos(width(), height() - 220),
-        area(),
-        body(),
-        z(1),
-        scale(0.1), // na frente do fundo
-        "obstacle",
-      ]);
-    
+
+      type Obstacle = GameObj<
+        SpriteComp |
+        PosComp |
+        ZComp |
+        AreaComp |
+        BodyComp |
+        ScaleComp
+      > & { collided: boolean };
+
+      const obstacles: Obstacle[] = [];
+
+      for (let i = 0; i < 3; i++) {
+        const obs = add([
+          sprite("obstacle"),
+          pos(width() + i * 400, height() - 220),
+          area(),
+          body(),
+          z(1),
+          scale(0.1),
+          "obstacle",
+          { collided: false },
+        ]) as Obstacle;
+
+        obstacles.push(obs);
+      }
+
       onUpdate(() => {
-        // Movimento de fundo (parallax mais lento)
+        if (gamePaused.current) return;
+
         if (isKeyDown("right")) {
           const moveAmount = -speed * dt();
-          bg.move(moveAmount, 0);
-          obstacle.move(moveAmount, 0); // mesma velocidade do fundo
-        }
-    
-        if (obstacle.pos.x < -obstacle.width) {
-          obstacle.pos.x = width() + Math.random() * 200;
-        }
-    
-        if (car.isColliding(obstacle)) {
-          setShowPopup(true);
+
+          bg1.move(moveAmount, 0);
+          bg2.move(moveAmount, 0);
+
+          for (const obs of obstacles) {
+            obs.move(moveAmount, 0);
+
+            if (obs.pos.x < -obs.width) {
+              obs.pos.x = width() + Math.random() * 400;
+              obs.collided = false;
+            }
+
+            if (car.isColliding(obs) && !obs.collided && !gamePaused.current) {
+              obs.collided = true;
+              gamePaused.current = true;
+              collidedObstacle.current = obs;
+
+              console.log(obs);
+
+              setTimeout(() => {
+                setShowPopup(true);
+              }, 150);
+            }
+          }
+
+          if (bg1.pos.x + bg1.width <= 0) {
+            bg1.pos.x = bg2.pos.x + bg2.width;
+          }
+          if (bg2.pos.x + bg2.width <= 0) {
+            bg2.pos.x = bg1.pos.x + bg1.width;
+          }
         }
       });
     });
-    
+
     go("main");
-    
-  })
+  }, []);
+
+  const handleOptionClick = (choice: string) => {
+    setPlayerChoice(choice);
+    setShowPopup(false);
+
+    if (collidedObstacle.current && destroyRef.current) {
+      destroyRef.current(collidedObstacle.current);
+      collidedObstacle.current = null;
+    }
+
+    gamePaused.current = false;
+  };
 
   return (
     <div style={{ position: "relative" }}>
@@ -116,6 +185,7 @@ export function GameScene() {
           <p>💥 Você bateu!</p>
           <div style={{ marginTop: "20px", display: "flex", gap: "10px", justifyContent: "center" }}>
             <button
+              onClick={() => handleOptionClick("opcao1")}
               style={{
                 padding: "10px 20px",
                 borderRadius: "8px",
@@ -128,6 +198,7 @@ export function GameScene() {
               Opção 1
             </button>
             <button
+              onClick={() => handleOptionClick("opcao2")}
               style={{
                 padding: "10px 20px",
                 borderRadius: "8px",
