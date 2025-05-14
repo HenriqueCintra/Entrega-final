@@ -17,6 +17,7 @@ export function GameScene() {
   const gamePaused = useRef(false);
   const collidedObstacle = useRef<GameObj | null>(null);
   const destroyRef = useRef<((obj: GameObj) => void) | null>(null); // <-- Aqui
+  const [eventoAtual, setEventoAtual] = useState<{ texto: string; opcoes: string[] } | null>(null);
 
   useEffect(() => {
   if (!canvasRef.current) return;
@@ -58,8 +59,27 @@ export function GameScene() {
     loadSprite("car", "/assets/truck.png");
     loadSprite("obstacle", "/assets/obstaclee.png");
 
+    const eventos = [
+      {texto: "Pneu Furado 🚛💥", 
+      desc:"Você precisa chamar o borracheiro!" , 
+      opcoes: ["Borracheiro mais próximo: custo = R$300, tempo: 1h", "Borracheiro de confiança: custo = R$100, tempo: 3h"]},
+      
+      {texto: "Greve dos caminhoeiro 🚧🚛", 
+      desc:"Alguns caminhoneiros iniciaram uma paralisação e estão bloqueando está rota!" , 
+      opcoes: ["Contrate motoristas extras: custo = R$300, tempo: 0h", "Espere a manifestação acabar: custo = R$0, tempo: 7h"]},
+
+      {texto: "Aumento de pedágio 💸🛣️", 
+      desc:"Ouve um ajuste inesperado para o pedágio da rota!" , 
+      opcoes: ["Manter a rota e pagar o pedagio: custo = R$100, tempo: 0h", "Mudar a rota: custo = R$0, tempo: 2h"]},
+
+      {texto: "Combustível adulterado ⚠️⛽", 
+      desc:"O caminhão foi abastecido com combustível adulterado e apresentou falhas mecânicas!" , 
+      opcoes: ["Parar no mecânico e esperar consertar: custo = R$800, tempo: 8h", "Colocar outro veículo: custo = R$700, tempo: 4h"]},
+    ];
+
+
 scene("main", () => {
-  const speed = 12000;
+  const speed = 5000;
 
   const bg1 = add([
     sprite("background"),
@@ -139,6 +159,11 @@ scene("main", () => {
 
       // Verificar colisão e garantir que só ocorra uma vez
       if (!obs.collided && car.isColliding(obs)) {
+
+        const eventoSorteado = eventos[Math.floor(Math.random() * eventos.length)];
+        setEventoAtual(eventoSorteado);
+
+
         obs.collided = true; // Marcar como colidido
         gamePaused.current = true; // Pausar o jogo
         collidedObstacle.current = obs; // Armazenar o obstáculo colidido
@@ -166,6 +191,7 @@ scene("main", () => {
 
   const handleOptionClick = (choice: string) => {
     setPlayerChoice(choice);
+    setEventoAtual(null);
     setShowPopup(false);
 
     if (collidedObstacle.current && destroyRef.current) {
@@ -179,52 +205,67 @@ scene("main", () => {
   return (
     <div style={{ position: "relative" }}>
       <canvas ref={canvasRef} />
-
-      {showPopup && (
+  
+      {eventoAtual && (
         <div
           style={{
             position: "absolute",
-            top: "40%",
+            top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            padding: "30px",
-            background: "rgba(0, 0, 0, 0.85)",
-            color: "white",
-            fontSize: "20px",
-            borderRadius: "15px",
-            zIndex: 10,
+            backgroundColor: "#f9f9f9",
+            padding: "20px",
+            borderRadius: "12px",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
             textAlign: "center",
-            minWidth: "300px",
+            maxWidth: "600px",
+            width: "90%",
+            zIndex: 10,
           }}
         >
-          <p>💥 Você bateu!</p>
-          <div style={{ marginTop: "20px", display: "flex", gap: "10px", justifyContent: "center" }}>
-            <button
-              onClick={() => handleOptionClick("opcao1")}
-              style={{
-                padding: "10px 20px",
-                borderRadius: "8px",
-                border: "none",
-                backgroundColor: "#00A8E8",
-                color: "white",
-                cursor: "pointer",
-              }}
-            >
-              Opção 1
-            </button>
-            <button
-              onClick={() => handleOptionClick("opcao2")}
-              style={{
-                padding: "10px 20px",
-                borderRadius: "8px",
-                border: "none",
-                backgroundColor: "#FF595E",
-                color: "white",
-                cursor: "pointer",
-              }}
-            >
-              Opção 2
-            </button>
+          <p
+            style={{
+              fontSize: "18px",
+              marginBottom: "20px",
+              color: "#333",
+            }}
+          >
+            {eventoAtual.texto}
+          </p>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: "15px",
+              flexWrap: "wrap",
+            }}
+          >
+            {eventoAtual.opcoes.map((opcao, index) => (
+              <button
+                key={index}
+                onClick={() => handleOptionClick(opcao)}
+                style={{
+                  padding: "12px 24px",
+                  borderRadius: "8px",
+                  border: "none",
+                  backgroundColor: index % 2 === 0 ? "#0077cc" : "#e63946",
+                  color: "white",
+                  fontSize: "16px",
+                  cursor: "pointer",
+                  transition: "background-color 0.3s ease",
+                }}
+                onMouseOver={(e) =>
+                  (e.currentTarget.style.backgroundColor =
+                    index % 2 === 0 ? "#005fa3" : "#c92a2a")
+                }
+                onMouseOut={(e) =>
+                  (e.currentTarget.style.backgroundColor =
+                    index % 2 === 0 ? "#0077cc" : "#e63946")
+                }
+              >
+                {opcao}
+              </button>
+            ))}
           </div>
         </div>
       )}
