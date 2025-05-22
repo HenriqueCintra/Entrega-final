@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import kaboom from "kaboom";
+import './game.css'
+
 import type {
   GameObj,
   SpriteComp,
@@ -17,7 +19,9 @@ export function GameScene() {
   const gamePaused = useRef(false);
   const collidedObstacle = useRef<GameObj | null>(null);
   const destroyRef = useRef<((obj: GameObj) => void) | null>(null); // <-- Aqui
-  const [eventoAtual, setEventoAtual] = useState<{ texto: string; opcoes: string[] } | null>(null);
+  const [eventoAtual, setEventoAtual] = useState<{ texto: string; desc: string, opcoes: string[] } | null>(null);
+  const [gameEnded, setGameEnded]  = useState(false);
+  const [showEndMessage, setShowEndMessage] = useState(false);
 
   useEffect(() => {
   if (!canvasRef.current) return;
@@ -64,7 +68,7 @@ export function GameScene() {
       desc:"Você precisa chamar o borracheiro!" , 
       opcoes: ["Borracheiro mais próximo: custo = R$300, tempo: 1h", "Borracheiro de confiança: custo = R$100, tempo: 3h"]},
       
-      {texto: "Greve dos caminhoeiro 🚧🚛", 
+      {texto: "Greve dos caminhoneiros 🚧🚛", 
       desc:"Alguns caminhoneiros iniciaram uma paralisação e estão bloqueando está rota!" , 
       opcoes: ["Contrate motoristas extras: custo = R$300, tempo: 0h", "Espere a manifestação acabar: custo = R$0, tempo: 7h"]},
 
@@ -111,7 +115,9 @@ scene("main", () => {
     AreaComp |
     BodyComp |
     ScaleComp
-  > & { collided: boolean };
+  > & { collided: boolean;
+        isDestroyed: boolean;
+   };
 
   // Declarar o array de obstáculos fora da lógica de criação
   const obstacles: Obstacle[] = [];
@@ -126,7 +132,9 @@ scene("main", () => {
       z(1),
       scale(0.1),
       "obstacle",
-      { collided: false },
+      { collided: false,
+        isDestroyed: false
+       },
     ]) as Obstacle;
 
     obstacles.push(obs);
@@ -175,6 +183,14 @@ scene("main", () => {
       }
     }
 
+    if(obstacles.every((obs) => obs.isDestroyed)){
+        if(!gameEnded){
+          setGameEnded(true);
+          gamePaused.current =true;
+        }
+      return;
+    }
+
     // Reposicionar os fundos para criar o efeito de loop
     if (bg1.pos.x + bg1.width <= 0) {
       bg1.pos.x = bg2.pos.x + bg2.width;
@@ -189,86 +205,156 @@ scene("main", () => {
     go("main");
   }, []);
 
+  useEffect(() => {
+  if (gameEnded) {
+    console.log("Jogo finalizado. Mostrando mensagem final.");
+    setShowEndMessage(true);
+  }
+}, [gameEnded]);
+
+
   const handleOptionClick = (choice: string) => {
     setPlayerChoice(choice);
     setEventoAtual(null);
     setShowPopup(false);
 
+
     if (collidedObstacle.current && destroyRef.current) {
+      collidedObstacle.current.isDestroyed = true;
       destroyRef.current(collidedObstacle.current);
       collidedObstacle.current = null;
+    }
+
+    if (gameEnded) {
+      console.log("teste1");
+      setShowEndMessage(true); // <-- Exibe a mensagem final
+      console.log("teste2");
+    return;
     }
 
     gamePaused.current = false;
   };
 
   return (
+
     <div style={{ position: "relative" }}>
+
+     <div className="Container-Button">
+      <button
+        onClick={()=> console.log("botão 1 clicado")}
+        className="buttonP"
+      >
+        <img src="/assets/listIcon.png"></img>
+      </button>
+
+      <button
+        onClick={()=> console.log("botão 2 clicado")}
+        className="buttonP"
+      >
+        <img src="/assets/mapIcon.png"></img>
+      </button>
+
+    </div>
+
+
+    
+
       <canvas ref={canvasRef} />
   
-      {eventoAtual && (
-        <div
-          style={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            backgroundColor: "#f9f9f9",
-            padding: "20px",
-            borderRadius: "12px",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-            textAlign: "center",
-            maxWidth: "600px",
-            width: "90%",
-            zIndex: 10,
-          }}
-        >
-          <p
-            style={{
-              fontSize: "18px",
-              marginBottom: "20px",
-              color: "#333",
-            }}
-          >
-            {eventoAtual.texto}
-          </p>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              gap: "15px",
-              flexWrap: "wrap",
-            }}
-          >
-            {eventoAtual.opcoes.map((opcao, index) => (
-              <button
-                key={index}
-                onClick={() => handleOptionClick(opcao)}
-                style={{
-                  padding: "12px 24px",
-                  borderRadius: "8px",
-                  border: "none",
-                  backgroundColor: index % 2 === 0 ? "#0077cc" : "#e63946",
-                  color: "white",
-                  fontSize: "16px",
-                  cursor: "pointer",
-                  transition: "background-color 0.3s ease",
-                }}
-                onMouseOver={(e) =>
-                  (e.currentTarget.style.backgroundColor =
-                    index % 2 === 0 ? "#005fa3" : "#c92a2a")
-                }
-                onMouseOut={(e) =>
-                  (e.currentTarget.style.backgroundColor =
-                    index % 2 === 0 ? "#0077cc" : "#e63946")
-                }
-              >
-                {opcao}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+    {eventoAtual && (
+
+ 
+
+  <div
+    style={{
+      position: "absolute",
+      top: "30%",
+      left: "50%",
+      transform: "translate(-50%, -50%)",
+      backgroundColor: "#f9f9f9",
+      padding: "30px",
+      borderRadius: "12px",
+      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+      textAlign: "center",
+      minWidth: "300px",
+      maxWidth: "500px",
+      zIndex: 10,
+    }}
+  >
+   
+    {/* Texto e descrição separados */}
+    <div className="tittle" style={{ marginBottom: "10px" }}>
+      <p style={{ fontSize: "28px",
+        color: "#333",
+        marginBottom: "5px",
+        fontWeight: "bold" }}>
+        {eventoAtual.texto}
+      </p>
+      <p style={{ fontSize: "16px",
+         color: "#555" }}>
+        {eventoAtual.desc}
+      </p>
     </div>
+
+    {/* Botões separados */}
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        gap: "15px",
+        flexWrap: "wrap",
+      }}
+    >
+      {eventoAtual.opcoes.map((opcao, index) => (
+        <button
+          key={index}
+          onClick={() => handleOptionClick(opcao)}
+          style={{
+            padding: "12px 24px",
+            borderRadius: "8px",
+            border: "none",
+            backgroundColor: index % 2 === 0 ? "#0077cc" : "#e63946",
+            color: "white",
+            fontSize: "16px",
+            cursor: "pointer",
+            transition: "background-color 0.3s ease",
+          }}
+          onMouseOver={(e) =>
+            (e.currentTarget.style.backgroundColor =
+              index % 2 === 0 ? "#005fa3" : "#c92a2a")
+          }
+          onMouseOut={(e) =>
+            (e.currentTarget.style.backgroundColor =
+              index % 2 === 0 ? "#0077cc" : "#e63946")
+          }
+        >
+          {opcao}
+        </button>
+      ))}
+    </div>
+  </div>
+)}
+{showEndMessage && (
+  <div className="endMessage"
+    style={{
+      position: "absolute",
+      top: "50%",
+      left: "50%",
+      transform: "translate(-50%, -50%)",
+      backgroundColor: "white",
+      padding: "20px",
+      borderRadius: "10px",
+      boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
+      zIndex: 20,
+      textAlign: "center",
+    }}
+  >
+    <h2>Parabéns! 🏁</h2>
+    <p>Você venceu o jogo!</p>
+  </div>
+)}
+</div>
+
+
   );
 }
