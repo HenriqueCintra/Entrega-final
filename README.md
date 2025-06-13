@@ -16,16 +16,18 @@ Recomendação: Se você usa Windowns instale o [WSL2 (ubuntu)](https://learn.mi
 ## 🚀 **Passo a Passo para Executar o Projeto**
 
 ### **✔️ Windows (com WSL2 recomendado)✔️**
-**1. Instale [WSL2 tutorial](https://learn.microsoft.com/pt-br/windows/wsl/install).**
+**1. Instale WSL2 (tutorial](https://learn.microsoft.com/pt-br/windows/wsl/install).**
+
 **2. Comando para instalar o WL2 no PowerShell (rode como admin):**
   ```bash
    wsl --install
   ```
-**3. Ja vai instalar o WSL2 mas confira usando o comando (resquisito ser WSL2):**
+**3. Ja vai instalar o WSL2 mas confira usando o comando (resquisito ser WSL2): **
  ```bash
   wsl --set-version 
  ```
 **4. Dentro do terminal do WSL2 navegue até  o diretorio que voce deseja clonar o repositorio.**
+
 **5. Clone o repositorio.**
 ```bash
 git clone https://github.com/restic36/ifba-jogos-juazeiro-front.git
@@ -38,6 +40,11 @@ docker-compose up
 **7.Acesse o Projeto**
 Após iniciar, acesse:
 👉 [http://localhost:5173](http://localhost:5173)
+
+**8.Abra o VS code:**
+```bash
+code
+```
 
 ---
 
