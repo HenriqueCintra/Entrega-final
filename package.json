@@ -10,8 +10,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "kaboom": "^3000.1.17",
-    "kaplay": "^3000.1.17",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
