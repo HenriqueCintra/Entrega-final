@@ -1,0 +1,22 @@
+/* Pixel Art Styling */
+@font-face {
+  font-family: 'PixelFont';
+  src: url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+  font-display: swap;
+}
+
+.font-pixel {
+  font-family: 'Press Start 2P', monospace;
+  letter-spacing: 1px;
+  line-height: 1.5;
+}
+
+/* Custom utility classes */
+.hover\:scale-102:hover {
+  transform: scale(1.02);
+}
+
+/* Transitions */
+.transition-all {
+  transition: all 0.3s ease;
+} 
