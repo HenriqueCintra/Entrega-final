@@ -1,5 +1,7 @@
-// src/pages/mapaRota/paths/route1Path.ts
-export const route4Path = [
+// Desafio: Juazeiro → Salvador
+// Rota 4: Via Uauá (BR-235, BR-116, BR-324)
+
+export const salvadorRoute4Path = [
   [-9.449952, -40.524278], [-9.449798, -40.524829],
   [-9.449678, -40.525161], [-9.449345, -40.525955],
   [-9.449380, -40.525997], [-9.449442, -40.526026],

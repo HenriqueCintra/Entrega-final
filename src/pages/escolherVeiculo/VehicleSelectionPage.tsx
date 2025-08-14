@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Vehicle } from '../../types/vehicle';
 import {
   Carousel,
@@ -41,7 +41,7 @@ const getSpriteName = (modelName: string) => {
     case 'carreta':
       return 'carreta';
     default:
-      return 'caminhao_medio' ;
+      return 'caminhao_medio';
   }
 };
 
@@ -81,6 +81,16 @@ const VehicleCard: React.FC<{
 
 export const VehicleSelectionPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Recebe o desafio selecionado da página anterior
+  const selectedChallenge = location.state?.desafio;
+  const challengeId = location.state?.challengeId;
+
+  // Debug: verificar se os dados estão sendo recebidos
+  console.log("🚗 DEBUG VehicleSelection - challengeId recebido:", challengeId);
+  console.log("🚗 DEBUG VehicleSelection - selectedChallenge:", selectedChallenge);
+  console.log("🚗 DEBUG VehicleSelection - location.state:", location.state);
 
   // NOVO: Estados para guardar os veículos da API, o estado de loading e possíveis erros.
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -112,7 +122,7 @@ export const VehicleSelectionPage = () => {
             dirt: parseFloat(((apiVehicle.autonomia / apiVehicle.capacidade_combustivel) * 0.8).toFixed(2))
           },
           image: `/assets/${getSpriteName(apiVehicle.modelo)}.png`,
-          spriteSheet:`/assets/${getSpriteName(apiVehicle.modelo)}_sheet.png`,
+          spriteSheet: `/assets/${getSpriteName(apiVehicle.modelo)}_sheet.png`,
           spriteName: getSpriteName(apiVehicle.modelo),
           maxCapacity: apiVehicle.capacidade_combustivel,
           currentFuel: 0, // Tanque sempre vazio - usuário deve abastecer
@@ -121,14 +131,14 @@ export const VehicleSelectionPage = () => {
 
         setVehicles(formattedVehicles);
         if (formattedVehicles.length > 0) {
-            setSelectedIndex(0); // Define o primeiro veículo como selecionado por padrão
+          setSelectedIndex(0); // Define o primeiro veículo como selecionado por padrão
         }
 
       } catch (e) {
         if (e instanceof Error) {
-            setError(`Falha ao buscar veículos: ${e.message}`);
+          setError(`Falha ao buscar veículos: ${e.message}`);
         } else {
-            setError("Ocorreu um erro desconhecido.");
+          setError("Ocorreu um erro desconhecido.");
         }
         console.error(e);
       } finally {
@@ -156,18 +166,20 @@ export const VehicleSelectionPage = () => {
     setShowConfirmation(true);
   };
 
-   const handleConfirm = () => {
+  const handleConfirm = () => {
     if (selectedIndex === null) return; // Proteção extra
     const selectedVehicle = vehicles[selectedIndex];
     if (selectedVehicle.cost <= availableMoney) {
       navigate('/routes', {
         state: {
           selectedVehicle: selectedVehicle,
-          availableMoney: availableMoney - selectedVehicle.cost
+          availableMoney: availableMoney - selectedVehicle.cost,
+          selectedChallenge: selectedChallenge,
+          challengeId: challengeId
         }
       });
     }
-   };
+  };
 
   if (isLoading) {
     return <div className="bg-sky-100 min-h-screen flex items-center justify-center font-['Silkscreen'] text-2xl">Carregando veículos...</div>;
@@ -236,51 +248,51 @@ export const VehicleSelectionPage = () => {
 
       {selectedVehicle && (
         <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
-            <DialogContent className="sm:max-w-md font-['Silkscreen']">
-                <DialogHeader>
-                    <DialogTitle className="font-['Silkscreen'] flex items-center gap-2 text-xl">
-                        Veículo Selecionado
-                    </DialogTitle>
-                </DialogHeader>
-                <div className="space-y-3 text-sm">
-                    <div>
-                        <div className="flex items-center gap-4">
-                            <img src={selectedVehicle.image} className="h-16 w-16 object-contain" />
-                            <div>
-                                <p className="font-['Silkscreen'] font-bold text-base">{selectedVehicle.name}</p>
-                                <ul className="text-xs">
-                                    <li>Capacidade: {selectedVehicle.capacity} Kg</li>
-                                    <li>Tanque: {selectedVehicle.maxCapacity} L</li>
-                                    <li>Asfalto: {selectedVehicle.consumption.asphalt} KM/L</li>
-                                    <li>Terra: {selectedVehicle.consumption.dirt} KM/L</li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-                    <div>
-                        <h4 className="font-semibold mb-1 text-base">Detalhes da Compra</h4>
-                        <div className="text-sm space-y-1">
-                            <p className="flex items-center gap-2">
-                                <CalendarDays size={16} /> Data/Hora: Agora
-                            </p>
-                            <p className="flex items-center gap-2">
-                                <MapPin size={16} /> Local de Retirada: Base
-                            </p>
-                            <p className="font-['Silkscreen'] flex items-center gap-2 text-lg font-bold">
-                                <DollarSign size={16} /> Total: R$ {selectedVehicle.cost.toLocaleString()}
-                            </p>
-                        </div>
-                    </div>
+          <DialogContent className="sm:max-w-md font-['Silkscreen']">
+            <DialogHeader>
+              <DialogTitle className="font-['Silkscreen'] flex items-center gap-2 text-xl">
+                Veículo Selecionado
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 text-sm">
+              <div>
+                <div className="flex items-center gap-4">
+                  <img src={selectedVehicle.image} className="h-16 w-16 object-contain" />
+                  <div>
+                    <p className="font-['Silkscreen'] font-bold text-base">{selectedVehicle.name}</p>
+                    <ul className="text-xs">
+                      <li>Capacidade: {selectedVehicle.capacity} Kg</li>
+                      <li>Tanque: {selectedVehicle.maxCapacity} L</li>
+                      <li>Asfalto: {selectedVehicle.consumption.asphalt} KM/L</li>
+                      <li>Terra: {selectedVehicle.consumption.dirt} KM/L</li>
+                    </ul>
+                  </div>
                 </div>
-                <DialogFooter className="pt-4 font-['Silkscreen']">
-                    <Button onClick={handleConfirm} className="bg-green-600 hover:bg-green-700 font-['Silkscreen']" disabled={availableMoney < selectedVehicle.cost}>
-                        {availableMoney < selectedVehicle.cost ? "Dinheiro Insuficiente" : "Confirmar"}
-                    </Button>
-                    <Button variant="destructive" onClick={() => setShowConfirmation(false)} className="font-['Silkscreen']">
-                        Cancelar
-                    </Button>
-                </DialogFooter >
-            </DialogContent>
+              </div>
+              <div>
+                <h4 className="font-semibold mb-1 text-base">Detalhes da Compra</h4>
+                <div className="text-sm space-y-1">
+                  <p className="flex items-center gap-2">
+                    <CalendarDays size={16} /> Data/Hora: Agora
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <MapPin size={16} /> Local de Retirada: Base
+                  </p>
+                  <p className="font-['Silkscreen'] flex items-center gap-2 text-lg font-bold">
+                    <DollarSign size={16} /> Total: R$ {selectedVehicle.cost.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <DialogFooter className="pt-4 font-['Silkscreen']">
+              <Button onClick={handleConfirm} className="bg-green-600 hover:bg-green-700 font-['Silkscreen']" disabled={availableMoney < selectedVehicle.cost}>
+                {availableMoney < selectedVehicle.cost ? "Dinheiro Insuficiente" : "Confirmar"}
+              </Button>
+              <Button variant="destructive" onClick={() => setShowConfirmation(false)} className="font-['Silkscreen']">
+                Cancelar
+              </Button>
+            </DialogFooter >
+          </DialogContent>
         </Dialog>
       )}
     </div>

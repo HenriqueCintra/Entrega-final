@@ -18,6 +18,8 @@ export const FuelPage: React.FC = () => {
 
   const availableMoney = location.state?.availableMoney || 5500;
   const selectedRoute = location.state?.selectedRoute;
+  const selectedChallenge = location.state?.selectedChallenge;
+  const challengeId = location.state?.challengeId;
 
   // Debug dos dados recebidos
   console.log("=== DEBUG FUEL PAGE ===");
@@ -77,7 +79,9 @@ export const FuelPage: React.FC = () => {
         state: {
           selectedVehicle: updatedVehicle,
           availableMoney: newBalance,
-          selectedRoute: selectedRoute  // GARANTIR QUE ESTE DADO SEJA PASSADO
+          selectedRoute: selectedRoute,  // GARANTIR QUE ESTE DADO SEJA PASSADO
+          selectedChallenge,
+          challengeId
         }
       });
     } else {
@@ -91,7 +95,9 @@ export const FuelPage: React.FC = () => {
       state: {
         selectedVehicle: selectedVehicle,
         availableMoney: availableBalance,
-        selectedRoute: selectedRoute  // GARANTIR QUE ESTE DADO SEJA PASSADO
+        selectedRoute: selectedRoute,  // GARANTIR QUE ESTE DADO SEJA PASSADO
+        selectedChallenge,
+        challengeId
       }
     });
   };
