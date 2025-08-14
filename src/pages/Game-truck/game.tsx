@@ -573,7 +573,7 @@ export function GameScene() {
           // ============= LÓGICA CORRIGIDA DE GATILHO DE EVENTOS =============
 
           // ✅ CORREÇÃO: Configurações de evento mais robustas
-          const EVENT_CHECK_INTERVAL_KM = 5 // Aumentado para dar mais espaço
+          const EVENT_CHECK_INTERVAL_KM = 10 // Aumentado para dar mais espaço
 
           // ✅ CORREÇÃO: Use progressPercent (valor atualizado) consistentemente
           const distanciaAtualKm = (progressPercent / 100) * totalDistance;
@@ -732,7 +732,7 @@ export function GameScene() {
       setTotalDistance(routeDistance);
 
       const estimatedHours = selectedRoute.estimatedTimeHours || 7.5;
-      const targetGameDurationMinutes = 3; // O jogo deve durar 3 minutos
+      const targetGameDurationMinutes = 20; // O jogo deve durar 3 minutos
       gameSpeedMultiplier.current = (estimatedHours * 60) / targetGameDurationMinutes;
     }
   }, [vehicle, selectedRoute, location.state]); // Dependências corretas
@@ -833,7 +833,7 @@ export function GameScene() {
     const pathCoords = selectedRoute.pathCoordinates;
     const totalSegments = pathCoords.length - 1;
 
-    const targetDurationSeconds = 180;
+    const targetDurationSeconds = 1200;
     const segmentsPerSecond = totalSegments / targetDurationSeconds;
     const segmentSpeed = segmentsPerSecond * deltaTime;
 
@@ -854,7 +854,7 @@ export function GameScene() {
 
   const calculateFallbackProgress = (deltaTime: number) => {
     const routeDistance = totalDistance || 500;
-    distanceTravelled.current += deltaTime * gameSpeedMultiplier.current * 0.1;
+    distanceTravelled.current += deltaTime * gameSpeedMultiplier.current * 0.2;
     const progressKm = (distanceTravelled.current * routeDistance) / 5000;
     return Math.min(100, Math.max(0, (progressKm / routeDistance) * 100));
   };
