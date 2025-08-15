@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../../contexts/AuthContext";
 import { TeamService } from "../../api/teamService";
@@ -8,7 +8,7 @@ import {
   Card,
   CardContent,
 } from "../../components/ui/card";
-import { PlayIcon, Trophy, TruckIcon, MapPin, DollarSign, Camera } from 'lucide-react';
+import { PlayIcon, Trophy, TruckIcon, MapPin, DollarSign, X } from 'lucide-react';
 
 interface UserStats {
   deliveries: number;
@@ -19,7 +19,7 @@ interface UserStats {
 
 export const PerfilPage = () => {
   const navigate = useNavigate();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Removido o useRef para o input de arquivo
   const { user, logout, refreshUser } = useAuth();
 
   // Buscar dados da equipe se o usuário estiver em uma
@@ -37,8 +37,27 @@ export const PerfilPage = () => {
     victories: 12
   });
 
-  // Avatar local (melhoria futura: integrar com backend)
-  const [localAvatar, setLocalAvatar] = useState<string>("/mario.png");
+  // Lista de avatares predefinidos
+  const presetAvatars = [
+    "/assets/avatars/perfil_caminhao.png",
+    "/assets/avatars/perfil_volante.png",
+    "/assets/avatars/perfil1.png",
+    "/assets/avatars/perfil2.png",
+    "/assets/avatars/perfil3.png",
+    "/assets/avatars/perfil4.png",
+    "/assets/avatars/perfil5.png",
+  ];
+
+  // Estado para controlar a visibilidade do seletor de avatares
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  // Estado para o avatar local, inicializado com o primeiro da lista de presets
+  const [localAvatar, setLocalAvatar] = useState<string>(presetAvatars[0]);
+
+  // Função para lidar com a seleção de um avatar predefinido
+  const handleSelectAvatar = (avatarUrl: string) => {
+    setLocalAvatar(avatarUrl);
+    setShowAvatarPicker(false); // Fecha o seletor após a escolha
+  };
 
   const handlePlayNow = () => {
     navigate("/desafio");
@@ -63,7 +82,7 @@ export const PerfilPage = () => {
               currentPathIndex: gameProgress.currentPathIndex,
               pathProgress: gameProgress.pathProgress,
               gameTime: gameProgress.gameTime,
-              activeGameId: gameProgress.activeGameId // <-- ADICIONE ESTA LINHA
+              activeGameId: gameProgress.activeGameId
             }
           }
         });
@@ -81,30 +100,7 @@ export const PerfilPage = () => {
   };
 
   const handleCheckRanking = () => {
-    // Navega para o ranking passando informação de que veio do perfil
     navigate("/ranking", { state: { from: 'profile' } });
-  };
-
-  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const result = e.target?.result;
-          if (typeof result === 'string') {
-            setLocalAvatar(result);
-          }
-        };
-        reader.readAsDataURL(file);
-      } else {
-        alert('Por favor, selecione apenas arquivos de imagem (PNG, JPG, GIF, etc.)');
-      }
-    }
-  };
-
-  const handleClickUpload = () => {
-    fileInputRef.current?.click();
   };
 
   const handleEditProfile = () => {
@@ -114,6 +110,7 @@ export const PerfilPage = () => {
   const handleChangePassword = () => {
     navigate("/mudar-senha");
   };
+
   const handleGetOutTeam = async () => {
     if (!user?.equipe) return;
     try {
@@ -125,7 +122,6 @@ export const PerfilPage = () => {
     }
   };
 
-
   const handleLogout = () => {
     logout();
     navigate("/login");
@@ -133,27 +129,21 @@ export const PerfilPage = () => {
 
   const handleManageTeam = () => {
     if (user?.equipe) {
-      // Se está em uma equipe, vai para editar
       navigate("/perfil/editar-equipe");
     } else {
-      // Se não está em uma equipe, vai para escolher
       navigate("/choose-team");
     }
   };
 
-  // Se não há usuário logado, redireciona
   if (!user) {
     navigate("/login");
     return null;
   }
 
-  // Calcula dados dinâmicos baseados no usuário real
-  // PRIORIZAR NOME COMPLETO - se existir first_name E last_name, usa eles
   const displayName = user.first_name && user.last_name
     ? `${user.first_name} ${user.last_name}`
     : user.nickname || user.username;
 
-  // Nome da equipe - agora dinâmico
   const teamDisplayName = teamData?.nome || "SEM EQUIPE";
 
   const titleStyle = {
@@ -164,7 +154,7 @@ export const PerfilPage = () => {
   return (
     <div className="bg-white flex flex-row justify-center w-full">
       <div className="w-full min-h-screen [background:linear-gradient(180deg,rgba(57,189,248,1)_0%,rgba(154,102,248,1)_100%)] relative overflow-hidden">
-        {/* Decorative clouds */}
+        {/* Nuvens decorativas */}
         <img
           className="w-[375px] h-[147px] absolute top-[120px] left-[157px] object-cover animate-float-right"
           alt="Cloud decoration"
@@ -176,20 +166,39 @@ export const PerfilPage = () => {
           src="/nuvemright.png"
         />
 
-        {/* Hidden file input for photo upload */}
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handlePhotoUpload}
-          accept="image/*"
-          className="hidden"
-        />
+        {/* Modal de seleção de avatar - Adicionado para substituir o upload */}
+        {showAvatarPicker && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+            <Card className="p-6 w-11/12 md:w-1/2 lg:w-1/3 border-2 border-black">
+              <div className="flex justify-between items-center mb-4 border-b-2 border-black pb-2">
+                <h3 className="[font-family:'Silkscreen',Helvetica] font-bold text-xl" style={titleStyle}>
+                  ESCOLHA SEU AVATAR
+                </h3>
+                <Button variant="ghost" onClick={() => setShowAvatarPicker(false)} className="text-white hover:text-gray-300 p-1">
+                  <X size={24} />
+                </Button>
+              </div>
+              <div className="grid grid-cols-4 gap-4 mt-4">
+                {presetAvatars.map((avatar, index) => (
+                  <img
+                    key={index}
+                    src={avatar}
+                    alt={`Avatar ${index + 1}`}
+                    // CORREÇÃO: Adicionada a classe object-cover aqui
+                    className={`w-16 h-16 rounded-full cursor-pointer transition-transform duration-200 transform hover:scale-110 border-2 object-cover ${localAvatar === avatar ? 'border-orange-500 shadow-lg' : 'border-black'}`}
+                    onClick={() => handleSelectAvatar(avatar)}
+                  />
+                ))}
+              </div>
+            </Card>
+          </div>
+        )}
 
-        {/* Main content */}
+        {/* Conteúdo principal */}
         <div className="max-w-5xl mx-auto pt-20 px-4 relative z-10">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-            {/* Left column - Profile info */}
+            {/* Coluna esquerda - Informações do perfil */}
             <div className="space-y-4">
               <Card className="border-2 border-solid border-black rounded-lg overflow-hidden">
                 <CardContent className="p-4">
@@ -198,41 +207,28 @@ export const PerfilPage = () => {
                       SEU PERFIL
                     </h2>
 
-                    {/* Avatar section */}
+                    {/* Seção do avatar - Agora clica para abrir o seletor */}
                     <div className="mt-3 flex justify-center">
                       <div className="relative">
-                        <div className="w-24 h-24 rounded-full bg-teal-100 border-4 border-teal-500 flex items-center justify-center overflow-hidden relative group">
-                          {localAvatar === "/mario.png" && user.first_name ? (
-                            <span
-                              className="text-sm font-bold select-none  [font-family:'Silkscreen',Helvetica] text-white"
-
-                            >
-                              {<h1 className="text-5xl font-bold text-black content-center">{user.first_name.charAt(0).toUpperCase()}</h1>}
-                            </span>
-                          ) : (
-                            <img
-                              src={localAvatar}
-                              alt="Avatar"
-                              className="w-20 h-20 object-cover"
-                            />
-                          )}
-                          {/* Upload overlay */}
-                          <div
-                            className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer rounded-full"
-                            onClick={handleClickUpload}
-                          >
-                            <Camera size={20} className="text-white" />
-                          </div>
+                        <div
+                          className="w-24 h-24 rounded-full bg-teal-100 border-4 border-teal-500 flex items-center justify-center overflow-hidden relative group cursor-pointer"
+                          onClick={() => setShowAvatarPicker(true)}
+                        >
+                          <img
+                            src={localAvatar}
+                            alt="Avatar"
+                            className="w-20 h-20 object-cover rounded-full"
+                          />
                         </div>
                       </div>
                     </div>
 
-                    {/* User name - usando dados reais */}
+                    {/* Nome do usuário - usando dados reais */}
                     <h3 className="[font-family:'Silkscreen',Helvetica] font-bold text-center text-xl mt-2">
                       {displayName.toUpperCase()}
                     </h3>
 
-                    {/* Team info - usando dados reais do backend */}
+                    {/* Informações da equipe - usando dados reais do backend */}
                     <div
                       className="mt-4 [font-family:'Silkscreen',Helvetica] cursor-pointer hover:bg-gray-100 p-2 rounded transition-colors flex items-center gap-2"
                       onClick={handleManageTeam}
@@ -259,7 +255,7 @@ export const PerfilPage = () => {
                       </div>
                     </div>
 
-                    {/* Action buttons */}
+                    {/* Botões de ação */}
                     <div className="grid grid-cols-3 gap-2 mt-3">
                       <Button
                         variant="outline"
@@ -291,14 +287,14 @@ export const PerfilPage = () => {
               </Card>
             </div>
 
-            {/* Right column - Game info and stats */}
+            {/* Coluna direita - Informações do jogo e estatísticas */}
             <div className="space-y-4">
-              {/* Play game card */}
+              {/* Card de jogar */}
               <Card className="border-2 border-solid border-black rounded-lg overflow-hidden">
                 <CardContent className="p-4">
-                  {/* Game title and play button */}
+                  {/* Título do jogo e botão de jogar */}
                   <div className="flex justify-between items-center">
-                    {/* Game info */}
+                    {/* Informações do jogo */}
                     <div>
                       <h2 className="[font-family:'Silkscreen',Helvetica] font-bold text-2xl" style={titleStyle}>
                         ENTREGA EFICIENTE
@@ -308,7 +304,7 @@ export const PerfilPage = () => {
                       </p>
                     </div>
 
-                    {/* Play button */}
+                    {/* Botão de jogar */}
                     <Button
                       onClick={handlePlayNow}
                       className="bg-orange-400 text-black hover:bg-orange-500 h-12 flex items-center justify-between px-4 rounded border-2 border-black [font-family:'Silkscreen',Helvetica] font-bold"
@@ -318,7 +314,7 @@ export const PerfilPage = () => {
                     </Button>
                   </div>
 
-                  {/* Other games link */}
+                  {/* Link para outros jogos */}
                   <div className="text-center mt-1">
                     <button
                       onClick={() => navigate("/game-selection")}
@@ -330,9 +326,9 @@ export const PerfilPage = () => {
                 </CardContent>
               </Card>
 
-              {/* Stats grid */}
+              {/* Grid de estatísticas */}
               <div className="grid grid-cols-4 gap-3">
-                {/* Deliveries */}
+                {/* Entregas */}
                 <Card className="border-2 border-solid border-black rounded-lg overflow-hidden">
                   <CardContent className="py-3 px-4 flex flex-col items-center">
                     <TruckIcon size={24} />
@@ -343,7 +339,7 @@ export const PerfilPage = () => {
                   </CardContent>
                 </Card>
 
-                {/* Distance */}
+                {/* Distância */}
                 <Card className="border-2 border-solid border-black rounded-lg overflow-hidden">
                   <CardContent className="py-3 px-4 flex flex-col items-center">
                     <MapPin size={24} color="#4ade80" />
@@ -354,7 +350,7 @@ export const PerfilPage = () => {
                   </CardContent>
                 </Card>
 
-                {/* Earnings */}
+                {/* Ganhos */}
                 <Card className="border-2 border-solid border-black rounded-lg overflow-hidden">
                   <CardContent className="py-3 px-4 flex flex-col items-center">
                     <DollarSign size={24} color="#eab308" />
@@ -365,7 +361,7 @@ export const PerfilPage = () => {
                   </CardContent>
                 </Card>
 
-                {/* Victories */}
+                {/* Vitórias */}
                 <Card className="border-2 border-solid border-black rounded-lg overflow-hidden">
                   <CardContent className="py-3 px-4 flex flex-col items-center">
                     <span className="text-2xl">🏆</span>
@@ -377,9 +373,9 @@ export const PerfilPage = () => {
                 </Card>
               </div>
 
-              {/* Action cards */}
+              {/* Cards de ação */}
               <div className="grid grid-cols-2 gap-3">
-                {/* Ranking card - agora com cursor pointer */}
+                {/* Card de ranking */}
                 <Card className="border-2 border-solid border-black rounded-lg overflow-hidden cursor-pointer hover:bg-gray-50 transition-colors">
                   <CardContent className="p-4" onClick={handleCheckRanking}>
                     <div className="flex items-center">
@@ -396,7 +392,7 @@ export const PerfilPage = () => {
                   </CardContent>
                 </Card>
 
-                {/* Continue game card */}
+                {/* Card de continuar jogo */}
                 <Card className="border-2 border-solid border-black rounded-lg overflow-hidden cursor-pointer hover:bg-gray-50 transition-colors">
                   <CardContent className="p-4" onClick={handleContinueGame}>
                     <div className="flex items-center">
