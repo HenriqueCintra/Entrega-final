@@ -10,7 +10,8 @@ import { GameMiniMap } from "./GameMiniMap";
 import { MapComponent } from "../mapaRota/MapComponent";
 import { PauseMenu } from "../PauseMenu/PauseMenu";
 import { GameService } from "../../api/gameService";
-
+import { PixelProgressBar } from "../../components/PixelProgressBar/PixelProgressBar";
+import '../../components/PixelProgressBar/PixelProgressBar.css';
 import type {
   GameObj,
   SpriteComp,
@@ -334,7 +335,8 @@ export function GameScene() {
       pathProgress: pathProgressRef.current,
       gameTime,
       // manualTimeAdjustment REMOVIDO
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      activeGameId: activeGameIdRef.current
     };
     localStorage.setItem('savedGameProgress', JSON.stringify(gameProgress));
     navigate('/perfil');
@@ -352,7 +354,8 @@ export function GameScene() {
       pathProgress: pathProgressRef.current,
       gameTime,
       // manualTimeAdjustment REMOVIDO
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      activeGameId: activeGameIdRef.current
     };
     localStorage.setItem('savedGameProgress', JSON.stringify(gameProgress));
     togglePause();
@@ -453,17 +456,17 @@ export function GameScene() {
         console.log("Tentando carregar sprites...");
         loadSprite("background", "/assets/backgroundd.png");
 
-            const vehicleImageUrl = getVehicleImageUrl(vehicle.spriteSheet);
-            console.log("Imagem original do veículo:", vehicle.image);
-            console.log("URL convertida para kaboom:", vehicleImageUrl);
+        const vehicleImageUrl = getVehicleImageUrl(vehicle.spriteSheet);
+        console.log("Imagem original do veículo:", vehicle.image);
+        console.log("URL convertida para kaboom:", vehicleImageUrl);
 
-            loadSprite("car", vehicleImageUrl, {
-              sliceX: 2, // número de colunas (quadros) no spritesheet
-              sliceY: 1, // geralmente 1 linha
-              anims: {
-                run: { from: 0, to: 1, loop: true, speed: 8 },
-              },
-            });
+        loadSprite("car", vehicleImageUrl, {
+          sliceX: 2, // número de colunas (quadros) no spritesheet
+          sliceY: 1, // geralmente 1 linha
+          anims: {
+            run: { from: 0, to: 1, loop: true, speed: 8 },
+          },
+        });
 
         console.log("Todos os sprites carregados com sucesso");
       } catch (error) {
@@ -495,18 +498,18 @@ export function GameScene() {
           { speed },
         ]);
 
-            const roadYPosition = height() * 0.48;
-            const baseWidth = 600; // largura de um frame do caminhão
-            const scaleFactor = (width() / baseWidth) * 0.3; // ajusta pelo tamanho da tela mantendo proporção
+        const roadYPosition = height() * 0.48;
+        const baseWidth = 600; // largura de um frame do caminhão
+        const scaleFactor = (width() / baseWidth) * 0.3; // ajusta pelo tamanho da tela mantendo proporção
 
-            const car = add([
-                sprite("car", { anim: "run" }),
-                pos(width() * 0.08, roadYPosition),
-                area(),
-                body(),
-                z(2),
-                scale(scaleFactor),
-            ]);
+        const car = add([
+          sprite("car", { anim: "run" }),
+          pos(width() * 0.08, roadYPosition),
+          area(),
+          body(),
+          z(2),
+          scale(scaleFactor),
+        ]);
 
 
 
@@ -539,8 +542,8 @@ export function GameScene() {
           const previousProgress = progressRef.current;
           progressRef.current = progressPercent;
 
-          // ✅ CORREÇÃO: Só atualiza o estado React se a mudança for significativa
-          if (Math.abs(progressPercent - progress) > 0.1) {
+          // Atualizar progresso mais frequentemente para sincronização suave
+          if (Math.abs(progressPercent - progress) > 0.05) {
             setProgress(progressPercent);
           }
 
@@ -570,8 +573,7 @@ export function GameScene() {
           // ============= LÓGICA CORRIGIDA DE GATILHO DE EVENTOS =============
 
           // ✅ CORREÇÃO: Configurações de evento mais robustas
-          const EVENT_CHECK_INTERVAL_KM = 20; // Aumentado para dar mais espaço
-          const EVENT_OCCURRENCE_CHANCE = 0.7; // 70% de chance (mais baixa para testes)
+          const EVENT_CHECK_INTERVAL_KM = 10 // Aumentado para dar mais espaço
 
           // ✅ CORREÇÃO: Use progressPercent (valor atualizado) consistentemente
           const distanciaAtualKm = (progressPercent / 100) * totalDistance;
@@ -588,26 +590,13 @@ export function GameScene() {
           );
 
           if (canTriggerEvent) {
-            // ✅ CRÍTICO: Atualiza o checkpoint ANTES do request para evitar duplicatas
             lastEventCheckKm.current = distanciaAtualKm;
 
-            console.log(`📍 Checkpoint de evento alcançado em ${distanciaAtualKm.toFixed(2)}km. Rolando dados...`);
-            console.log(`🎮 activeGameIdRef.current = ${activeGameIdRef.current}`);
-            console.log(`🔄 fetchNextEventMutation.isPending = ${fetchNextEventMutation.isPending}`);
+            console.log(`📍 Checkpoint em ${distanciaAtualKm.toFixed(2)}km. Perguntando ao backend por eventos...`);
 
-            // "Rola o dado" para ver se um evento realmente acontece
-            if (Math.random() < EVENT_OCCURRENCE_CHANCE) {
-              // ✅ CRÍTICO: Marcar como processando ANTES do request
-              processingEvent.current = true;
-              gamePaused.current = true; // Pausa o jogo para o jogador tomar a decisão
-
-              console.log(`🎲 Sorte! Evento irá ocorrer. Buscando no backend...`);
-
-              // ✅ CORREÇÃO: O onError da mutação agora trata adequadamente NO_EVENT_AVAILABLE
-              fetchNextEventMutation.mutate(distanciaAtualKm);
-            } else {
-              console.log(`🎲 Sem sorte desta vez. Nenhum evento ocorreu.`);
-            }
+            processingEvent.current = true;
+            gamePaused.current = true;
+            fetchNextEventMutation.mutate(distanciaAtualKm);
           }
           // ================================================================
 
@@ -658,6 +647,20 @@ export function GameScene() {
       console.error("❌ Dados insuficientes para criar partida. Redirecionando...");
       alert("Erro: Dados do veículo ou rota incompletos.");
       navigate('/routes');
+      return;
+    }
+
+    // Se há savedProgress com activeGameId, reutiliza a partida sem criar nova
+    if (savedProgress && savedProgress.activeGameId) {
+      console.log("🟢 Restaurando partida existente com ID:", savedProgress.activeGameId);
+      setActiveGameId(savedProgress.activeGameId);
+      activeGameIdRef.current = savedProgress.activeGameId;
+
+      // opcional: notificar backend que estamos retomando
+      // await GameService.resumeGame(savedProgress.activeGameId);
+
+      // Agora só inicializa o kaboom com o progresso salvo
+      initializeGame(savedProgress);
       return;
     }
 
@@ -729,7 +732,7 @@ export function GameScene() {
       setTotalDistance(routeDistance);
 
       const estimatedHours = selectedRoute.estimatedTimeHours || 7.5;
-      const targetGameDurationMinutes = 3; // O jogo deve durar 3 minutos
+      const targetGameDurationMinutes = 20; // O jogo deve durar 3 minutos
       gameSpeedMultiplier.current = (estimatedHours * 60) / targetGameDurationMinutes;
     }
   }, [vehicle, selectedRoute, location.state]); // Dependências corretas
@@ -830,12 +833,13 @@ export function GameScene() {
     const pathCoords = selectedRoute.pathCoordinates;
     const totalSegments = pathCoords.length - 1;
 
-    const targetDurationSeconds = 180;
+    const targetDurationSeconds = 1200;
     const segmentsPerSecond = totalSegments / targetDurationSeconds;
     const segmentSpeed = segmentsPerSecond * deltaTime;
 
     pathProgressRef.current += segmentSpeed;
 
+    // Atualizar currentPathIndex em tempo real
     if (pathProgressRef.current >= 1.0 && currentPathIndexRef.current < totalSegments - 1) {
       currentPathIndexRef.current += 1;
       setCurrentPathIndex(currentPathIndexRef.current);
@@ -850,7 +854,7 @@ export function GameScene() {
 
   const calculateFallbackProgress = (deltaTime: number) => {
     const routeDistance = totalDistance || 500;
-    distanceTravelled.current += deltaTime * gameSpeedMultiplier.current * 0.1;
+    distanceTravelled.current += deltaTime * gameSpeedMultiplier.current * 0.2;
     const progressKm = (distanceTravelled.current * routeDistance) / 5000;
     return Math.min(100, Math.max(0, (progressKm / routeDistance) * 100));
   };
@@ -1009,49 +1013,9 @@ export function GameScene() {
         top: "2vh",
         left: "50%",
         transform: "translateX(-50%)",
-        width: "min(60vw, 800px)",
-        height: "min(4vh, 30px)",
-        backgroundColor: "#eee",
         zIndex: 1000,
-        overflow: "hidden",
-        borderRadius: "20px",
-        padding: "2px"
       }}>
-        <div style={{
-          width: `${progress}%`,
-          height: "100%",
-          backgroundColor: "#0077cc",
-          borderRadius: "20px 20px"
-        }}></div>
-
-        {[25, 50, 75].map((p) => (
-          <div key={p} style={{
-            position: "absolute",
-            left: `${p}%`,
-            top: "15%",
-            transform: "translateX(-50%)",
-            width: "20px",
-            height: "20px",
-            backgroundColor: "#fff",
-            border: "2px solid #999",
-            borderRadius: "50%",
-            zIndex: 101,
-          }}></div>
-        ))}
-
-        <span style={{
-          position: "absolute",
-          right: "10px",
-          top: "7px",
-          fontSize: "12px",
-          fontWeight: "bold",
-          color: "#333",
-          zIndex: 102,
-          display: "flex",
-          alignItems: "center"
-        }}>
-          {Math.floor(progress)}%
-        </span>
+        <PixelProgressBar progress={progress} />
       </div>
 
       {/* Container para minimapa e informações */}
@@ -1091,8 +1055,6 @@ export function GameScene() {
           >
             <GameMiniMap
               pathCoordinates={selectedRoute.pathCoordinates}
-              currentPathIndex={currentPathIndex}
-              pathProgress={pathProgressRef.current}
               vehicle={vehicle}
               progress={progress}
               className="w-full h-full border-2 border-white rounded-full overflow-hidden"
@@ -1463,48 +1425,56 @@ export function GameScene() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <button
-              onClick={handleMapModalToggle}
-              style={{
-                position: "absolute",
-                top: "15px",
-                right: "15px",
-                zIndex: 3001,
-                backgroundColor: "#e63946",
-                color: "white",
-                border: "none",
-                borderRadius: "50%",
-                width: "40px",
-                height: "40px",
-                fontSize: "20px",
-                fontWeight: "bold",
-                cursor: "pointer",
-                boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center"
-              }}
-              title="Fechar mapa"
-            >
-              ×
-            </button>
-
             <div
               style={{
-                position: "absolute",
-                top: "15px",
-                left: "15px",
-                zIndex: 3001,
-                backgroundColor: "rgba(0, 0, 0, 0.7)",
-                color: "white",
-                padding: "10px 15px",
-                borderRadius: "5px",
-                fontFamily: '"Silkscreen", monospace',
-                fontSize: "16px",
-                fontWeight: "bold"
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                padding: '15px',
+                display: 'flex',
+                justifyContent: 'space-between', // Alinha itens nas extremidades
+                alignItems: 'center',             // Alinha itens verticalmente
+                boxSizing: 'border-box',          // Garante que o padding não quebre o layout
+                zIndex: 9999,                     // Mantém o cabeçalho na frente
               }}
             >
-              🗺️ {selectedRoute.name} - Posição Atual do Caminhão
+              <div
+                style={{
+                  backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                  color: 'white',
+                  padding: '10px 15px',
+                  borderRadius: '5px',
+                  fontFamily: '"Silkscreen", monospace',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                }}
+              >
+                🗺️ {selectedRoute.name}
+              </div>
+              <button
+                onClick={handleMapModalToggle}
+                style={{
+                  backgroundColor: '#e63946',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '50%',
+                  height: '45px',
+                  width: '25px',
+                  fontSize: '20px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
+                  flexShrink: 0,
+                  marginLeft: '15px',
+                }}
+                title="Fechar mapa"
+              >
+                ×
+              </button>
             </div>
 
             <div style={{ width: "100%", height: "100%" }}>
@@ -1514,7 +1484,7 @@ export function GameScene() {
                 preAvailableMoney={money}
                 showControls={false}
                 externalProgress={{
-                  currentPathIndex: currentPathIndex,
+                  currentPathIndex: currentPathIndexRef.current,
                   pathProgress: pathProgressRef.current,
                   totalProgress: progress
                 }}

@@ -1,0 +1,59 @@
+/* src/components/PixelProgressBar/PixelProgressBar.css */
+
+/* Container principal para alinhar a barra e o texto */
+.pixel-progress-bar-container {
+  position: relative;
+  width: min(60vw, 800px);
+  height: min(4vh, 30px);
+}
+
+/* A "caixa" externa da barra de progresso */
+.pixel-progress-bar {
+  width: 100%;
+  height: 100%;
+  background-color: #333; /* Fundo escuro */
+  border: 3px solid #000; /* Borda preta e grossa */
+  box-shadow: 6px 6px 0px 0px rgba(0,0,0,1); /* Sombra dura, sem blur */
+  padding: 4px; /* Espaçamento interno para criar efeito de borda dupla */
+  box-sizing: border-box;
+}
+
+/* A barra de preenchimento interna */
+.pixel-progress-bar-inner {
+  height: 100%;
+  background-color: #88ffb4; /* Um verde vibrante, cor do progresso */
+  
+  /* Este gradiente cria o efeito de blocos pixelados!
+    Ele desenha um bloco verde de 8px, seguido de um espaço transparente de 2px,
+    e repete esse padrão por toda a extensão da barra.
+  */
+  background-image: repeating-linear-gradient(
+    to right,
+    #4ade80,          /* Cor do bloco */
+    #4ade80 8px,      /* Fim do bloco (8px de largura) */
+    transparent 8px,   /* Início do espaço (mesma posição, tornando-o invisível) */
+    transparent 10px   /* Fim do espaço (2px de largura) */
+  );
+
+  /* Transição em "passos" para que o preenchimento não seja suave */
+  transition: width 0.2s steps(10, end);
+}
+
+/* Estilo para o texto de porcentagem */
+.pixel-progress-bar-text {
+  position: absolute;
+  right: 18px; /* Posição à direita */
+  top: 50%;
+  transform: translateY(-50%); /* Centraliza verticalmente */
+  font-family: 'Silkscreen', monospace; /* Fonte pixelada */
+  font-size: 16px;
+
+  color: white;
+  /* Efeito de contorno no texto */
+  text-shadow: 
+    -2px -2px 0 #000,  
+     2px -2px 0 #000,
+    -2px  2px 0 #000,
+     2px  2px 0 #000;
+  z-index: 2; /* Garante que o texto fique na frente da barra */
+}

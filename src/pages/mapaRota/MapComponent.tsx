@@ -1,7 +1,7 @@
 // src/pages/mapaRota/MapComponent.tsx
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { MapContainer, TileLayer, Polyline, Marker, Popup, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Polyline, Marker, Popup, Tooltip, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { Route, REFERENCE_COORDINATES } from './constants';
@@ -10,8 +10,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Vehicle } from '../../types/vehicle';
 import { ArrowLeft } from 'lucide-react';
 import { GameService } from '../../api/gameService';
-
-// --- Correção para o ícone padrão do Leaflet ---
+import { calculatePositionFromProgress, calculatePathFromProgress } from '../../utils/mapUtils';
 import defaultIcon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
@@ -24,6 +23,11 @@ let DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
+interface StaticTruckMarkerProps {
+  routePath: [number, number][];
+  totalProgress: number;
+  vehicle: Vehicle;
+}
 
 // --- Ícones Customizados ---
 // rest, construction, gas, toll, danger
@@ -46,7 +50,6 @@ const speedLimitIcon50 = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/5
 const speedLimitIcon60 = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/15674/15674424.png', iconSize: [30, 30], iconAnchor: [15, 15] });
 const speedLimitIcon80 = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3897/3897785.png', iconSize: [30, 30], iconAnchor: [15, 15] });
 const speedLimitIcon100 = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/10392/10392769.png', iconSize: [30, 30], iconAnchor: [15, 15] });
-
 
 
 // logica para obter o ícone de limite de velocidade
@@ -284,23 +287,12 @@ const TruckAnimation: React.FC<TruckAnimationProps> = ({
   );
 };
 
-// Componente para mostrar o caminhão em uma posição específica baseada nos dados externos
-interface StaticTruckMarkerProps {
-  routePath: [number, number][];
-  currentPathIndex: number;
-  pathProgress: number;
-  vehicle: Vehicle;
-}
-
 const StaticTruckMarker: React.FC<StaticTruckMarkerProps> = ({
   routePath,
-  currentPathIndex,
-  pathProgress,
+  totalProgress,
   vehicle
 }) => {
-  // Criar ícone personalizado para o veículo
   const vehicleIcon = useMemo(() => {
-    // Converter URL da imagem para uso no mapa
     let imageUrl = vehicle.image;
     if (imageUrl.startsWith('/src/assets/')) {
       imageUrl = imageUrl.replace('/src/assets/', '/assets/');
@@ -308,7 +300,6 @@ const StaticTruckMarker: React.FC<StaticTruckMarkerProps> = ({
     if (!imageUrl.startsWith('/assets/') && !imageUrl.startsWith('http')) {
       imageUrl = `/assets/${imageUrl.split('/').pop()}`;
     }
-
     return L.icon({
       iconUrl: imageUrl,
       iconSize: [40, 40],
@@ -317,42 +308,29 @@ const StaticTruckMarker: React.FC<StaticTruckMarkerProps> = ({
     });
   }, [vehicle.image]);
 
-  // Calcular posição atual do caminhão baseada nos dados externos
+  // Apenas a nova lógica de cálculo deve existir aqui
   const currentPosition = useMemo(() => {
-    if (!routePath || routePath.length < 2) {
-      return routePath?.[0] || [0, 0];
-    }
-
-    const totalSegments = routePath.length - 1;
-
-    // Garantir que o índice esteja dentro dos limites
-    const segmentIndex = Math.min(Math.max(0, currentPathIndex), totalSegments - 1);
-    const nextIndex = Math.min(segmentIndex + 1, totalSegments);
-
-    const startPoint = routePath[segmentIndex];
-    const endPoint = routePath[nextIndex];
-
-    // Interpolar entre os dois pontos
-    const progress = Math.min(Math.max(0, pathProgress), 1);
-    const lat = startPoint[0] + (endPoint[0] - startPoint[0]) * progress;
-    const lng = startPoint[1] + (endPoint[1] - startPoint[1]) * progress;
-
-    return [lat, lng] as [number, number];
-  }, [routePath, currentPathIndex, pathProgress]);
+    return calculatePositionFromProgress(routePath, totalProgress);
+  }, [routePath, totalProgress]);
 
   if (!routePath || routePath.length === 0) return null;
 
   return (
-    <Marker
-      position={currentPosition}
-      icon={vehicleIcon}
-    >
+    <Marker position={currentPosition} icon={vehicleIcon}>
+      <Tooltip
+        permanent // Faz o tooltip ficar sempre visível
+        direction="top" // Posição em relação ao ícone
+        offset={[0, -20]} // Ajuste fino da posição (eixo X, eixo Y)
+        className="truck-tooltip font-[Silkscreen]" // Classe CSS para estilização customizada
+      >
+        {/* O conteúdo que você queria no overlay */}
+        <div>{totalProgress.toFixed(1)}%</div>
+      </Tooltip>
       <Popup>
         <div className="text-sm">
           <p className="font-bold">{vehicle.name}</p>
           <p>🚛 Posição Atual do Jogo</p>
-          <p>Segmento: {currentPathIndex + 1}/{routePath.length - 1}</p>
-          <p>Progresso: {(pathProgress * 100).toFixed(1)}%</p>
+          <p>Progresso: {totalProgress.toFixed(1)}%</p>
         </div>
       </Popup>
     </Marker>
@@ -402,6 +380,13 @@ export const MapComponent: React.FC<MapComponentProps> = ({
     return null;
   }, [preSelectedRoute, location.state?.selectedRoute]);
   const [isPlaying, setIsPlaying] = useState(false);
+
+  const completedPath = useMemo(() => {
+    if (externalProgress && selectedRoute?.pathCoordinates) {
+      return calculatePathFromProgress(selectedRoute.pathCoordinates, externalProgress.totalProgress);
+    }
+    return [];
+  }, [externalProgress, selectedRoute]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -641,6 +626,8 @@ export const MapComponent: React.FC<MapComponentProps> = ({
               PAUSAR
             </button>
           </div>
+
+          
         )}
         <MapContainer
           center={juazeiroCoordinates}
@@ -673,9 +660,9 @@ export const MapComponent: React.FC<MapComponentProps> = ({
           ))}
 
           {/* Linha do progresso percorrido (quando há dados externos) */}
-          {externalProgress && selectedRoute?.pathCoordinates && externalProgress.currentPathIndex > 0 && (
+          {completedPath.length > 0 && (
             <Polyline
-              positions={selectedRoute.pathCoordinates.slice(0, externalProgress.currentPathIndex + 1)}
+              positions={completedPath}
               pathOptions={{
                 color: '#00cc66',
                 weight: 6,
@@ -683,7 +670,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
               }}
             >
               <Popup>
-                <span className="font-bold text-green-700">Percurso Concluído - {externalProgress.totalProgress.toFixed(1)}%</span>
+                <span className="font-bold text-green-700">Percurso Concluído - {externalProgress?.totalProgress.toFixed(1)}%</span>
               </Popup>
             </Polyline>
           )}
@@ -715,8 +702,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
               // Usar posição externa quando fornecida (para modal do jogo)
               <StaticTruckMarker
                 routePath={selectedRoute.pathCoordinates}
-                currentPathIndex={externalProgress.currentPathIndex}
-                pathProgress={externalProgress.pathProgress}
+                totalProgress={externalProgress.totalProgress}
                 vehicle={vehicle}
               />
             ) : (

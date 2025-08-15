@@ -32,8 +32,9 @@ interface PartidaResponse {
   tempo_real: number;
   pontuacao: number;
   distancia_percorrida: number;
-  status: string;
-  resultado?: string;
+  status: "concluido" | "em_andamento" | "pausado" | "cancelada";
+  tempo_jogo?: number;
+  resultado?: "vitoria" | "derrota";
   motivo_finalizacao?: string;
   eficiencia?: number;
   saldo_inicial?: number;

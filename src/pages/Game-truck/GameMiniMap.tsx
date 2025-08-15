@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Polyline, Marker, useMap } from 'react-leaflet
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { Vehicle } from '../../types/vehicle';
-
+import { calculatePositionFromProgress, calculatePathFromProgress } from '../../utils/mapUtils';
 // Configuração do ícone padrão do Leaflet
 import defaultIcon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
@@ -19,8 +19,8 @@ L.Marker.prototype.options.icon = DefaultIcon;
 
 interface GameMiniMapProps {
   pathCoordinates: [number, number][];
-  currentPathIndex: number;
-  pathProgress: number; // 0-1 progresso dentro do segmento atual
+  // currentPathIndex: number;
+  // pathProgress: number; // 0-1 progresso dentro do segmento atual
   vehicle: Vehicle;
   progress: number; // Progresso total em porcentagem
   className?: string;
@@ -29,15 +29,12 @@ interface GameMiniMapProps {
 // Componente para atualizar a posição do caminhão
 const TruckMarker: React.FC<{
   pathCoordinates: [number, number][];
-  currentPathIndex: number;
-  pathProgress: number;
+  progress: number;
   vehicle: Vehicle;
-}> = ({ pathCoordinates, currentPathIndex, pathProgress, vehicle }) => {
+}> = ({ pathCoordinates, progress, vehicle }) => {
   const markerRef = useRef<L.Marker>(null);
 
-  // Ícone personalizado do veículo
   const vehicleIcon = useMemo(() => {
-    // Converter URL da imagem para uso no mapa
     let imageUrl = vehicle.image;
     if (imageUrl.startsWith('/src/assets/')) {
       imageUrl = imageUrl.replace('/src/assets/', '/assets/');
@@ -45,7 +42,6 @@ const TruckMarker: React.FC<{
     if (!imageUrl.startsWith('/assets/') && !imageUrl.startsWith('http')) {
       imageUrl = `/assets/${imageUrl.split('/').pop()}`;
     }
-
     return L.icon({
       iconUrl: imageUrl,
       iconSize: [30, 30],
@@ -54,27 +50,16 @@ const TruckMarker: React.FC<{
     });
   }, [vehicle.image]);
 
-  // Calcular posição atual do caminhão
+  // Apenas a nova lógica de cálculo deve existir aqui
   const currentPosition = useMemo(() => {
-    if (!pathCoordinates || pathCoordinates.length < 2) {
-      return pathCoordinates?.[0] || [0, 0];
-    }
+    return calculatePositionFromProgress(pathCoordinates, progress);
+  }, [pathCoordinates, progress]);
 
-    const totalSegments = pathCoordinates.length - 1;
-    
-    // Garantir que o índice esteja dentro dos limites
-    const segmentIndex = Math.min(currentPathIndex, totalSegments - 1);
-    const nextIndex = Math.min(segmentIndex + 1, totalSegments);
-    
-    const startPoint = pathCoordinates[segmentIndex];
-    const endPoint = pathCoordinates[nextIndex];
-    
-    // Interpolar entre os dois pontos
-    const lat = startPoint[0] + (endPoint[0] - startPoint[0]) * pathProgress;
-    const lng = startPoint[1] + (endPoint[1] - startPoint[1]) * pathProgress;
-    
-    return [lat, lng] as [number, number];
-  }, [pathCoordinates, currentPathIndex, pathProgress]);
+  useEffect(() => {
+    if (markerRef.current) {
+      markerRef.current.setLatLng(currentPosition);
+    }
+  }, [currentPosition]);
 
   return (
     <Marker
@@ -84,6 +69,40 @@ const TruckMarker: React.FC<{
     />
   );
 };
+
+// Componente para mostrar a direção do caminhão
+const TruckDirection: React.FC<{
+  pathCoordinates: [number, number][];
+  progress: number;
+}> = ({ pathCoordinates, progress }) => {
+    
+  const directionPosition = useMemo(() => {
+    if (!pathCoordinates || pathCoordinates.length < 2) {
+      return null;
+    }
+    
+    // Calcula a posição atual e uma posição um pouco à frente usando a mesma lógica
+    const current = calculatePositionFromProgress(pathCoordinates, progress);
+    const direction = calculatePositionFromProgress(pathCoordinates, Math.min(progress + 2, 100)); // 2% à frente
+
+    return { current, direction };
+  }, [pathCoordinates, progress]);
+
+  if (!directionPosition) return null;
+
+  return (
+    <Polyline
+      positions={[directionPosition.current, directionPosition.direction]}
+      pathOptions={{
+        color: '#ff6b35',
+        weight: 3,
+        opacity: 0.8,
+        dashArray: '5,5'
+      }}
+    />
+  );
+};
+
 
 // Componente para ajustar automaticamente o zoom do mapa
 const MapViewAdjuster: React.FC<{ pathCoordinates: [number, number][] }> = ({ pathCoordinates }) => {
@@ -101,12 +120,13 @@ const MapViewAdjuster: React.FC<{ pathCoordinates: [number, number][] }> = ({ pa
 
 export const GameMiniMap: React.FC<GameMiniMapProps> = ({
   pathCoordinates,
-  currentPathIndex,
-  pathProgress,
+  // currentPathIndex,
+  // pathProgress,
   vehicle,
   progress,
   className = ""
 }) => {
+  const completedPath = useMemo(() => calculatePathFromProgress(pathCoordinates, progress), [pathCoordinates, progress]);
   // Se não há coordenadas da rota, não renderizar o mapa
   if (!pathCoordinates || pathCoordinates.length < 2) {
     return (
@@ -125,22 +145,6 @@ export const GameMiniMap: React.FC<GameMiniMapProps> = ({
 
   return (
     <div className={className} style={{ position: 'relative' }}>
-      {/* Overlay com informações */}
-      {/* <div style={{
-        position: 'absolute',
-        top: '5px',
-        left: '5px',
-        right: '5px',
-        zIndex: 1000,
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
-        color: 'white',
-        padding: '4px 8px',
-        borderRadius: '4px',
-        fontSize: '11px',
-        textAlign: 'center'
-      }}>
-        <div>{progress.toFixed(1)}% Concluído</div>
-      </div> */}
 
       <MapContainer
         center={startCoord}
@@ -169,16 +173,16 @@ export const GameMiniMap: React.FC<GameMiniMapProps> = ({
         />
         
         {/* Parte da rota já percorrida */}
-        {currentPathIndex > 0 && (
-          <Polyline
-            positions={pathCoordinates.slice(0, currentPathIndex + 1)}
-            pathOptions={{
-              color: '#00cc66',
-              weight: 5,
-              opacity: 0.9
-            }}
-          />
-        )}
+        {completedPath.length > 0 && (
+        <Polyline
+          positions={completedPath}
+          pathOptions={{
+            color: '#00cc66',
+            weight: 5,
+            opacity: 0.9
+          }}
+        />
+      )}
         
         {/* Marcadores de início e fim */}
         <Marker
@@ -202,9 +206,14 @@ export const GameMiniMap: React.FC<GameMiniMapProps> = ({
         {/* Caminhão na posição atual */}
         <TruckMarker
           pathCoordinates={pathCoordinates}
-          currentPathIndex={currentPathIndex}
-          pathProgress={pathProgress}
+          progress={progress}
           vehicle={vehicle}
+        />
+
+        {/* Direção do caminhão */}
+        <TruckDirection
+          pathCoordinates={pathCoordinates}
+          progress={progress}
         />
       </MapContainer>
     </div>
