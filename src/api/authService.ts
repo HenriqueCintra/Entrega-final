@@ -33,6 +33,18 @@ interface UpdateProfileData {
   data_nascimento?: string;
 }
 
+// Interface para dados de registro
+interface RegisterData {
+  username: string;
+  password: string;
+  password_confirm: string;
+  email: string;
+  first_name: string;
+  last_name?: string;
+  nickname: string;
+  data_nascimento?: string;
+}
+
 // --- CLASSE DE SERVIÇO COM URLS E LÓGICA CORRIGIDAS ---
 
 class AuthServiceClass {
@@ -102,6 +114,27 @@ async register(userData: RegistrationData): Promise<any> {
         this.logout();
       }
       throw error;
+    }
+  }
+
+  /**
+   * Registra um novo usuário.
+   */
+  async register(userData: RegisterData): Promise<any> {
+    try {
+      console.log('📝 Tentando registrar novo usuário...');
+
+      const response = await api.post('/auth/registro/', userData);
+
+      console.log('✅ Usuário registrado com sucesso');
+      return response.data;
+
+    } catch (error: any) {
+      console.error('❌ Erro no registro:', error);
+      if (error.response?.status === 400) {
+        throw error; // Propaga o erro para o componente tratar
+      }
+      throw new Error('Falha ao realizar cadastro. Tente novamente mais tarde.');
     }
   }
 

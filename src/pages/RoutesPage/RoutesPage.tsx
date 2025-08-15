@@ -4,7 +4,9 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft } from 'lucide-react';
 import { GameService } from '../../api/gameService';
 import { MapComponent } from '../mapaRota/MapComponent';
-import { routes as staticRoutesData } from '../mapaRota/routesData';
+import { routes as staticRoutesData, getRoutesByChallenge } from '../mapaRota/routesData';
+import { ChallengeId } from '../mapaRota/constants';
+import { debugChallenges } from '../mapaRota/challengesManager';
 
 interface ApiRoute {
   id: number;
@@ -44,86 +46,93 @@ export const RoutesPage: React.FC = () => {
     image: '/carreta.png', maxCapacity: 495, currentFuel: 0, cost: 4500
   };
   const availableMoney = location.state?.availableMoney || 5500;
+  const selectedChallenge = location.state?.selectedChallenge;
+  const backendChallengeId = location.state?.challengeId;
+  
+  // Função para mapear ID numérico do backend para ChallengeId string
+  const mapBackendIdToChallengeId = (backendId: number | string): ChallengeId => {
+    // Se já for string, usar diretamente
+    if (typeof backendId === 'string') {
+      return backendId as ChallengeId;
+    }
+    
+    // Mapear ID numérico para string baseado nos dados do selectedChallenge
+    if (selectedChallenge?.name) {
+      const name = selectedChallenge.name.toUpperCase();
+      if (name.includes('SALVADOR')) return 'salvador';
+      if (name.includes('RECIFE')) return 'recife';
+      if (name.includes('FORTALEZA')) return 'fortaleza';
+    }
+    
+    // Fallback baseado no ID numérico
+    switch (Number(backendId)) {
+      case 1: return 'salvador';
+      case 2: return 'recife';
+      case 3: return 'fortaleza';
+      default: return 'salvador';
+    }
+  };
+  
+  const challengeId = mapBackendIdToChallengeId(backendChallengeId) || 'salvador';
+  
+  // Debug: verificar se o challengeId está correto
+  console.log("🎯 DEBUG RoutesPage - backendChallengeId recebido:", backendChallengeId);
+  console.log("🎯 DEBUG RoutesPage - challengeId convertido:", challengeId);
+  console.log("🎯 DEBUG RoutesPage - selectedChallenge:", selectedChallenge);
+  console.log("🎯 DEBUG RoutesPage - location.state:", location.state);
+  
+  // Debug: testar todos os desafios
+  debugChallenges();
 
   const [selectedRoute, setSelectedRoute] = useState<ApiRoute | null>(null);
 
-  // ✅ CORREÇÃO: Configuração de cache balanceada (sem loop infinito)
-  const { data: mapsData, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['maps'], // ✅ CORRIGIDO: QueryKey estável
-    queryFn: GameService.getMaps,
-    retry: 3,
-    staleTime: 30 * 1000, // ✅ 30 segundos - dados frescos mas não excessivo
-    cacheTime: 5 * 60 * 1000, // ✅ 5 minutos no cache
-    refetchOnMount: 'always', // ✅ Sempre refetch na montagem
-    refetchOnWindowFocus: false, // Evita refetch desnecessário
-  });
+  // Como agora usamos apenas dados estáticos dos desafios, não precisamos da API
+  const isLoading = false;
+  const isError = false;
+  const error = null;
+  const refetch = () => {};
 
-  // 🔧 MAPEAMENTO CORRIGIDO - USANDO NOME COMO CHAVE
+  // 🔧 USANDO APENAS AS ROTAS DO DESAFIO SELECIONADO
   const allRoutes = useMemo(() => {
-    if (!mapsData) return [];
+    // Usar diretamente as rotas do desafio selecionado
+    const challengeRoutes = getRoutesByChallenge(challengeId);
+    console.log(`🗺️ Usando rotas do desafio: ${challengeId}`);
+    console.log("📍 Rotas disponíveis:", challengeRoutes.map(r => r.name));
+    console.log("📍 Quantidade de rotas:", challengeRoutes.length);
+    console.log("📍 Detalhes das rotas:", challengeRoutes);
 
-    console.log("🗺️ Processando dados dos mapas:", mapsData.length, "mapas encontrados");
-    console.log("📍 Rotas estáticas disponíveis:", staticRoutesData.map(r => r.name));
+    // Converter as rotas do desafio para o formato esperado pela interface
+    const formattedRoutes = challengeRoutes.map(route => ({
+      id: route.routeId,
+      nome: route.name,
+      descricao: route.name,
+      distancia_km: route.distance,
+      tempo_estimado_horas: route.estimatedTimeHours,
+      tipo_estrada: route.roadConditions || 'Boa',
+      velocidade_media_kmh: Math.round(route.distance / route.estimatedTimeHours),
+      danger_zones_data: route.dangerZones || [],
+      dirt_segments_data: route.dirtSegments || [],
+      mapaId: 1,
+      routeId: route.routeId,
+      name: route.name,
+      distance: route.distance,
+      estimatedTime: route.estimatedTime,
+      estimatedTimeHours: route.estimatedTimeHours,
+      dirtRoad: route.dirtRoad || false,
+      safety: route.safety || { robberyRisk: 'Médio' },
+      tollBooths: route.tollBooths || [],
+      speedLimits: route.speedLimits || [],
+      roadConditions: route.roadConditions || 'Boa',
+      pathCoordinates: route.pathCoordinates,
+      actualDistance: route.actualDistance || route.distance,
+      actualDuration: route.actualDuration || (route.estimatedTimeHours * 3600),
+      dirtSegments: route.dirtSegments || [],
+      dangerZones: route.dangerZones || []
+    }));
 
-    // Focar apenas no mapa principal de entregas
-    const mapaPrincipal = mapsData[0];
-    if (!mapaPrincipal) {
-      console.warn("⚠️ Mapa principal 'ENTREGA EFICIENTE' não encontrado");
-      console.log("🔍 Mapas disponíveis:", mapsData.map(m => `"${m.nome}" (ID: ${m.id})`));
-      return [];
-    }
-
-    console.log(`✅ Mapa principal encontrado: "${mapaPrincipal.nome}" (ID: ${mapaPrincipal.id})`);
-    console.log(`📍 Rotas do mapa: ${mapaPrincipal.rotas.length}`);
-
-    return mapaPrincipal.rotas.map(apiRoute => {
-      // 🎯 CORREÇÃO CRÍTICA: Correspondência pelo NOME
-      const staticRoute = staticRoutesData.find(
-        staticR => {
-          // Normalizar os nomes removendo espaços extras e comparando
-          const staticName = staticR.name.trim().toLowerCase();
-          const apiName = apiRoute.nome.trim().toLowerCase();
-
-          // Log para debug
-          console.log(`🔍 Comparando: "${staticName}" com "${apiName}"`);
-
-          return staticName === apiName || staticName.includes(apiName) || apiName.includes(staticName);
-        }
-      );
-
-      if (!staticRoute) {
-        console.warn(`⚠️ Rota estática NÃO encontrada para: "${apiRoute.nome}" (ID: ${apiRoute.id})`);
-      } else {
-        console.log(`✅ Rota mapeada com sucesso: "${apiRoute.nome}" -> ${staticRoute.pathCoordinates?.length || 0} coordenadas`);
-      }
-
-      const mappedRoute: ApiRoute = {
-        ...apiRoute,
-        mapaId: mapaPrincipal.id,
-        routeId: apiRoute.id,
-        name: apiRoute.nome,
-        distance: apiRoute.distancia_km,
-        estimatedTime: `${Math.floor(apiRoute.tempo_estimado_horas)}h${Math.round((apiRoute.tempo_estimado_horas % 1) * 60)}min`,
-        estimatedTimeHours: apiRoute.tempo_estimado_horas,
-        dirtRoad: apiRoute.tipo_estrada.includes('terra') || apiRoute.dirt_segments_data.length > 0,
-        safety: {
-          robberyRisk: apiRoute.danger_zones_data.length > 2 ? 'Alto' :
-            apiRoute.danger_zones_data.length > 0 ? 'Médio' : 'Baixo'
-        },
-        // 🎯 DADOS CRÍTICOS DO MAPA - VINDOS DA ROTA ESTÁTICA
-        pathCoordinates: staticRoute?.pathCoordinates || undefined,
-        tollBooths: staticRoute?.tollBooths || [],
-        speedLimits: staticRoute?.speedLimits || [],
-        dangerZones: staticRoute?.dangerZones || [],
-        dirtSegments: staticRoute?.dirtSegments || [],
-        actualDistance: staticRoute?.actualDistance || apiRoute.distancia_km,
-        actualDuration: staticRoute?.actualDuration || (apiRoute.tempo_estimado_horas * 3600),
-        roadConditions: apiRoute.tipo_estrada.includes('boa') ? 'Boa' : 'Regular',
-      };
-
-      return mappedRoute;
-    });
-  }, [mapsData]);
+    console.log(`✅ ${formattedRoutes.length} rotas formatadas para o desafio ${challengeId}`);
+    return formattedRoutes;
+  }, [challengeId]);
 
   const handleSelectRoute = (routeId: number) => {
     const routeToSelect = allRoutes.find(r => r.id === routeId);
@@ -174,7 +183,9 @@ export const RoutesPage: React.FC = () => {
             ...selectedRoute,
             // Garantir explicitamente que pathCoordinates seja incluído
             pathCoordinates: selectedRoute.pathCoordinates
-          }
+          },
+          selectedChallenge,
+          challengeId
         }
       });
     }

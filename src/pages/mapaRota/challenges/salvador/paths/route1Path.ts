@@ -1,4 +1,7 @@
-export const route1Path = [
+// Desafio: Juazeiro → Salvador
+// Rota 1: Padrão/Eficiente via BR-407 e BR-324
+
+export const salvadorRoute1Path = [
   [-9.449952, -40.524278], [-9.449798, -40.524829],
   [-9.449678, -40.525161], [-9.449345, -40.525955],
   [-9.449380, -40.525997], [-9.449442, -40.526026],

@@ -4,7 +4,8 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { MapContainer, TileLayer, Polyline, Marker, Popup, Tooltip, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { Route } from './routesData';
+import { Route, REFERENCE_COORDINATES } from './constants';
+import { challenges, getDestinationCoordinates } from './challengesManager';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Vehicle } from '../../types/vehicle';
 import { ArrowLeft } from 'lucide-react';
@@ -359,8 +360,11 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   const [simulatedTime, setSimulatedTime] = useState<number>(0);
   const location = useLocation();
   const navigate = useNavigate();
-  const juazeiroCoordinates: [number, number] = [-9.44977115369502, -40.52422616182216];
-  const salvadorCoordinates: [number, number] = [-12.954121960174133, -38.47128319030249];
+  const juazeiroCoordinates = REFERENCE_COORDINATES.JUAZEIRO;
+  
+  // Obter o desafio selecionado
+  const challengeId = location.state?.challengeId || 'salvador';
+  const destinationCoordinates = getDestinationCoordinates(challengeId);
 
   // CORREÇÃO: Sempre priorizar a prop sobre location.state
   const selectedRoute = useMemo(() => {
@@ -690,7 +694,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
           {selectedRoute?.tollBooths.map((toll: any, index: number) => <Marker key={`toll-${index}`} position={toll.coordinates as L.LatLngTuple} icon={tollIcon}><Popup>{toll.location}</Popup></Marker>)}
           {selectedRoute?.dangerZones?.map((zone: any, index: number) => <Marker key={`danger-${index}`} position={zone.coordinates as L.LatLngTuple} icon={getRiskIcon(zone.riskLevel)}><Popup>{zone.description}</Popup></Marker>)}
           <Marker position={juazeiroCoordinates}><Popup>Ponto de Partida: Juazeiro</Popup></Marker>
-          <Marker position={salvadorCoordinates}><Popup>Destino: Salvador</Popup></Marker>
+          <Marker position={destinationCoordinates}><Popup>Destino: {challengeId === 'recife' ? 'Recife' : challengeId === 'fortaleza' ? 'Fortaleza' : 'Salvador'}</Popup></Marker>
 
           {/* Componente de animação do caminhão */}
           {selectedRoute?.pathCoordinates && (
