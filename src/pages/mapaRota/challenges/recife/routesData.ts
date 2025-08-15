@@ -27,7 +27,44 @@ export const recifeRoutes: Route[] = [
       roadHazards: 'Tráfego moderado, alguns trechos com animais na pista'
     },
     dirtRoad: false,
-    roadConditions: 'Boa'
+    roadConditions: 'Boa',
+    tollBooths: [
+      {
+        location: "BR-232 - Pedágio Caruaru",
+        costPerAxle: 4.10,
+        totalCostExample4Axles: 16.40,
+        coordinates: [-8.2836, -35.9758], // Coordenada do trajeto próxima a Caruaru
+        totalCost: 16.40
+      }
+    ],
+    speedLimits: [
+      {
+        road: "BR-407",
+        limit: "80 km/h",
+        value: 80,
+        coordinates: [-8.939850787450604, -40.14336317640412] // Coordenada do trajeto na BR-407
+      },
+      {
+        road: "BR-407",
+        limit: "60 km/h",
+        value: 60,
+        coordinates: [-8.786861122364149, -39.85974409160066] // Coordenada do trajeto próxima a Salgueiro
+      },
+      {
+        road: "BR-232",
+        limit: "100 km/h",
+        value: 100,
+        coordinates: [-8.372357437844236, -36.64430169393451] // Coordenada do trajeto na BR-232
+      },
+      {
+        road: "BR-232",
+        limit: "60 km/h",
+        value: 60,
+        coordinates: [-8.11369016197662, -35.213640052121924] // Coordenada do trajeto próxima a Recife
+      }
+    ],
+    
+    fuelCostPerKm: 4.80
   },
   {
     routeId: 2,
@@ -70,7 +107,44 @@ export const recifeRoutes: Route[] = [
         speedFactor: 0.70,
         description: "Trecho de estrada vicinal entre Campo Formoso e Jacobina"
       }
-    ]
+    ],
+    speedLimits: [
+      {
+        road: "BA-210",
+        limit: "60 km/h",
+        value: 60,
+        coordinates: [-8.814991684780777, -40.1878314168901] // Coordenada do trajeto na BA-210
+      },
+      {
+        road: "BR-324",
+        limit: "100 km/h",
+        value: 100,
+        coordinates: [-8.323695442558508, -36.10502135433297] // Coordenada do trajeto na BR-324
+      },
+      {
+        road: "BR-232",
+        limit: "80 km/h",
+        value: 80,
+        coordinates: [-8.013715638574816, -38.95097302183023] // Coordenada do trajeto na BR-232
+      }
+    ],
+    dangerZones: [
+      {
+        location: "Trecho isolado próximo a Salgueiro",
+        startKm: 180,
+        description: "Área com pouco policiamento e risco de assaltos",
+        coordinates: [-8.049067993631283, -39.07860922424029], // Coordenada do trajeto próxima a Salgueiro
+        riskLevel: 'Médio'
+      },
+      {
+        location: "Região de Serra Talhada",
+        startKm: 280,
+        description: "Área conhecida por roubos de carga",
+        coordinates: [-8.000248458902554, -38.36852373352307], // Coordenada do trajeto próxima a Serra Talhada
+        riskLevel: 'Médio'
+      }
+    ],
+    fuelCostPerKm: 5.10
   },
   {
     routeId: 3,
@@ -107,21 +181,21 @@ export const recifeRoutes: Route[] = [
     speedLimits: [
       {
         road: "BA-210",
-        limit: "60 km/h",
-        value: 60,
-        coordinates: [-9.5, -40.2]
+        limit: "100 km/h",
+        value: 100,
+        coordinates: [-9.294453094374571, -40.18335121107101] // Coordenada do trajeto na BA-210 próxima a Uauá
       },
       {
         road: "BA-233",
-        limit: "80 km/h",
-        value: 80,
-        coordinates: [-10.2, -39.8]
+        limit: "100 km/h",
+        value: 100,
+        coordinates: [-8.960314501480394, -39.85574483728204] // Coordenada do trajeto na BA-233 próxima a Monte Santo
       },
       {
         road: "BR-101",
         limit: "100 km/h",
         value: 100,
-        coordinates: [-12.5, -38.5]
+        coordinates: [-9.39823428423036, -38.173247303864635] // Coordenada do trajeto na BR-101 próxima a Feira de Santana
       }
     ],
     dirtSegments: [

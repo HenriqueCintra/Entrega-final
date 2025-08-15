@@ -36,7 +36,86 @@ export const fortalezaRoutes: Route[] = [
         coordinates: [-3.733377, -38.531648], // Coordenada real do path próxima ao destino
         totalCost: 16.80
       }
-    ]
+    ],
+    speedLimits: [
+      {
+        road: "BA-210",
+        limit: "80 km/h",
+        value: 80,
+        coordinates: [-8.98143173965664, -40.70742254275835] // Coordenada do trajeto na BA-210 próxima a Uauá
+      },
+      {
+        road: "BA-233",
+        limit: "50 km/h",
+        value: 50,
+        coordinates: [-8.442716712565502, -41.050125826916336] // Coordenada do trajeto na BA-233 próxima a Monte Santo
+      },
+      {
+        road: "BR-101",
+        limit: "100 km/h",
+        value: 100,
+        coordinates: [-6.830493434606116, -41.02685494849617] // Coordenada do trajeto na BR-101 próxima a Feira de Santana
+      },
+      {
+        road: "BR-101",
+        limit: "100 km/h",
+        value: 100,
+        coordinates: [-6.087618451409064, -40.39277548620344] // Coordenada do trajeto na BR-101 próxima a Feira de Santana
+      }
+
+      
+    ],
+    dirtSegments: [
+      {
+        startKm: 80,
+        endKm: 120,
+        condition: 'severa',
+        eventChance: 0.25,
+        speedFactor: 0.50,
+        description: "Estradas vicinais não pavimentadas entre Curaçá e Uauá"
+      },
+      {
+        startKm: 200,
+        endKm: 240,
+        condition: 'moderada',
+        eventChance: 0.20,
+        speedFactor: 0.65,
+        description: "Trechos de terra entre Monte Santo e Tucano"
+      },
+      {
+        startKm: 450,
+        endKm: 480,
+        condition: 'leve',
+        eventChance: 0.15,
+        speedFactor: 0.75,
+        description: "Estradas secundárias com pavimento irregular"
+      },
+      {
+        startKm: 650,
+        endKm: 690,
+        condition: 'moderada',
+        eventChance: 0.18,
+        speedFactor: 0.70,
+        description: "Desvios por estradas municipais para evitar pedágios"
+      }
+    ],
+    dangerZones: [
+      {
+        location: "Estradas isoladas entre Curaçá e Uauá",
+        startKm: 90,
+        description: "Área deserta com pouco policiamento e histórico de assaltos",
+        coordinates: [-6.975187346361884, -41.00687218092432], // Coordenada real do path da rota 3
+        riskLevel: 'Alto'
+      },
+      {
+        location: "Região de Canudos",
+        startKm: 180,
+        description: "Área histórica com estradas precárias e isolamento",
+        coordinates: [-6.928059012996928, -41.02842066393565], // Coordenada real do path da rota 3
+        riskLevel: 'Médio'
+      },
+      
+    ],
   },
   {
     routeId: 2,
@@ -79,17 +158,34 @@ export const fortalezaRoutes: Route[] = [
         totalCost: 15.20
       },
       {
-        location: "CE-060 - Pedágio Fortaleza",
+        location: "CE-060 - Pedágio Quixadá",
         costPerAxle: 4.50,
         totalCostExample4Axles: 18.00,
-        coordinates: [-7.873028, -40.071953], // Coordenada real do path da rota 2
+        coordinates: [-4.9346520628253785, -38.98310013150098], // Coordenada real do path da rota 2
         totalCost: 18.00
       }
     ],
+    speedLimits: [
+      {
+        road: "BA-210",
+        limit: "100 km/h",
+        value: 100,
+        coordinates: [-8.2362889794038, -40.30719555579875] // Coordenada do trajeto na BA-210 próxima a Uauá
+      },
+        {
+          road: "BA-210",
+          limit: "100 km/h",
+          value: 100,
+          coordinates: [-6.247382192974249, -39.19042251193878] // Coordenada do trajeto na BA-210 próxima a Uauá
+        },
+
+
+      
+    ],
     dirtSegments: [
       {
-        startKm: 150,
-        endKm: 180,
+        startKm: 280,
+        endKm: 320,
         condition: 'moderada',
         eventChance: 0.18,
         speedFactor: 0.70,
@@ -106,17 +202,17 @@ export const fortalezaRoutes: Route[] = [
     ],
     dangerZones: [
       {
-        location: "Estradas isoladas próximo a Paulo Afonso",
+        location: "Estradas isoladas próximo a Santa Cruz",
         startKm: 160,
         description: "Área com pouco policiamento e histórico de assaltos",
-        coordinates: [-7.875894, -40.075264], // Coordenada real do path da rota 2
+        coordinates: [-8.221315818095679, -40.27286247046694], // Coordenada real do path da rota 2
         riskLevel: 'Alto'
       },
       {
-        location: "Região de Serra Talhada",
+        location: "Região Fazenda Caraibas",
         startKm: 420,
         description: "Área conhecida por roubos de carga",
-        coordinates: [-7.874101, -40.073192], // Coordenada real do path da rota 2
+        coordinates: [-7.969389592948101, -40.130733219287556], // Coordenada real do path da rota 2
         riskLevel: 'Alto'
       }
     ]
@@ -144,7 +240,7 @@ export const fortalezaRoutes: Route[] = [
       "Igarassu", "Abreu e Lima", "Paulista", "Olinda", "Recife",
       "Jaboatão dos Guararapes", "Moreno", "Cabo de Santo Agostinho",
       "Ipojuca", "Escada", "Ribeirão", "Amaraji", "Primavera",
-      "Chã Grande", "São Lourenço da Mata", "Camaragibe", "Recife",
+      "Chã Grande", "São Lourenço da Mata", "Camaragibe",
       "Fortaleza"
     ],
     roads: ["BA-233", "BA-052", "PE-320", "PE-160", "BR-101", "CE-040"],
@@ -162,21 +258,21 @@ export const fortalezaRoutes: Route[] = [
     speedLimits: [
       {
         road: "BA-233",
-        limit: "60 km/h",
-        value: 60,
-        coordinates: [-10.0, -39.5]
+        limit: "80 km/h",
+        value: 80,
+        coordinates: [-4.935622645816847, -38.40082098244762]
       },
       {
         road: "PE-320",
-        limit: "80 km/h",
-        value: 80,
-        coordinates: [-8.5, -36.5]
+        limit: "60 km/h",
+        value: 60,
+        coordinates: [-7.605793218388046, -39.016583522726]
       },
       {
         road: "BR-101",
         limit: "100 km/h",
         value: 100,
-        coordinates: [-8.0, -35.0]
+        coordinates: [-8.675836869108759, -40.101885648547295]
       }
     ],
     dirtSegments: [
