@@ -87,15 +87,24 @@ export const VehicleSelectionPage = () => {
   const selectedChallenge = location.state?.desafio;
   const challengeId = location.state?.challengeId;
 
-  // Debug: verificar se os dados estão sendo recebidos
-  console.log("🚗 DEBUG VehicleSelection - challengeId recebido:", challengeId);
-  console.log("🚗 DEBUG VehicleSelection - selectedChallenge:", selectedChallenge);
-  console.log("🚗 DEBUG VehicleSelection - location.state:", location.state);
-
   // NOVO: Estados para guardar os veículos da API, o estado de loading e possíveis erros.
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // NOVO: Estados para os dados do desafio
+  const [challengeData, setChallengeData] = useState<{
+    nome: string;
+    descricao: string;
+    objetivo?: string;
+    dificuldade?: string;
+  } | null>(null);
+
+  // Debug: verificar se os dados estão sendo recebidos
+  console.log("🚗 DEBUG VehicleSelection - challengeId recebido:", challengeId);
+  console.log("🚗 DEBUG VehicleSelection - selectedChallenge:", selectedChallenge);
+  console.log("🚗 DEBUG VehicleSelection - location.state:", location.state);
+  console.log("🚗 DEBUG VehicleSelection - challengeData state:", challengeData);
 
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null); // Inicia como nulo
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -104,16 +113,17 @@ export const VehicleSelectionPage = () => {
 
   // NOVO: useEffect para buscar os dados da API quando o componente for montado.
   useEffect(() => {
-    const fetchVehicles = async () => {
+    const fetchData = async () => {
       try {
-        const apiUrl = `${import.meta.env.VITE_API_URL}/jogo1/veiculos/`;
-        const response = await fetch(apiUrl);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        // Buscar veículos
+        const vehiclesUrl = `${import.meta.env.VITE_API_URL}/jogo1/veiculos/`;
+        const vehiclesResponse = await fetch(vehiclesUrl);
+        if (!vehiclesResponse.ok) {
+          throw new Error(`HTTP error! status: ${vehiclesResponse.status}`);
         }
-        const dataFromApi = await response.json();
+        const vehiclesData = await vehiclesResponse.json();
 
-        const formattedVehicles: Vehicle[] = dataFromApi.map((apiVehicle: any) => ({
+        const formattedVehicles: Vehicle[] = vehiclesData.map((apiVehicle: any) => ({
           id: String(apiVehicle.id),
           name: apiVehicle.modelo,
           capacity: apiVehicle.capacidade_carga,
@@ -134,9 +144,60 @@ export const VehicleSelectionPage = () => {
           setSelectedIndex(0); // Define o primeiro veículo como selecionado por padrão
         }
 
+        // Buscar dados do desafio se challengeId estiver disponível
+        if (challengeId) {
+          console.log("🔍 DEBUG - Tentando buscar desafio com ID:", challengeId);
+          const challengeUrl = `${import.meta.env.VITE_API_URL}/jogo1/mapas/${challengeId}/`;
+          console.log("🔍 DEBUG - URL da requisição:", challengeUrl);
+
+          const challengeResponse = await fetch(challengeUrl);
+          console.log("🔍 DEBUG - Status da resposta:", challengeResponse.status);
+
+          if (challengeResponse.ok) {
+            const challengeDataFromApi = await challengeResponse.json();
+            console.log("🎯 DEBUG - Dados brutos da API:", challengeDataFromApi);
+
+            const formattedChallengeData = {
+              nome: challengeDataFromApi.nome,
+              descricao: challengeDataFromApi.descricao,
+              objetivo: challengeDataFromApi.objetivo,
+              dificuldade: challengeDataFromApi.dificuldade
+            };
+
+            console.log("🎯 DEBUG - Dados formatados:", formattedChallengeData);
+            setChallengeData(formattedChallengeData);
+          } else {
+            console.error("❌ Erro ao carregar desafio - Status:", challengeResponse.status);
+            const errorText = await challengeResponse.text();
+            console.error("❌ Erro detalhado:", errorText);
+
+            // Se falhar com o ID numérico, tenta usar os dados do selectedChallenge
+            if (selectedChallenge) {
+              console.log("🔄 DEBUG - Usando dados do selectedChallenge como fallback");
+              setChallengeData({
+                nome: selectedChallenge.name,
+                descricao: selectedChallenge.description,
+                objetivo: selectedChallenge.objective,
+                dificuldade: selectedChallenge.difficulty
+              });
+            }
+          }
+        } else if (selectedChallenge) {
+          // Se não tiver challengeId, usa os dados do selectedChallenge diretamente
+          console.log("🔄 DEBUG - Usando dados do selectedChallenge diretamente");
+          setChallengeData({
+            nome: selectedChallenge.name,
+            descricao: selectedChallenge.description,
+            objetivo: selectedChallenge.objective,
+            dificuldade: selectedChallenge.difficulty
+          });
+        } else {
+          console.warn("⚠️ Nem challengeId nem selectedChallenge estão disponíveis");
+        }
+
       } catch (e) {
         if (e instanceof Error) {
-          setError(`Falha ao buscar veículos: ${e.message}`);
+          setError(`Falha ao buscar dados: ${e.message}`);
         } else {
           setError("Ocorreu um erro desconhecido.");
         }
@@ -146,8 +207,8 @@ export const VehicleSelectionPage = () => {
       }
     };
 
-    fetchVehicles();
-  }, []); // O array vazio [] garante que este efeito rode apenas uma vez.
+    fetchData();
+  }, [challengeId]); // Dependência do challengeId para recarregar quando mudar
 
   useEffect(() => {
     if (!api || selectedIndex === null) return;
@@ -182,7 +243,7 @@ export const VehicleSelectionPage = () => {
   };
 
   if (isLoading) {
-    return <div className="bg-sky-100 min-h-screen flex items-center justify-center font-['Silkscreen'] text-2xl">Carregando veículos...</div>;
+    return <div className="bg-sky-100 min-h-screen flex items-center justify-center font-['Silkscreen'] text-2xl">Carregando desafio e veículos...</div>;
   }
 
   if (error) {
@@ -210,10 +271,25 @@ export const VehicleSelectionPage = () => {
 
       {/* Desafio de Entrega */}
       <div className="flex flex-col items-center mb-2">
-        <h2 className="font-['Silkscreen'] text-2xl text-orange-700 font-bold text-center mb-1">DESAFIO DE ENTREGA: JUAZEIRO A SALVADOR!</h2>
-        <div className="flex items-center gap-2 text-lg text-gray-700 font-['Silkscreen']">
-          <span role="img" aria-label="carga">🧱</span> 1100kg
-        </div>
+        <h2 className="font-['Silkscreen'] text-2xl text-orange-700 font-bold text-center mb-1">
+          {challengeData?.nome || "DESAFIO DE ENTREGA: JUAZEIRO A SALVADOR!"}
+        </h2>
+        {challengeData?.descricao && (
+          <div className="text-lg text-gray-700 font-['Silkscreen'] text-center max-w-4xl px-4 mb-2">
+            {challengeData.descricao}
+          </div>
+        )}
+
+        {challengeData?.dificuldade && (
+          <div className="text-sm text-orange-600 font-['Silkscreen'] text-center mb-1">
+            📊 Dificuldade: {challengeData.dificuldade}
+          </div>
+        )}
+        {!challengeData?.descricao && (
+          <div className="flex items-center gap-2 text-lg text-gray-700 font-['Silkscreen']">
+            <span role="img" aria-label="carga">🧱</span> 1100kg
+          </div>
+        )}
       </div>
 
       <h1 className="font-['Silkscreen'] text-3xl mb-8 text-center">

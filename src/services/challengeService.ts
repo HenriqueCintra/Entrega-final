@@ -51,6 +51,7 @@ export interface BackendRota {
 // Interface para o formato usado no frontend
 export interface FrontendChallenge {
   id: string;
+  backendId?: number; // ID real do backend
   name: string;
   description: string;
   destination: string;
@@ -208,6 +209,7 @@ const convertBackendToFrontend = (backendMapa: BackendMapa): FrontendChallenge =
 
   return {
     id: challengeId,
+    backendId: backendMapa.id, // Adiciona o ID real do backend
     name: backendMapa.nome,
     description: backendMapa.descricao,
     destination,

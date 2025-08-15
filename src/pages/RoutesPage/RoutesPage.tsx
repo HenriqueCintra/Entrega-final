@@ -47,10 +47,38 @@ export const RoutesPage: React.FC = () => {
   };
   const availableMoney = location.state?.availableMoney || 5500;
   const selectedChallenge = location.state?.selectedChallenge;
-  const challengeId = location.state?.challengeId as ChallengeId || 'salvador';
+  const backendChallengeId = location.state?.challengeId;
+  
+  // Função para mapear ID numérico do backend para ChallengeId string
+  const mapBackendIdToChallengeId = (backendId: number | string): ChallengeId => {
+    // Se já for string, usar diretamente
+    if (typeof backendId === 'string') {
+      return backendId as ChallengeId;
+    }
+    
+    // Mapear ID numérico para string baseado nos dados do selectedChallenge
+    if (selectedChallenge?.name) {
+      const name = selectedChallenge.name.toUpperCase();
+      if (name.includes('SALVADOR')) return 'salvador';
+      if (name.includes('RECIFE')) return 'recife';
+      if (name.includes('FORTALEZA')) return 'fortaleza';
+    }
+    
+    // Fallback baseado no ID numérico
+    switch (Number(backendId)) {
+      case 1: return 'salvador';
+      case 2: return 'recife';
+      case 3: return 'fortaleza';
+      default: return 'salvador';
+    }
+  };
+  
+  const challengeId = mapBackendIdToChallengeId(backendChallengeId) || 'salvador';
   
   // Debug: verificar se o challengeId está correto
-  console.log("🎯 DEBUG RoutesPage - challengeId recebido:", challengeId);
+  console.log("🎯 DEBUG RoutesPage - backendChallengeId recebido:", backendChallengeId);
+  console.log("🎯 DEBUG RoutesPage - challengeId convertido:", challengeId);
+  console.log("🎯 DEBUG RoutesPage - selectedChallenge:", selectedChallenge);
   console.log("🎯 DEBUG RoutesPage - location.state:", location.state);
   
   // Debug: testar todos os desafios

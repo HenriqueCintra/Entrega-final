@@ -76,9 +76,10 @@ export const ApresentacaoDesafioPage = () => {
     if (!currentChallenge) return;
 
     console.log("🎯 DEBUG ApresentacaoDesafio - Desafio selecionado:", currentChallenge.id);
+    console.log("🎯 DEBUG ApresentacaoDesafio - Backend ID:", currentChallenge.backendId);
     console.log("🎯 DEBUG ApresentacaoDesafio - Dados enviados:", {
       desafio: currentChallenge,
-      challengeId: currentChallenge.id
+      challengeId: currentChallenge.backendId || currentChallenge.id
     });
 
     setCarregando(true);
@@ -87,14 +88,14 @@ export const ApresentacaoDesafioPage = () => {
       // Passa o desafio selecionado para a próxima tela
       navigate("/select-vehicle", { state: { 
         desafio: currentChallenge,
-        challengeId: currentChallenge.id 
+        challengeId: currentChallenge.backendId || currentChallenge.id 
       } });
     }, 1500);
   };
 
   const getChallengeImage = (challengeId: string) => {
     // Usando a mesma imagem de fundo, mas poderia ser personalizada por desafio
-    return "/api/placeholder/800/200";
+    return "/desafio.png";
   };
 
   // Tela de carregamento
@@ -190,7 +191,7 @@ export const ApresentacaoDesafioPage = () => {
                 />
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 flex items-center justify-center">
                   <div className="text-center text-white">
-                    <h2 className="text-2xl [font-family:'Silkscreen',Helvetica] font-bold mb-2">
+                    <h2 className="text-2xl [font-family:'Silkscreen',Helvetica] font-bold mb-2   ">
                       JUAZEIRO → {currentChallenge.destination.split(',')[0].toUpperCase()}
                     </h2>
                     <p className="text-sm [font-family:'Silkscreen',Helvetica]">
