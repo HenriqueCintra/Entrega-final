@@ -1,21 +1,64 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
-import { ArrowLeft, Home, Trophy, Clock, Users, Truck, Car, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Home, Trophy, Clock, Users, Truck, Car, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { ButtonHomeBack } from "@/components/ButtonHomeBack";
-import { challenges, Challenge } from "../mapaRota/challengesManager";
-import { ChallengeId } from "../mapaRota/constants";
+import { fetchChallengesFromBackend, FrontendChallenge } from "../../services/challengeService";
 
 export const ApresentacaoDesafioPage = () => {
   const navigate = useNavigate();
 
-  // Todos os desafios disponíveis: Salvador, Recife e Fortaleza
-  const availableChallenges = challenges;
-
+  // Estados para gerenciar os desafios do backend
+  const [availableChallenges, setAvailableChallenges] = useState<FrontendChallenge[]>([]);
   const [currentChallengeIndex, setCurrentChallengeIndex] = useState(0);
   const [carregando, setCarregando] = useState(false);
+  const [carregandoDesafios, setCarregandoDesafios] = useState(true);
+  const [erro, setErro] = useState<string | null>(null);
 
   const currentChallenge = availableChallenges[currentChallengeIndex];
+
+  // Carregar desafios do backend ao montar o componente
+  useEffect(() => {
+    const loadChallenges = async () => {
+      try {
+        setCarregandoDesafios(true);
+        setErro(null);
+        
+        console.log("🔍 Iniciando carregamento de desafios...");
+        
+        const challenges = await fetchChallengesFromBackend();
+        
+        console.log("🔍 Challenges recebidos:", challenges);
+        
+        if (challenges.length === 0) {
+          setErro("Nenhum desafio encontrado no backend. Verifique se as seeds foram executadas.");
+          return;
+        }
+        
+        setAvailableChallenges(challenges);
+        console.log("🎯 Desafios carregados com sucesso:", challenges);
+      } catch (error) {
+        console.error("❌ Erro ao carregar desafios:", error);
+        
+        const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+        
+        // Se for erro de autenticação, redirecionar para login
+        if (errorMessage.includes('não autenticado') || errorMessage.includes('Sessão expirada')) {
+          navigate('/login', { 
+            state: { from: { pathname: '/desafios' } },
+            replace: true 
+          });
+          return;
+        }
+        
+        setErro(errorMessage);
+      } finally {
+        setCarregandoDesafios(false);
+      }
+    };
+
+    loadChallenges();
+  }, []);
 
   const handlePreviousChallenge = () => {
     setCurrentChallengeIndex((prev) => 
@@ -49,21 +92,50 @@ export const ApresentacaoDesafioPage = () => {
     }, 1500);
   };
 
-  const getChallengeImage = (challengeId: ChallengeId) => {
+  const getChallengeImage = (challengeId: string) => {
     // Usando a mesma imagem de fundo, mas poderia ser personalizada por desafio
     return "/api/placeholder/800/200";
   };
 
-  if (!currentChallenge) {
+  // Tela de carregamento
+  if (carregandoDesafios) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gradient-to-b from-purple-600 to-blue-600 text-center p-4">
+        <div className="bg-white rounded-lg p-8 shadow-lg">
+          <Loader2 className="animate-spin h-12 w-12 text-purple-600 mx-auto mb-4" />
+          <h1 className="[font-family:'Silkscreen',Helvetica] text-purple-600 text-xl mb-2">
+            Carregando Desafios...
+          </h1>
+          <p className="[font-family:'Silkscreen',Helvetica] text-gray-600 text-sm">
+            Buscando dados do servidor
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Tela de erro
+  if (erro || !currentChallenge) {
     return (
       <div className="flex h-screen items-center justify-center bg-gradient-to-b from-red-400 to-red-600 text-center p-4">
-        <div>
-          <h1 className="[font-family:'Silkscreen',Helvetica] text-white text-xl mb-4">
-            Nenhum desafio disponível.
+        <div className="bg-white rounded-lg p-8 shadow-lg">
+          <h1 className="[font-family:'Silkscreen',Helvetica] text-red-600 text-xl mb-4">
+            {erro || "Nenhum desafio disponível."}
           </h1>
-          <Button onClick={() => navigate('/game-selection')} className="bg-white text-black">
-            Voltar para Seleção de Jogos
-          </Button>
+          <div className="space-y-2">
+            <Button 
+              onClick={() => window.location.reload()} 
+              className="bg-red-600 text-white mr-2"
+            >
+              Tentar Novamente
+            </Button>
+            <Button 
+              onClick={() => navigate('/game-selection')} 
+              className="bg-gray-600 text-white"
+            >
+              Voltar para Seleção de Jogos
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -157,9 +229,31 @@ export const ApresentacaoDesafioPage = () => {
               <div className="border-2 border-black rounded-lg p-3 bg-gray-50 mb-4">
                 <h3 className="[font-family:'Silkscreen',Helvetica] font-bold text-[14px] mb-2 text-green-600">OBJETIVO:</h3>
                 <p className="[font-family:'Silkscreen',Helvetica] text-[12px] font-bold text-green-600">
-                  Transportar carga de Juazeiro para {currentChallenge.destination} escolhendo a melhor rota considerando custos, tempo e segurança.
+                  {currentChallenge.objective || `Transportar carga de Juazeiro para ${currentChallenge.destination} escolhendo a melhor rota considerando custos, tempo e segurança.`}
                 </p>
               </div>
+
+              {/* Ferramentas (se disponível) */}
+              {currentChallenge.tools && currentChallenge.tools.length > 0 && (
+                <div className="border-2 border-black rounded-lg p-3 bg-blue-50 mb-4">
+                  <h3 className="[font-family:'Silkscreen',Helvetica] font-bold text-[14px] mb-2 text-blue-600">FERRAMENTAS DISPONÍVEIS:</h3>
+                  <div className="space-y-2">
+                    {currentChallenge.tools.map((tool, index) => (
+                      <div key={index} className="flex items-start">
+                        <Car size={14} className="text-blue-600 mr-2 flex-shrink-0 mt-1" />
+                        <div>
+                          <span className="[font-family:'Silkscreen',Helvetica] text-[11px] font-bold block text-blue-600">
+                            {tool.type}
+                          </span>
+                          <span className="[font-family:'Silkscreen',Helvetica] text-[10px] text-gray-700">
+                            {tool.description}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Rotas disponíveis */}
               <div className="border-2 border-dashed border-[#e3922a] rounded-lg p-3 bg-yellow-50 mb-4">
@@ -173,7 +267,7 @@ export const ApresentacaoDesafioPage = () => {
                           Rota {route.routeId}: {route.distance}km
                         </span>
                         <span className="[font-family:'Silkscreen',Helvetica] text-[10px] text-gray-700">
-                          {route.estimatedTime} - {route.roads.join(', ')}
+                          {route.estimatedTime} - {route.roadConditions} - {route.safety.robberyRisk} risco
                         </span>
                       </div>
                     </div>
