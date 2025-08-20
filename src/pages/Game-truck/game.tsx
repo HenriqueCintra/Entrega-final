@@ -468,6 +468,21 @@ export function GameScene() {
           },
         });
 
+        // veiculos do trafego
+        loadSprite("carro_1", "/assets/carro_trafego_1.png");
+        loadSprite("carro_2", "/assets/carro_trafego_2.png");
+        loadSprite("carro_3", "/assets/carro_trafego_3.png");
+        loadSprite("carro_4", "/assets/carro_trafego_4.png");
+        loadSprite("carro_5", "/assets/carro_trafego_5.png");
+        loadSprite("carro_6", "/assets/carro_trafego_6.png");
+        loadSprite("carro_7", "/assets/carro_trafego_7.png");
+        loadSprite("carro_8", "/assets/carro_trafego_8.png");
+
+        loadSprite("moto_1", "/assets/moto_trafego_1.png");
+
+        //loadSprite("carro_vermelho", "/assets/carro_vermelho.png");
+        //loadSprite("van_branca", "/assets/van_branca.png");
+
         console.log("Todos os sprites carregados com sucesso");
       } catch (error) {
         console.error("Erro ao carregar sprites:", error);
@@ -512,6 +527,85 @@ export function GameScene() {
         ]);
 
 
+        // ========== INICIO TRAFEGO VEICULOS ========== I
+        const lane_contramao = height() * 0.60;
+        const lane_mesmo_sentido = height() * 0.68;
+
+        // Lista de sprites de carros disponíveis para o tráfego
+        const trafficCarSprites = ["carro_1", "carro_2", "carro_3", "carro_4", "carro_5", "carro_6", "carro_7", "carro_8", "moto_1"];
+
+        // Gerador de carros de tráfego
+        k.loop(k.rand(4, 7), () => {
+            if (gamePaused.current) return;
+
+            if (k.get("traffic_car").length > 0) {
+                return; 
+            }
+
+            const carSprite = k.choose(trafficCarSprites);
+            
+            const carType = k.choose(["ultrapassagem", "contramao"]);
+
+            if (carType === "contramao") {
+                const startX = width() + 150; // Começa fora da tela, à DIREITA
+                const carSpeed = speed * k.rand(0.2, 0.3); // Velocidade alta, somada à do cenário
+                
+                add([
+                    sprite(carSprite, { flipX: true }), 
+                    pos(startX, lane_contramao), // Anda na faixa da contramão
+                    scale(scaleFactor * 1.6), // Um pouco menor por estar mais "distante"
+                    k.move(k.LEFT, carSpeed), // Move para a ESQUERDA
+                    "traffic_car",
+                    z(1),
+                    // Propriedade para identificar o comportamento
+                    { behavior: "contramao" }, 
+                ]);
+
+            } else { // carType === "ultrapassagem"
+
+                const startX = -250; // Começa fora da tela, à ESQUERDA
+                const carSpeed = speed * k.rand(0.05, 0.1);
+                
+                add([
+                    sprite(carSprite, { flipX: false }), // Aponta para a direita (correto)
+                    pos(startX, lane_contramao), // Começa na contramão para ultrapassar
+                    scale(scaleFactor * 1.7),
+                    k.move(k.RIGHT, carSpeed), // Move para a DIREITA
+                    "traffic_car",
+                    z(1),
+                    // Propriedades para controlar o estado
+                    { 
+                        isChangingLane: false,
+                        behavior: "ultrapassagem", // Identifica o comportamento
+                    }, 
+                ]);
+            }
+        });
+
+        // Lógica de atualização e limpeza
+        onUpdate("traffic_car", (trafficCar) => {
+            
+            // a lógica de mudança de faixa agora SÓ se aplica ao carro de ultrapassagem
+            if (trafficCar.behavior === "ultrapassagem" && !trafficCar.isChangingLane && trafficCar.pos.x > (car.pos.x + car.width - 150)) {
+                
+                trafficCar.isChangingLane = true;
+                
+                k.tween(
+                    trafficCar.pos.y,
+                    lane_mesmo_sentido,
+                    0.9,
+                    (newY) => trafficCar.pos.y = newY,
+                    k.easings.easeInOutQuad
+                );
+            }
+
+            // limpeza de carros que saíram da tela
+            if (trafficCar.pos.x < -trafficCar.width || trafficCar.pos.x > width() + trafficCar.width) {
+                destroy(trafficCar);
+            }
+        });
+        
+        // ========== FIM TRAFEGO VEICULOS ========== I
 
         onUpdate(() => {
           if (gamePaused.current) {
