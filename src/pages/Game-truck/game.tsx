@@ -471,6 +471,15 @@ export function GameScene() {
         // veiculos do trafego
         loadSprite("carro_1", "/assets/carro_trafego_1.png");
         loadSprite("carro_2", "/assets/carro_trafego_2.png");
+        loadSprite("carro_3", "/assets/carro_trafego_3.png");
+        loadSprite("carro_4", "/assets/carro_trafego_4.png");
+        loadSprite("carro_5", "/assets/carro_trafego_5.png");
+        loadSprite("carro_6", "/assets/carro_trafego_6.png");
+        loadSprite("carro_7", "/assets/carro_trafego_7.png");
+        loadSprite("carro_8", "/assets/carro_trafego_8.png");
+
+        loadSprite("moto_1", "/assets/moto_trafego_1.png");
+
         //loadSprite("carro_vermelho", "/assets/carro_vermelho.png");
         //loadSprite("van_branca", "/assets/van_branca.png");
 
@@ -518,12 +527,12 @@ export function GameScene() {
         ]);
 
 
-        // -------- Inicio Trafego
+        // ========== INICIO TRAFEGO VEICULOS ========== I
         const lane_contramao = height() * 0.60;
         const lane_mesmo_sentido = height() * 0.68;
 
         // Lista de sprites de carros disponíveis para o tráfego
-        const trafficCarSprites = ["carro_1", "carro_2"];
+        const trafficCarSprites = ["carro_1", "carro_2", "carro_3", "carro_4", "carro_5", "carro_6", "carro_7", "carro_8", "moto_1"];
 
         // Gerador de carros de tráfego
         k.loop(k.rand(4, 7), () => {
@@ -595,6 +604,8 @@ export function GameScene() {
                 destroy(trafficCar);
             }
         });
+        
+        // ========== FIM TRAFEGO VEICULOS ========== I
 
         onUpdate(() => {
           if (gamePaused.current) {
