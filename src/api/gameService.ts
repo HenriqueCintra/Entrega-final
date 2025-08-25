@@ -214,12 +214,18 @@ export const GameService = {
     }
   },
 
-  async respondToEvent(optionId: number): Promise<RespondResponse> {
+  async respondToEvent(optionId: number, combustivelAtual?: number): Promise<RespondResponse> {
     console.log('✋ Respondendo ao evento com opção ID:', optionId);
+    const requestData: any = { opcao_id: optionId };
+    
+    // ✅ CORREÇÃO: Enviar combustível atual para evitar dessincronia
+    if (combustivelAtual !== undefined) {
+      requestData.combustivel_atual = combustivelAtual;
+      console.log('⛽ Enviando combustível atual:', combustivelAtual);
+    }
+    
     try {
-      const response = await api.post<RespondResponse>('/jogo1/eventos/responder/', {
-        opcao_id: optionId
-      });
+      const response = await api.post<RespondResponse>('/jogo1/eventos/responder/', requestData);
       console.log('✅ Resposta do evento processada:', response.data.detail);
       return response.data;
     } catch (error) {

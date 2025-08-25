@@ -272,7 +272,8 @@ export function GameScene() {
 
   // Mutação para responder ao evento
   const respondToEventMutation = useMutation({
-    mutationFn: (optionId: number) => GameService.respondToEvent(optionId),
+    mutationFn: ({ optionId, combustivelAtual }: { optionId: number; combustivelAtual?: number }) => 
+      GameService.respondToEvent(optionId, combustivelAtual),
     onSuccess: (data) => {
       const updatedPartida = data.partida;
       console.log('✅ Resposta processada pelo backend:', data.detail);
@@ -402,7 +403,15 @@ export function GameScene() {
 
     console.log("🎯 Processando escolha do evento - Opção ID:", optionId);
     setIsResponding(true);
-    respondToEventMutation.mutate(optionId);
+    
+    // ✅ CORREÇÃO: Enviar combustível atual para evitar dessincronia
+    const combustivelAtual = currentFuelRef.current;
+    console.log("⛽ Enviando combustível atual com resposta do evento:", combustivelAtual);
+    
+    respondToEventMutation.mutate({ 
+      optionId, 
+      combustivelAtual 
+    });
   };
 
   // ============= USEEFFECT PRINCIPAL COM PROTEÇÃO CONTRA STRICTMODE =============
