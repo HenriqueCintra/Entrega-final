@@ -240,7 +240,13 @@ export const GameService = {
     }
   },
 
-  async createGame(gameData: { mapa: number; rota: number; veiculo: number }): Promise<PartidaResponse> {
+  async createGame(gameData: { 
+    mapa: number; 
+    rota: number; 
+    veiculo: number; 
+    saldo_inicial?: number; 
+    combustivel_inicial?: number 
+  }): Promise<PartidaResponse> {
     console.log('🚀 Criando nova partida com dados:', gameData);
     if (!gameData.mapa || !gameData.rota || !gameData.veiculo) {
       const error = new Error('Dados inválidos para criar partida');
@@ -291,6 +297,22 @@ export const GameService = {
       return response.data;
     } catch (error) {
       console.error('❌ Erro ao retomar jogo:', error);
+      throw error;
+    }
+  },
+
+  async updateGameProgress(progressData: { 
+    distancia_percorrida?: number; 
+    combustivel_atual?: number; 
+    tempo_jogo_segundos?: number 
+  }): Promise<PartidaResponse> {
+    console.log('🔄 Atualizando progresso do jogo...', progressData);
+    try {
+      const response = await api.post<PartidaResponse>('/jogo1/partidas/atualizar-progresso/', progressData);
+      console.log('✅ Progresso atualizado no backend');
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erro ao atualizar progresso:', error);
       throw error;
     }
   },

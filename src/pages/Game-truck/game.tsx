@@ -1,5 +1,5 @@
 // src/pages/Game-truck/game.tsx - ARQUIVO COMPLETO CORRIGIDO
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import kaboom from "kaboom";
@@ -89,9 +89,18 @@ export function GameScene() {
   const [gameTime, setGameTime] = useState(0);
   const [finalGameResults, setFinalGameResults] = useState<PartidaData | null>(null);
   const [currentFuel, setCurrentFuel] = useState<number>(location.state?.selectedVehicle?.currentFuel || 0);
+  // ✅ CORREÇÃO: Ref para manter valor atual do combustível no loop do Kaboom
+  const currentFuelRef = useRef<number>(location.state?.selectedVehicle?.currentFuel || 0);
   const [totalDistance, setTotalDistance] = useState<number>(500);
 
+  // ✅ CORREÇÃO: Função helper para atualizar combustível (estado + ref)
+  const updateCurrentFuel = useCallback((newFuel: number) => {
+    setCurrentFuel(newFuel);
+    currentFuelRef.current = newFuel;
+  }, []);
+
   const [showMapModal, setShowMapModal] = useState(false);
+  const [fuelWarning, setFuelWarning] = useState<string | null>(null);
 
   // Estados vindos dos parâmetros de navegação
   const [vehicle, setVehicle] = useState<Vehicle>(() => {
@@ -134,8 +143,13 @@ export function GameScene() {
 
   // Mutação para criar o jogo no backend
   const createGameMutation = useMutation({
-    mutationFn: (gameData: { mapa: number; rota: number; veiculo: number }) =>
-      GameService.createGame(gameData),
+    mutationFn: (gameData: { 
+      mapa: number; 
+      rota: number; 
+      veiculo: number; 
+      saldo_inicial?: number; 
+      combustivel_inicial?: number 
+    }) => GameService.createGame(gameData),
     onSuccess: (partida) => {
       console.log('🎮 Partida criada com sucesso no backend, ID:', partida.id);
 
@@ -145,7 +159,7 @@ export function GameScene() {
 
       // Sincronizar estados do frontend com os valores iniciais do backend
       setMoney(partida.saldo);
-      setCurrentFuel(partida.combustivel_atual);
+      updateCurrentFuel(partida.combustivel_atual);
 
       console.log('💰 Estado sincronizado - Saldo:', partida.saldo, 'Combustível:', partida.combustivel_atual);
       console.log('🔗 activeGameIdRef definido como:', activeGameIdRef.current);
@@ -154,6 +168,26 @@ export function GameScene() {
       console.error('❌ Erro ao criar partida:', error);
       alert('Não foi possível iniciar o jogo. Tente novamente.');
       navigate('/routes');
+    }
+  });
+
+  // ✅ NOVA MUTAÇÃO: Para atualizar progresso durante o jogo
+  const updateProgressMutation = useMutation({
+    mutationFn: (progressData: { 
+      distancia_percorrida?: number; 
+      combustivel_atual?: number; 
+      tempo_jogo_segundos?: number 
+    }) => GameService.updateGameProgress(progressData),
+    onSuccess: (partida) => {
+      console.log('📊 Progresso sincronizado com backend:', {
+        distancia: partida.distancia_percorrida,
+        combustivel: partida.combustivel_atual,
+        tempo: partida.tempo_jogo
+      });
+    },
+    onError: (error) => {
+      console.error('❌ Erro ao sincronizar progresso:', error);
+      // Não interromper o jogo por erro de sincronização
     }
   });
 
@@ -250,7 +284,7 @@ export function GameScene() {
 
       // Sincronizar estado do frontend com a resposta do backend
       setMoney(updatedPartida.saldo);
-      setCurrentFuel(updatedPartida.combustivel_atual);
+      updateCurrentFuel(updatedPartida.combustivel_atual);
 
       // Atualizar outros estados se necessário
       if (updatedPartida.tempo_jogo !== undefined) {
@@ -645,19 +679,53 @@ export function GameScene() {
           const progressDelta = progressPercent - previousProgress;
           const distanceInKm = (progressDelta / 100) * routeDistance;
 
-          // ✅ CORREÇÃO: Melhor controle do consumo de combustível
+          // ✅ CORREÇÃO: Melhor controle do consumo de combustível usando ref
           if (distanceInKm > 0) {
             const consumptionRate = vehicle.consumption?.asphalt || 10;
             const fuelConsumption = distanceInKm / consumptionRate;
 
-            const updatedFuel = Math.max(0, currentFuel - fuelConsumption);
-            setCurrentFuel(updatedFuel);
+            const currentFuelValue = currentFuelRef.current; // ✅ Usar ref em vez do estado
+            const updatedFuel = Math.max(0, currentFuelValue - fuelConsumption);
+            
+            // ✅ CORREÇÃO: Atualizar tanto estado quanto ref
+            updateCurrentFuel(updatedFuel);
 
             const newGasolinePercent = (updatedFuel / vehicle.maxCapacity) * 100;
             setGasoline(newGasolinePercent);
 
+            console.log(`⛽ Combustível: ${currentFuelValue.toFixed(1)}L → ${updatedFuel.toFixed(1)}L (consumiu ${fuelConsumption.toFixed(2)}L em ${distanceInKm.toFixed(2)}km)`);
+
+            // ✅ NOVO: Aviso visual quando combustível baixo
+            const fuelPercent = (updatedFuel / vehicle.maxCapacity) * 100;
+            if (fuelPercent <= 20 && fuelPercent > 10) {
+              console.log("⚠️ COMBUSTÍVEL BAIXO! Restam apenas " + updatedFuel.toFixed(1) + "L");
+              setFuelWarning("⚠️ COMBUSTÍVEL BAIXO!");
+            } else if (fuelPercent <= 10 && fuelPercent > 0) {
+              console.log("🚨 COMBUSTÍVEL CRÍTICO! Restam apenas " + updatedFuel.toFixed(1) + "L");
+              setFuelWarning("🚨 COMBUSTÍVEL CRÍTICO!");
+            } else if (fuelPercent > 20) {
+              setFuelWarning(null); // Limpar aviso quando combustível estiver ok
+            }
+
+            // ✅ NOVO: Sincronizar combustível com backend periodicamente
+            const shouldSyncProgress = (
+              Math.floor(progressPercent / 10) !== Math.floor((progressPercent - progressDelta) / 10) || // A cada 10% de progresso
+              updatedFuel <= 0 || // Quando combustível acabar
+              updatedFuel <= vehicle.maxCapacity * 0.1 // Quando combustível crítico (<10%)
+            );
+
+            if (shouldSyncProgress && activeGameIdRef.current && !updateProgressMutation.isPending) {
+              const distanciaAtualKm = (progressPercent / 100) * totalDistance;
+              updateProgressMutation.mutate({
+                distancia_percorrida: distanciaAtualKm,
+                combustivel_atual: updatedFuel,
+                tempo_jogo_segundos: gameTime
+              });
+            }
+
             // ✅ CORREÇÃO: Verificar game over com delay para evitar setState durante render
-            if (currentFuel > 0 && updatedFuel <= 0) {
+            if (currentFuelValue > 0 && updatedFuel <= 0) {
+              console.log("🚨 COMBUSTÍVEL ACABOU! Finalizando jogo...");
               requestAnimationFrame(() => {
                 checkGameOver();
               });
@@ -758,11 +826,13 @@ export function GameScene() {
       return;
     }
 
-    // Inicia a criação da partida no backend
+    // ✅ CORREÇÃO: Inicia a criação da partida no backend com saldo e combustível corretos
     createGameMutation.mutateAsync({
       mapa: route.mapaId,
       rota: route.id,
-      veiculo: parseInt(selectedVehicle.id, 10) || 1
+      veiculo: parseInt(selectedVehicle.id, 10) || 1,
+      saldo_inicial: money,  // ✅ Enviar saldo atual (já com desconto do combustível)
+      combustivel_inicial: currentFuel  // ✅ Enviar combustível atual
     }).then(() => {
       // Apenas após o sucesso da criação, inicializa o Kaboom.js,
       // passando os dados do jogo salvo (se existirem).
@@ -807,7 +877,7 @@ export function GameScene() {
 
     if (savedProgress) {
       console.log("🔄 Restaurando progresso salvo...");
-      setCurrentFuel(savedProgress.currentFuel);
+      updateCurrentFuel(savedProgress.currentFuel);
       setProgress(savedProgress.progress);
       setCurrentPathIndex(savedProgress.currentPathIndex);
       setGameTime(Math.max(0, savedProgress.gameTime || 0));
@@ -817,7 +887,7 @@ export function GameScene() {
       pathProgressRef.current = savedProgress.pathProgress;
     } else {
       console.log("✨ Iniciando um novo jogo...");
-      setCurrentFuel(vehicle?.currentFuel || 0); // O combustível vem do backend
+      updateCurrentFuel(vehicle?.currentFuel || 0); // O combustível vem do backend
       setGameTime(0);
     }
 
@@ -1196,6 +1266,18 @@ export function GameScene() {
             <div style={{ fontSize: "12px", color: "#666", paddingLeft: "24px" }}>
               {currentFuel.toFixed(1)}L / {vehicle.maxCapacity}L
             </div>
+            {/* ✅ NOVO: Aviso de combustível baixo */}
+            {fuelWarning && (
+              <div style={{ 
+                fontSize: "11px", 
+                color: fuelWarning.includes("CRÍTICO") ? "#cc3300" : "#ff6600", 
+                paddingLeft: "24px",
+                fontWeight: "bold",
+                animation: "blink 1s infinite"
+              }}>
+                {fuelWarning}
+              </div>
+            )}
           </div>
 
           <div style={{ fontSize: "14px", color: "#333" }}>
