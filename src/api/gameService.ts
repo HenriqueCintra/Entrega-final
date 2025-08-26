@@ -83,6 +83,11 @@ interface MapResponse {
   rotas: RouteResponse[];
 }
 
+// === NOVA INTERFACE PARA O TICK ===
+interface TickData {
+  distancia_percorrida: number;
+}
+
 export const GameService = {
   async getMaps(): Promise<Desafio[]> {
     console.log('🗺️ Buscando mapas da API...');
@@ -214,11 +219,13 @@ export const GameService = {
     }
   },
 
-  async respondToEvent(optionId: number): Promise<RespondResponse> {
-    console.log('✋ Respondendo ao evento com opção ID:', optionId);
+  // === FUNÇÃO MODIFICADA: Agora envia também a distância ===
+  async respondToEvent(optionId: number, distancia_percorrida: number): Promise<RespondResponse> {
+    console.log(`✋ Respondendo evento com opção ${optionId} na distância ${distancia_percorrida.toFixed(2)}km`);
     try {
       const response = await api.post<RespondResponse>('/jogo1/eventos/responder/', {
-        opcao_id: optionId
+        opcao_id: optionId,
+        distancia_percorrida: distancia_percorrida
       });
       console.log('✅ Resposta do evento processada:', response.data.detail);
       return response.data;
@@ -271,6 +278,19 @@ export const GameService = {
     }
   },
 
+  // === NOVA FUNÇÃO DE TICK (CORAÇÃO DO SISTEMA) ===
+  async partidaTick(data: TickData): Promise<PartidaResponse> {
+    console.log('⏱️ Enviando tick para o servidor:', data.distancia_percorrida.toFixed(2), 'km');
+    try {
+      const response = await api.post<PartidaResponse>('/jogo1/partidas/tick/', data);
+      console.log('✅ Tick processado - Tempo oficial:', response.data.tempo_jogo?.toFixed(2), 'min');
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erro no tick:', error);
+      throw error;
+    }
+  },
+
   async pauseGame(): Promise<{ detail: string }> {
     console.log('⏸️ Pausando jogo...');
     try {
@@ -318,7 +338,7 @@ export const GameService = {
   async saveGameState(gameState: any) {
     return await api.post('/game/save-state/', gameState);
   },
-  
+
   async loadGameState(matchId: string) {
     return await api.get(`/game/load-state/${matchId}/`);
   }

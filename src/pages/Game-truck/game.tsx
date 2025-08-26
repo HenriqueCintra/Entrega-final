@@ -157,6 +157,22 @@ export function GameScene() {
     }
   });
 
+  // === NOVA MUTAÇÃO PARA O TICK (CORAÇÃO DO SISTEMA) ===
+  const partidaTickMutation = useMutation({
+    mutationFn: (data: { distancia_percorrida: number }) => GameService.partidaTick(data),
+    onSuccess: (updatedPartida) => {
+      // Atualiza o estado do frontend com a VERDADE vinda do servidor
+      setGameTime(updatedPartida.tempo_jogo ? updatedPartida.tempo_jogo * 60 : 0); // Converte minutos para segundos
+      setMoney(updatedPartida.saldo);
+      setCurrentFuel(updatedPartida.combustivel_atual);
+      // Sincroniza outros estados que precisem ser atualizados
+    },
+    onError: (error) => {
+      console.error("❌ Erro no tick:", error);
+      // Implementar lógica de reconexão ou pausar o jogo se necessário
+    }
+  });
+
   // ============= MUTAÇÃO CORRIGIDA PARA BUSCAR EVENTOS =============
   const fetchNextEventMutation = useMutation({
     mutationFn: (distancia: number) => GameService.getNextEvent(distancia),
@@ -238,7 +254,8 @@ export function GameScene() {
 
   // Mutação para responder ao evento
   const respondToEventMutation = useMutation({
-    mutationFn: (optionId: number) => GameService.respondToEvent(optionId),
+    mutationFn: (data: { optionId: number; distancia: number }) =>
+      GameService.respondToEvent(data.optionId, data.distancia),
     onSuccess: (data) => {
       const updatedPartida = data.partida;
       console.log('✅ Resposta processada pelo backend:', data.detail);
@@ -252,14 +269,8 @@ export function GameScene() {
       setMoney(updatedPartida.saldo);
       setCurrentFuel(updatedPartida.combustivel_atual);
 
-      // Atualizar outros estados se necessário
-      if (updatedPartida.tempo_jogo !== undefined) {
-        // O backend nos envia 'tempo_jogo' em minutos.
-        // Convertemos para segundos e garantimos que seja no mínimo 0.
-        const newTimeInSeconds = Math.max(0, Math.round(updatedPartida.tempo_jogo * 60));
-        setGameTime(newTimeInSeconds);
-        console.log(`⏱️ Tempo da partida atualizado pelo servidor para: ${formatTime(newTimeInSeconds)}`);
-      }
+      // O tempo agora é controlado exclusivamente pelo tick - não precisamos atualizá-lo aqui
+      // pois o próximo tick já trará o tempo atualizado do servidor
 
       // Mostrar resultado do evento
       if (data.detail && data.detail !== "Sua decisão foi processada.") {
@@ -368,7 +379,8 @@ export function GameScene() {
 
     console.log("🎯 Processando escolha do evento - Opção ID:", optionId);
     setIsResponding(true);
-    respondToEventMutation.mutate(optionId);
+    const distanciaAtual = (progressRef.current / 100) * totalDistance;
+    respondToEventMutation.mutate({ optionId, distancia: distanciaAtual });
   };
 
   // ============= USEEFFECT PRINCIPAL COM PROTEÇÃO CONTRA STRICTMODE =============
@@ -536,75 +548,75 @@ export function GameScene() {
 
         // Gerador de carros de tráfego
         k.loop(k.rand(4, 7), () => {
-            if (gamePaused.current) return;
+          if (gamePaused.current) return;
 
-            if (k.get("traffic_car").length > 0) {
-                return; 
-            }
+          if (k.get("traffic_car").length > 0) {
+            return;
+          }
 
-            const carSprite = k.choose(trafficCarSprites);
-            
-            const carType = k.choose(["ultrapassagem", "contramao"]);
+          const carSprite = k.choose(trafficCarSprites);
 
-            if (carType === "contramao") {
-                const startX = width() + 150; // Começa fora da tela, à DIREITA
-                const carSpeed = speed * k.rand(0.2, 0.3); // Velocidade alta, somada à do cenário
-                
-                add([
-                    sprite(carSprite, { flipX: true }), 
-                    pos(startX, lane_contramao), // Anda na faixa da contramão
-                    scale(scaleFactor * 1.6), // Um pouco menor por estar mais "distante"
-                    k.move(k.LEFT, carSpeed), // Move para a ESQUERDA
-                    "traffic_car",
-                    z(1),
-                    // Propriedade para identificar o comportamento
-                    { behavior: "contramao" }, 
-                ]);
+          const carType = k.choose(["ultrapassagem", "contramao"]);
 
-            } else { // carType === "ultrapassagem"
+          if (carType === "contramao") {
+            const startX = width() + 150; // Começa fora da tela, à DIREITA
+            const carSpeed = speed * k.rand(0.2, 0.3); // Velocidade alta, somada à do cenário
 
-                const startX = -250; // Começa fora da tela, à ESQUERDA
-                const carSpeed = speed * k.rand(0.05, 0.1);
-                
-                add([
-                    sprite(carSprite, { flipX: false }), // Aponta para a direita (correto)
-                    pos(startX, lane_contramao), // Começa na contramão para ultrapassar
-                    scale(scaleFactor * 1.7),
-                    k.move(k.RIGHT, carSpeed), // Move para a DIREITA
-                    "traffic_car",
-                    z(1),
-                    // Propriedades para controlar o estado
-                    { 
-                        isChangingLane: false,
-                        behavior: "ultrapassagem", // Identifica o comportamento
-                    }, 
-                ]);
-            }
+            add([
+              sprite(carSprite, { flipX: true }),
+              pos(startX, lane_contramao), // Anda na faixa da contramão
+              scale(scaleFactor * 1.6), // Um pouco menor por estar mais "distante"
+              k.move(k.LEFT, carSpeed), // Move para a ESQUERDA
+              "traffic_car",
+              z(1),
+              // Propriedade para identificar o comportamento
+              { behavior: "contramao" },
+            ]);
+
+          } else { // carType === "ultrapassagem"
+
+            const startX = -250; // Começa fora da tela, à ESQUERDA
+            const carSpeed = speed * k.rand(0.05, 0.1);
+
+            add([
+              sprite(carSprite, { flipX: false }), // Aponta para a direita (correto)
+              pos(startX, lane_contramao), // Começa na contramão para ultrapassar
+              scale(scaleFactor * 1.7),
+              k.move(k.RIGHT, carSpeed), // Move para a DIREITA
+              "traffic_car",
+              z(1),
+              // Propriedades para controlar o estado
+              {
+                isChangingLane: false,
+                behavior: "ultrapassagem", // Identifica o comportamento
+              },
+            ]);
+          }
         });
 
         // Lógica de atualização e limpeza
         onUpdate("traffic_car", (trafficCar) => {
-            
-            // a lógica de mudança de faixa agora SÓ se aplica ao carro de ultrapassagem
-            if (trafficCar.behavior === "ultrapassagem" && !trafficCar.isChangingLane && trafficCar.pos.x > (car.pos.x + car.width - 150)) {
-                
-                trafficCar.isChangingLane = true;
-                
-                k.tween(
-                    trafficCar.pos.y,
-                    lane_mesmo_sentido,
-                    0.9,
-                    (newY) => trafficCar.pos.y = newY,
-                    k.easings.easeInOutQuad
-                );
-            }
 
-            // limpeza de carros que saíram da tela
-            if (trafficCar.pos.x < -trafficCar.width || trafficCar.pos.x > width() + trafficCar.width) {
-                destroy(trafficCar);
-            }
+          // a lógica de mudança de faixa agora SÓ se aplica ao carro de ultrapassagem
+          if (trafficCar.behavior === "ultrapassagem" && !trafficCar.isChangingLane && trafficCar.pos.x > (car.pos.x + car.width - 150)) {
+
+            trafficCar.isChangingLane = true;
+
+            k.tween(
+              trafficCar.pos.y,
+              lane_mesmo_sentido,
+              0.9,
+              (newY) => trafficCar.pos.y = newY,
+              k.easings.easeInOutQuad
+            );
+          }
+
+          // limpeza de carros que saíram da tela
+          if (trafficCar.pos.x < -trafficCar.width || trafficCar.pos.x > width() + trafficCar.width) {
+            destroy(trafficCar);
+          }
         });
-        
+
         // ========== FIM TRAFEGO VEICULOS ========== I
 
         onUpdate(() => {
@@ -848,18 +860,17 @@ export function GameScene() {
     }
   }, []);
 
-  // Timer do jogo
-  // Timer do jogo (VERSÃO CORRIGIDA E SIMPLIFICADA)
+  // === NOVO useEffect PARA O TICK (SERVIDOR AUTORITATIVO) ===
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (!gamePaused.current && !gameEnded && !processingEvent.current) {
-        // Simplesmente adiciona 1 segundo ao estado de tempo existente
-        setGameTime(prevTime => Math.max(0, prevTime + 1));
+    const tickInterval = setInterval(() => {
+      if (!gamePaused.current && !gameEnded && gameLoaded && activeGameIdRef.current) {
+        const distanciaAtual = (progressRef.current / 100) * totalDistance;
+        partidaTickMutation.mutate({ distancia_percorrida: distanciaAtual });
       }
-    }, 1000);
+    }, 2000); // Envia um tick a cada 2 segundos
 
-    return () => clearInterval(interval);
-  }, [gameEnded]);
+    return () => clearInterval(tickInterval);
+  }, [gameEnded, gameLoaded, totalDistance]); // Dependências corretas
 
   // useEffect para finalizar o jogo quando atingir 100%
   useEffect(() => {
