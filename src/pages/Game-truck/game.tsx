@@ -371,38 +371,23 @@ export function GameScene() {
     respondToEventMutation.mutate(optionId);
   };
 
-  // ============= USEEFFECT PRINCIPAL COM PROTEÇÃO CONTRA STRICTMODE =============
 
-  // ============= FUNÇÃO INITIALIZEGAME MOVIDA PARA FORA =============
-
-  const initializeGame = (savedProgress?: any) => {
-    // REMOVIDO: verificações de gameInitialized - isso é controlado no useEffect!
-
-    if (!vehicle || !vehicle.name) {
-      console.error("Dados do veículo não encontrados");
+  const initializeGame = async (savedProgress?: any) => {
+    // Verificações iniciais para garantir que o ambiente está pronto
+    if (!vehicle || !vehicle.name || !vehicle.spriteSheet) {
+      console.error("Dados do veículo incompletos ou não encontrados. Verifique o fallback e a navegação.", vehicle);
+      setLoadingError("Dados do veículo incompletos para iniciar o jogo.");
       return;
     }
-
     if (!canvasRef.current) {
-      console.error("Canvas não encontrado, tentando novamente...");
       setTimeout(() => initializeGame(savedProgress), 100);
       return;
     }
-
-    console.log("Canvas encontrado:", canvasRef.current);
-
-    if (!document.contains(canvasRef.current)) {
-      console.error("Canvas não está no DOM, aguardando...");
-      setTimeout(() => initializeGame(savedProgress), 100);
-      return;
-    }
-
     if ((window as any).__kaboom_initiated__) {
       (window as any).__kaboom_initiated__ = false;
     }
 
-    console.log("Inicializando jogo com veículo:", vehicle.name, "Imagem:", vehicle.image);
-    console.log("Combustível atual no início:", currentFuel);
+    console.log("Iniciando jogo com veículo:", vehicle.name, "Sprite Sheet:", vehicle.spriteSheet);
 
     handleResizeRef.current = () => {
       if (canvasRef.current) {
@@ -412,14 +397,7 @@ export function GameScene() {
     };
 
     try {
-      setGameLoaded(false);
-      setLoadingError(null);
-
-      const testContext = canvasRef.current!.getContext('webgl') || canvasRef.current!.getContext('experimental-webgl');
-      if (!testContext) {
-        throw new Error("WebGL não suportado neste navegador");
-      }
-
+      // A tela de loading já está ativa, aqui preparamos a instância do Kaboom
       const k = kaboom({
         canvas: canvasRef.current!,
         width: window.innerWidth,
@@ -432,296 +410,210 @@ export function GameScene() {
       (window as any).__kaboom_initiated__ = true;
 
       const {
-        loadSprite,
-        scene,
-        go,
-        add,
-        sprite,
-        pos,
-        area,
-        body,
-        isKeyDown,
-        width,
-        height,
-        dt,
-        onUpdate,
-        z,
-        scale,
-        destroy,
+        loadSprite, scene, go, add, sprite, pos, area, body, width,
+        height, dt, onUpdate, z, scale, destroy, get, loop, rand, choose,
+        move, tween, easings, LEFT, RIGHT
       } = k;
-
+      
       destroyRef.current = destroy;
 
-      try {
-        console.log("Tentando carregar sprites...");
-        loadSprite("background", "/assets/backgroundd.png");
+      // ---- CARREGAMENTO SEGURO DE TODOS OS SPRITES ----
+      console.log("Iniciando carregamento de todos os sprites...");
+      
+      await Promise.all([
+        loadSprite("background_cidade", "/assets/background-cidade.png"),
+        loadSprite("background_terra", "/assets/background-terra.png"),
+        loadSprite("car", vehicle.spriteSheet, {
+          sliceX: 2,
+          sliceY: 1,
+          anims: { run: { from: 0, to: 1, loop: true, speed: 8 } },
+        }),
+        loadSprite("carro_1", "/assets/carro_trafego_1.png"),
+        loadSprite("carro_2", "/assets/carro_trafego_2.png"),
+        loadSprite("carro_3", "/assets/carro_trafego_3.png"),
+        loadSprite("carro_4", "/assets/carro_trafego_4.png"),
+        loadSprite("carro_5", "/assets/carro_trafego_5.png"),
+        loadSprite("carro_6", "/assets/carro_trafego_6.png"),
+        loadSprite("carro_7", "/assets/carro_trafego_7.png"),
+        loadSprite("carro_8", "/assets/carro_trafego_8.png"),
+        loadSprite("moto_1", "/assets/moto_trafego_1.png"),
+      ]);
 
-        const vehicleImageUrl = getVehicleImageUrl(vehicle.spriteSheet);
-        console.log("Imagem original do veículo:", vehicle.image);
-        console.log("URL convertida para kaboom:", vehicleImageUrl);
+      console.log("✅ Todos os sprites foram COMPLETAMENTE carregados.");
 
-        loadSprite("car", vehicleImageUrl, {
-          sliceX: 2, // número de colunas (quadros) no spritesheet
-          sliceY: 1, // geralmente 1 linha
-          anims: {
-            run: { from: 0, to: 1, loop: true, speed: 8 },
-          },
-        });
-
-        // veiculos do trafego
-        loadSprite("carro_1", "/assets/carro_trafego_1.png");
-        loadSprite("carro_2", "/assets/carro_trafego_2.png");
-        loadSprite("carro_3", "/assets/carro_trafego_3.png");
-        loadSprite("carro_4", "/assets/carro_trafego_4.png");
-        loadSprite("carro_5", "/assets/carro_trafego_5.png");
-        loadSprite("carro_6", "/assets/carro_trafego_6.png");
-        loadSprite("carro_7", "/assets/carro_trafego_7.png");
-        loadSprite("carro_8", "/assets/carro_trafego_8.png");
-
-        loadSprite("moto_1", "/assets/moto_trafego_1.png");
-
-        //loadSprite("carro_vermelho", "/assets/carro_vermelho.png");
-        //loadSprite("van_branca", "/assets/van_branca.png");
-
-        console.log("Todos os sprites carregados com sucesso");
-      } catch (error) {
-        console.error("Erro ao carregar sprites:", error);
-      }
-
+      // ---- DEFINIÇÃO DA CENA PRINCIPAL ----
       scene("main", () => {
-        const speed = 5000;
-
-        const bgScaleX = width() / 1365;
-        const bgScaleY = height() / 762;
-        const bgScale = Math.max(bgScaleX, bgScaleY);
-
-        const bgOffsetY = -height() * 0.15;
-
-        const bg1 = add([
-          sprite("background"),
-          pos(0, bgOffsetY),
-          scale(bgScale),
-          z(0),
-          { speed },
-        ]);
-
-        const bg2 = add([
-          sprite("background"),
-          pos(1365 * bgScale, bgOffsetY),
-          scale(bgScale),
-          z(0),
-          { speed },
-        ]);
-
-        const roadYPosition = height() * 0.48;
-        const baseWidth = 600; // largura de um frame do caminhão
-        const scaleFactor = (width() / baseWidth) * 0.3; // ajusta pelo tamanho da tela mantendo proporção
-
-        const car = add([
-          sprite("car", { anim: "run" }),
-          pos(width() * 0.08, roadYPosition),
-          area(),
-          body(),
-          z(2),
-          scale(scaleFactor),
-        ]);
-
-
-        // ========== INICIO TRAFEGO VEICULOS ========== I
-        const lane_contramao = height() * 0.60;
-        const lane_mesmo_sentido = height() * 0.68;
-
-        // Lista de sprites de carros disponíveis para o tráfego
-        const trafficCarSprites = ["carro_1", "carro_2", "carro_3", "carro_4", "carro_5", "carro_6", "carro_7", "carro_8", "moto_1"];
-
-        // Gerador de carros de tráfego
-        k.loop(k.rand(4, 7), () => {
-            if (gamePaused.current) return;
-
-            if (k.get("traffic_car").length > 0) {
-                return; 
-            }
-
-            const carSprite = k.choose(trafficCarSprites);
-            
-            const carType = k.choose(["ultrapassagem", "contramao"]);
-
-            if (carType === "contramao") {
-                const startX = width() + 150; // Começa fora da tela, à DIREITA
-                const carSpeed = speed * k.rand(0.2, 0.3); // Velocidade alta, somada à do cenário
-                
-                add([
-                    sprite(carSprite, { flipX: true }), 
-                    pos(startX, lane_contramao), // Anda na faixa da contramão
-                    scale(scaleFactor * 1.6), // Um pouco menor por estar mais "distante"
-                    k.move(k.LEFT, carSpeed), // Move para a ESQUERDA
-                    "traffic_car",
-                    z(1),
-                    // Propriedade para identificar o comportamento
-                    { behavior: "contramao" }, 
-                ]);
-
-            } else { // carType === "ultrapassagem"
-
-                const startX = -250; // Começa fora da tela, à ESQUERDA
-                const carSpeed = speed * k.rand(0.05, 0.1);
-                
-                add([
-                    sprite(carSprite, { flipX: false }), // Aponta para a direita (correto)
-                    pos(startX, lane_contramao), // Começa na contramão para ultrapassar
-                    scale(scaleFactor * 1.7),
-                    k.move(k.RIGHT, carSpeed), // Move para a DIREITA
-                    "traffic_car",
-                    z(1),
-                    // Propriedades para controlar o estado
-                    { 
-                        isChangingLane: false,
-                        behavior: "ultrapassagem", // Identifica o comportamento
-                    }, 
-                ]);
-            }
-        });
-
-        // Lógica de atualização e limpeza
-        onUpdate("traffic_car", (trafficCar) => {
-            
-            // a lógica de mudança de faixa agora SÓ se aplica ao carro de ultrapassagem
-            if (trafficCar.behavior === "ultrapassagem" && !trafficCar.isChangingLane && trafficCar.pos.x > (car.pos.x + car.width - 150)) {
-                
-                trafficCar.isChangingLane = true;
-                
-                k.tween(
-                    trafficCar.pos.y,
-                    lane_mesmo_sentido,
-                    0.9,
-                    (newY) => trafficCar.pos.y = newY,
-                    k.easings.easeInOutQuad
-                );
-            }
-
-            // limpeza de carros que saíram da tela
-            if (trafficCar.pos.x < -trafficCar.width || trafficCar.pos.x > width() + trafficCar.width) {
-                destroy(trafficCar);
-            }
-        });
+          const speed = 5000;
         
-        // ========== FIM TRAFEGO VEICULOS ========== I
+          const LARGURA_ORIGINAL_BG = 2048; // Largura correta da sua imagem
+          const ALTURA_ORIGINAL_BG = 762;   // Altura correta
 
-        onUpdate(() => {
-          if (gamePaused.current) {
-            return;
-          }
+          const bgScaleX = width() / LARGURA_ORIGINAL_BG;
+          const bgScaleY = height() / ALTURA_ORIGINAL_BG;
+          const bgScale = Math.max(bgScaleX, bgScaleY);
 
-          const deltaTime = dt();
+          const bgOffsetY = -height() * 0.05;
+          const bgWidth = LARGURA_ORIGINAL_BG * bgScale; // Usa a variável correta
+          
+          let currentBg = 'cidade';
+          let nextBg: 'cidade' | 'terra' | null = null;
+          let backgroundSwitchTimer = rand(15, 25);
+          
+          const bg_cidade_1 = add([ sprite("background_cidade"), pos(0, bgOffsetY), scale(bgScale), z(0), "bg_cidade" ]);
+          const bg_cidade_2 = add([ sprite("background_cidade"), pos(bgWidth, bgOffsetY), scale(bgScale), z(0), "bg_cidade" ]);
+          const bg_terra_1 = add([ sprite("background_terra"), pos(0, bgOffsetY), scale(bgScale), z(0), "bg_terra" ]);
+          const bg_terra_2 = add([ sprite("background_terra"), pos(bgWidth, bgOffsetY), scale(bgScale), z(0), "bg_terra" ]);
+          
+          bg_terra_1.hidden = true;
+          bg_terra_2.hidden = true;
 
-          if (collisionCooldownRef.current > 0) {
-            collisionCooldownRef.current = Math.max(0, collisionCooldownRef.current - deltaTime);
-          }
+          const roadYPosition = height() * 0.48;
+          const baseWidth = 600;
+          const scaleFactor = (width() / baseWidth) * 0.3;
+          
+          const car = add([
+              sprite("car", { anim: "run" }),
+              pos(width() * 0.08, roadYPosition),
+              area(),
+              body(),
+              z(2),
+              scale(scaleFactor),
+          ]);
+          
+          const lane_contramao = height() * 0.60;
+          const lane_mesmo_sentido = height() * 0.68;
+          const trafficCarSprites = ["carro_1", "carro_2", "carro_3", "carro_4", "carro_5", "carro_6", "carro_7", "carro_8", "moto_1"];
+          
+          loop(rand(4, 7), () => {
+              if (gamePaused.current) return;
+              if (get("traffic_car").length > 0) return;
+              
+              const carSprite = choose(trafficCarSprites);
+              const carType = choose(["ultrapassagem", "contramao"]);
+              
+              if (carType === "contramao") {
+                  const startX = width() + 150;
+                  const carSpeed = speed * rand(0.2, 0.3);
+                  add([ sprite(carSprite, { flipX: true }), pos(startX, lane_contramao), scale(scaleFactor * 1.6), move(LEFT, carSpeed), "traffic_car", z(1), { behavior: "contramao" } ]);
+              } else {
+                  const startX = -250;
+                  const carSpeed = speed * rand(0.05, 0.1);
+                  add([ sprite(carSprite, { flipX: false }), pos(startX, lane_contramao), scale(scaleFactor * 1.7), move(RIGHT, carSpeed), "traffic_car", z(1), { isChangingLane: false, behavior: "ultrapassagem" } ]);
+              }
+          });
+          
+          onUpdate("traffic_car", (trafficCar: any) => {
+              if (trafficCar.behavior === "ultrapassagem" && !trafficCar.isChangingLane && trafficCar.pos.x > (car.pos.x + car.width - 150)) {
+                  trafficCar.isChangingLane = true;
+                  tween(trafficCar.pos.y, lane_mesmo_sentido, 0.9, (newY) => trafficCar.pos.y = newY, easings.easeInOutQuad);
+              }
+              if (trafficCar.pos.x < -trafficCar.width || trafficCar.pos.x > width() + trafficCar.width) {
+                  destroy(trafficCar);
+              }
+          });
+          
+          onUpdate(() => {
+              if (gamePaused.current) return;
+              const deltaTime = dt();
+              const moveAmount = -speed * deltaTime;
 
-          const moveAmount = -speed * deltaTime;
+              get("bg_cidade").forEach((bg) => bg.move(moveAmount, 0));
+              get("bg_terra").forEach((bg) => bg.move(moveAmount, 0));
+              
+              if (bg_cidade_1.pos.x + bgWidth <= 0) if (nextBg !== 'cidade') bg_cidade_1.pos.x = bg_cidade_2.pos.x + bgWidth;
+              if (bg_cidade_2.pos.x + bgWidth <= 0) if (nextBg !== 'cidade') bg_cidade_2.pos.x = bg_cidade_1.pos.x + bgWidth;
+              if (bg_terra_1.pos.x + bgWidth <= 0) if (nextBg !== 'terra') bg_terra_1.pos.x = bg_terra_2.pos.x + bgWidth;
+              if (bg_terra_2.pos.x + bgWidth <= 0) if (nextBg !== 'terra') bg_terra_2.pos.x = bg_terra_1.pos.x + bgWidth;
+              
+              if (nextBg) {
+                  const bgsAtuais = get(`bg_${currentBg}`);
+                  if (bgsAtuais.length > 0) {
+                      const ultimoBgAtual = bgsAtuais.sort((a, b) => b.pos.x - a.pos.x)[0];
+                      if (ultimoBgAtual.pos.x + bgWidth < 0) {
+                          console.log(`Transição completa! Novo cenário é ${nextBg}`);
+                          bgsAtuais.forEach(bg => { bg.hidden = true; });
+                          currentBg = nextBg;
+                          nextBg = null;
+                      }
+                  }
+              }
+              
+              backgroundSwitchTimer -= deltaTime;
+              if (backgroundSwitchTimer <= 0 && !nextBg) {
+                  if (currentBg === 'cidade' && rand() < 0.3) {
+                      nextBg = 'terra';
+                      const bgsCidade = get("bg_cidade");
+                      const bgsTerra = get("bg_terra");
+                      const ultimoBgCidade = bgsCidade.sort((a, b) => b.pos.x - a.pos.x)[0];
+                      bg_terra_1.pos.x = ultimoBgCidade.pos.x + bgWidth;
+                      bg_terra_2.pos.x = bg_terra_1.pos.x + bgWidth;
+                      bgsTerra.forEach(bg => { bg.hidden = false; });
+                  } else if (currentBg === 'terra' && rand() < 0.8) {
+                      nextBg = 'cidade';
+                      const bgsTerra = get("bg_terra");
+                      const bgsCidade = get("bg_cidade");
+                      const ultimoBgTerra = bgsTerra.sort((a, b) => b.pos.x - a.pos.x)[0];
+                      bg_cidade_1.pos.x = ultimoBgTerra.pos.x + bgWidth;
+                      bg_cidade_2.pos.x = bg_cidade_1.pos.x + bgWidth;
+                      bgsCidade.forEach(bg => { bg.hidden = false; });
+                  }
+                  backgroundSwitchTimer = rand(15, 25);
+              }
 
-          bg1.move(moveAmount, 0);
-          bg2.move(moveAmount, 0);
-
-          const bgWidth = bg1.width * bgScale;
-
-          if (bg1.pos.x + bgWidth <= 0) {
-            bg1.pos.x = bg2.pos.x + bgWidth;
-          }
-          if (bg2.pos.x + bgWidth <= 0) {
-            bg2.pos.x = bg1.pos.x + bgWidth;
-          }
-
-          const progressPercent = calculatePathProgress(deltaTime);
-          const previousProgress = progressRef.current;
-          progressRef.current = progressPercent;
-
-          // Atualizar progresso mais frequentemente para sincronização suave
-          if (Math.abs(progressPercent - progress) > 0.05) {
-            setProgress(progressPercent);
-          }
-
-          const routeDistance = totalDistance || 500;
-          const progressDelta = progressPercent - previousProgress;
-          const distanceInKm = (progressDelta / 100) * routeDistance;
-
-          // ✅ CORREÇÃO: Melhor controle do consumo de combustível
-          if (distanceInKm > 0) {
-            const consumptionRate = vehicle.consumption?.asphalt || 10;
-            const fuelConsumption = distanceInKm / consumptionRate;
-
-            const updatedFuel = Math.max(0, currentFuel - fuelConsumption);
-            setCurrentFuel(updatedFuel);
-
-            const newGasolinePercent = (updatedFuel / vehicle.maxCapacity) * 100;
-            setGasoline(newGasolinePercent);
-
-            // ✅ CORREÇÃO: Verificar game over com delay para evitar setState durante render
-            if (currentFuel > 0 && updatedFuel <= 0) {
-              requestAnimationFrame(() => {
-                checkGameOver();
-              });
-            }
-          }
-
-          // ============= LÓGICA CORRIGIDA DE GATILHO DE EVENTOS =============
-
-          // ✅ CORREÇÃO: Configurações de evento mais robustas
-          const EVENT_CHECK_INTERVAL_KM = 10 // Aumentado para dar mais espaço
-
-          // ✅ CORREÇÃO: Use progressPercent (valor atualizado) consistentemente
-          const distanciaAtualKm = (progressPercent / 100) * totalDistance;
-
-          // ====== VALIDAÇÕES EXTRAS PARA EVITAR REQUESTS DUPLICADOS ======
-          const canTriggerEvent = (
-            activeGameIdRef.current && // ✅ Partida deve existir no backend
-            !processingEvent.current && // ✅ Não pode haver outro evento sendo processado
-            !gamePaused.current && // ✅ O jogo não pode estar pausado
-            !activeEvent && // ✅ Não pode haver evento ativo no estado React
-            !showPopup && // ✅ Não pode haver popup sendo exibido
-            !fetchNextEventMutation.isPending && // ✅ NOVA: Não pode haver request em andamento
-            distanciaAtualKm - lastEventCheckKm.current >= EVENT_CHECK_INTERVAL_KM // ✅ Distância suficiente
-          );
-
-          if (canTriggerEvent) {
-            lastEventCheckKm.current = distanciaAtualKm;
-
-            console.log(`📍 Checkpoint em ${distanciaAtualKm.toFixed(2)}km. Perguntando ao backend por eventos...`);
-
-            processingEvent.current = true;
-            gamePaused.current = true;
-            fetchNextEventMutation.mutate(distanciaAtualKm);
-          }
-          // ================================================================
-
-        });
-
+              // Lógica de progresso, combustível e eventos...
+              const progressPercent = calculatePathProgress(deltaTime);
+              const previousProgress = progressRef.current;
+              progressRef.current = progressPercent;
+              if (Math.abs(progressPercent - progress) > 0.05) { setProgress(progressPercent); }
+              const routeDistance = totalDistance || 500;
+              const progressDelta = progressPercent - previousProgress;
+              const distanceInKm = (progressDelta / 100) * routeDistance;
+              if (distanceInKm > 0) {
+                const consumptionRate = (currentBg === 'cidade' ? vehicle.consumption.asphalt : vehicle.consumption.dirt) || 10;
+                const fuelConsumption = distanceInKm / consumptionRate;
+                const updatedFuel = Math.max(0, currentFuel - fuelConsumption);
+                setCurrentFuel(updatedFuel);
+                setGasoline((updatedFuel / vehicle.maxCapacity) * 100);
+                if (currentFuel > 0 && updatedFuel <= 0) {
+                  requestAnimationFrame(() => checkGameOver());
+                }
+              }
+              const EVENT_CHECK_INTERVAL_KM = 10;
+              const distanciaAtualKm = (progressPercent / 100) * totalDistance;
+              const canTriggerEvent = ( activeGameIdRef.current && !processingEvent.current && !gamePaused.current && !activeEvent && !showPopup && !fetchNextEventMutation.isPending && distanciaAtualKm - lastEventCheckKm.current >= EVENT_CHECK_INTERVAL_KM );
+              if (canTriggerEvent) {
+                lastEventCheckKm.current = distanciaAtualKm;
+                processingEvent.current = true;
+                gamePaused.current = true;
+                fetchNextEventMutation.mutate(distanciaAtualKm);
+              }
+          });
       });
-
+      
       go("main");
 
+      // Atualiza os estados do React após o fim da inicialização
       setCurrentPathIndex(0);
       currentPathIndexRef.current = 0;
       pathProgressRef.current = 0;
       progressRef.current = 0;
       setProgress(0);
       distanceTravelled.current = 0;
-
       obstacleTimerRef.current = 0;
       gamePaused.current = false;
-
       setGameLoaded(true);
 
-      console.log("✅ Jogo inicializado com sucesso!");
+      console.log("✅ Jogo inicializado e cena 'main' iniciada.");
 
     } catch (error) {
-      console.error("Erro ao inicializar o jogo:", error);
-      setLoadingError(`Erro ao carregar o jogo: ${error}`);
+      console.error("❌ Erro fatal durante a inicialização ou carregamento de sprites:", error);
+      setLoadingError(`Falha ao carregar recursos do jogo. Verifique se todos os arquivos existem na pasta public/assets e se os nomes estão corretos.`);
       setGameLoaded(false);
-      (window as any).__kaboom_initiated__ = false;
+      if ((window as any).__kaboom_initiated__) {
+        (window as any).__kaboom_initiated__ = false;
+      }
     }
   };
-
   // ============= USEEFFECT PRINCIPAL SIMPLIFICADO =============
 
   useEffect(() => {
@@ -744,34 +636,31 @@ export function GameScene() {
       return;
     }
 
-    // Se há savedProgress com activeGameId, reutiliza a partida sem criar nova
-    if (savedProgress && savedProgress.activeGameId) {
-      console.log("🟢 Restaurando partida existente com ID:", savedProgress.activeGameId);
-      setActiveGameId(savedProgress.activeGameId);
-      activeGameIdRef.current = savedProgress.activeGameId;
-
-      // opcional: notificar backend que estamos retomando
-      // await GameService.resumeGame(savedProgress.activeGameId);
-
-      // Agora só inicializa o kaboom com o progresso salvo
-      initializeGame(savedProgress);
-      return;
-    }
-
-    // Inicia a criação da partida no backend
-    createGameMutation.mutateAsync({
-      mapa: route.mapaId,
-      rota: route.id,
-      veiculo: parseInt(selectedVehicle.id, 10) || 1
-    }).then(() => {
-      // Apenas após o sucesso da criação, inicializa o Kaboom.js,
-      // passando os dados do jogo salvo (se existirem).
-      initializeGame(savedProgress);
+    // 1. Inicia o jogo Kaboom IMEDIATAMENTE.
+    // A promessa de 'initializeGame' é resolvida e o jogo começa a carregar.
+    initializeGame(savedProgress).then(() => {
+      console.log("✅ Kaboom.js inicializado com sucesso.");
+      
+      // 2. SÓ DEPOIS que o Kaboom estiver pronto, tentamos criar a partida no backend.
+      // Isso acontece em paralelo, sem travar a tela.
+      if (savedProgress && savedProgress.activeGameId) {
+        console.log("🟢 Restaurando partida existente com ID:", savedProgress.activeGameId);
+        setActiveGameId(savedProgress.activeGameId);
+        activeGameIdRef.current = savedProgress.activeGameId;
+      } else {
+        console.log("📡 Enviando requisição para criar partida no backend...");
+        createGameMutation.mutate({
+          mapa: route.mapaId,
+          rota: route.id,
+          veiculo: parseInt(selectedVehicle.id, 10) || 1
+        });
+      }
     }).catch(error => {
-      console.error("❌ Falha crítica na criação da partida, não inicializando Kaboom", error);
-    });
+        console.error("❌ Falha crítica na inicialização do Kaboom", error);
+        setLoadingError(`Falha ao iniciar o motor gráfico do jogo: ${error.message}`);
+    });    // Função de limpeza quando o componente é desmontado
+    
 
-    // Função de limpeza quando o componente é desmontado
     return () => {
       console.log("🧹 Limpando GameScene ao sair da página...");
       if ((window as any).__kaboom_initiated__) {
