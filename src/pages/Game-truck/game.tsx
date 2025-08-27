@@ -1,4 +1,4 @@
-// src/pages/Game-truck/game.tsx - ARQUIVO COMPLETO CORRIGIDO
+// src/pages/Game-truck/game.tsx - ARQUIVO COMPLETO CORRIGIDO FINAL
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
@@ -86,7 +86,19 @@ export function GameScene() {
   const obstacleSystemLockedRef = useRef(false);
   const handleResizeRef = useRef<(() => void) | null>(null);
 
+  // --- LÓGICA DE TEMPO FINAL - VERSÃO CORRETA ---
+  // Apenas UM estado para o tempo, em segundos. Começa em zero.
   const [gameTime, setGameTime] = useState(0);
+
+  // Fator de aceleração. Se 8h (28800s) devem passar em 20min (1200s):
+  // Fator = 28800 / 1200 = 24.
+  // Cada segundo real vai avançar 24 segundos no relógio do jogo.
+  const FATOR_ACELERACAO_TEMPO = 24;
+
+  const lastFrameTimeRef = useRef(performance.now());
+  const tickTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // ------------------------------------------------
+
   const [finalGameResults, setFinalGameResults] = useState<PartidaData | null>(null);
   const [currentFuel, setCurrentFuel] = useState<number>(location.state?.selectedVehicle?.currentFuel || 0);
   const [totalDistance, setTotalDistance] = useState<number>(500);
@@ -157,19 +169,16 @@ export function GameScene() {
     }
   });
 
-  // === NOVA MUTAÇÃO PARA O TICK (CORAÇÃO DO SISTEMA) ===
+  // A mutação de tick agora SÓ serve para buscar outros dados. ELA NÃO MEXE MAIS NO TEMPO.
   const partidaTickMutation = useMutation({
     mutationFn: (data: { distancia_percorrida: number }) => GameService.partidaTick(data),
     onSuccess: (updatedPartida) => {
-      // Atualiza o estado do frontend com a VERDADE vinda do servidor
-      setGameTime(updatedPartida.tempo_jogo ? updatedPartida.tempo_jogo * 60 : 0); // Converte minutos para segundos
+      // Apenas sincroniza dados que NÃO são o tempo
       setMoney(updatedPartida.saldo);
       setCurrentFuel(updatedPartida.combustivel_atual);
-      // Sincroniza outros estados que precisem ser atualizados
     },
     onError: (error) => {
-      console.error("❌ Erro no tick:", error);
-      // Implementar lógica de reconexão ou pausar o jogo se necessário
+      console.error("Erro no tick:", error);
     }
   });
 
@@ -860,17 +869,38 @@ export function GameScene() {
     }
   }, []);
 
-  // === NOVO useEffect PARA O TICK (SERVIDOR AUTORITATIVO) ===
+  // O useEffect do tick continua o mesmo, mas seu onSuccess foi simplificado.
   useEffect(() => {
-    const tickInterval = setInterval(() => {
+    tickTimerRef.current = setInterval(() => {
       if (!gamePaused.current && !gameEnded && gameLoaded && activeGameIdRef.current) {
         const distanciaAtual = (progressRef.current / 100) * totalDistance;
         partidaTickMutation.mutate({ distancia_percorrida: distanciaAtual });
       }
-    }, 2000); // Envia um tick a cada 2 segundos
+    }, 2000);
 
-    return () => clearInterval(tickInterval);
-  }, [gameEnded, gameLoaded, totalDistance]); // Dependências corretas
+    return () => {
+      if (tickTimerRef.current) clearInterval(tickTimerRef.current);
+    };
+  }, [gameEnded, gameLoaded, totalDistance]);
+
+  // O useEffect da animação é o ÚNICO que controla o tempo.
+  useEffect(() => {
+    let animationFrameId: number;
+
+    const animateClock = (now: number) => {
+      if (!gamePaused.current && !gameEnded) {
+        const deltaTime = (now - lastFrameTimeRef.current) / 1000; // segundos reais
+
+        // A única linha que mexe no tempo.
+        setGameTime(prevTime => prevTime + (deltaTime * FATOR_ACELERACAO_TEMPO));
+      }
+      lastFrameTimeRef.current = now;
+      animationFrameId = requestAnimationFrame(animateClock);
+    };
+
+    animationFrameId = requestAnimationFrame(animateClock);
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [gameEnded]);
 
   // useEffect para finalizar o jogo quando atingir 100%
   useEffect(() => {
@@ -917,10 +947,17 @@ export function GameScene() {
     return false;
   };
 
-  const formatTime = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
+  // A FUNÇÃO DE FORMATAR O TEMPO COM A CORREÇÃO FINAL E DEFINITIVA
+  const formatTime = (totalSeconds: number) => {
+    // 1. CORTA AS CASAS DECIMAIS USANDO Math.floor()
+    const totalSecondsInt = Math.floor(totalSeconds);
+
+    // 2. FAZ OS CÁLCULOS COM O NÚMERO INTEIRO
+    const hours = Math.floor(totalSecondsInt / 3600);
+    const minutes = Math.floor((totalSecondsInt % 3600) / 60);
+    const secs = totalSecondsInt % 60;
+
+    // 3. RETORNA A STRING NO FORMATO HH:MM:SS, SEM NENHUMA CASA DECIMAL
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
