@@ -1,4 +1,4 @@
-// src/pages/Game-truck/game.tsx - ARQUIVO COMPLETO CORRIGIDO FINAL
+// src/pages/Game-truck/game.tsx - VERSÃO FINAL CORRIGIDA
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
@@ -169,13 +169,19 @@ export function GameScene() {
     }
   });
 
-  // A mutação de tick agora SÓ serve para buscar outros dados. ELA NÃO MEXE MAIS NO TEMPO.
+  // ✅ CORREÇÃO: A mutação de tick agora sincroniza TODOS os dados incluindo o tempo
   const partidaTickMutation = useMutation({
     mutationFn: (data: { distancia_percorrida: number }) => GameService.partidaTick(data),
     onSuccess: (updatedPartida) => {
-      // Apenas sincroniza dados que NÃO são o tempo
+      // Sincroniza dados financeiros e combustível
       setMoney(updatedPartida.saldo);
       setCurrentFuel(updatedPartida.combustivel_atual);
+
+      // ✅ CORREÇÃO: SINCRONIZAR O TEMPO COM O SERVIDOR
+      if (updatedPartida.tempo_jogo_segundos !== undefined) {
+        setGameTime(updatedPartida.tempo_jogo_segundos);
+        console.log(`⏱️ Tempo sincronizado via tick: ${updatedPartida.tempo_jogo_segundos}s`);
+      }
     },
     onError: (error) => {
       console.error("Erro no tick:", error);
@@ -261,7 +267,7 @@ export function GameScene() {
     }
   });
 
-  // Mutação para responder ao evento
+  // ✅ CORREÇÃO COMPLETA: Mutação para responder ao evento com sincronização total
   const respondToEventMutation = useMutation({
     mutationFn: (data: { optionId: number; distancia: number }) =>
       GameService.respondToEvent(data.optionId, data.distancia),
@@ -271,15 +277,43 @@ export function GameScene() {
       console.log('📊 Partida atualizada:', {
         saldo: updatedPartida.saldo,
         combustivel: updatedPartida.combustivel_atual,
-        tempo: updatedPartida.tempo_real
+        tempo: updatedPartida.tempo_real,
+        distancia: updatedPartida.distancia_percorrida
       });
 
-      // Sincronizar estado do frontend com a resposta do backend
+      // Sincronizar estado financeiro e combustível
       setMoney(updatedPartida.saldo);
       setCurrentFuel(updatedPartida.combustivel_atual);
 
-      // O tempo agora é controlado exclusivamente pelo tick - não precisamos atualizá-lo aqui
-      // pois o próximo tick já trará o tempo atualizado do servidor
+      // ✅ CORREÇÃO 1: SINCRONIZAR O TEMPO IMEDIATAMENTE
+      if (updatedPartida.tempo_jogo_segundos !== undefined) {
+        setGameTime(updatedPartida.tempo_jogo_segundos);
+        console.log(`⏱️ TEMPO ATUALIZADO APÓS EVENTO: ${updatedPartida.tempo_jogo_segundos}s (${Math.floor(updatedPartida.tempo_jogo_segundos / 60)}min)`);
+      }
+
+      // ✅ CORREÇÃO 2: SINCRONIZAR A DISTÂNCIA E PROGRESSO IMEDIATAMENTE
+      if (updatedPartida.distancia_percorrida !== undefined && totalDistance > 0) {
+        const novoProgresso = Math.min(100, (updatedPartida.distancia_percorrida / totalDistance) * 100);
+
+        // Atualizar todas as referências de progresso
+        const progressoAnterior = progressRef.current;
+        progressRef.current = novoProgresso;
+        setProgress(novoProgresso);
+
+        // Atualizar a distância percorrida
+        distanceTravelled.current = updatedPartida.distancia_percorrida;
+
+        // Log detalhado para debug
+        console.log(`📍 PROGRESSO ATUALIZADO APÓS EVENTO:`);
+        console.log(`   Anterior: ${progressoAnterior.toFixed(2)}%`);
+        console.log(`   Novo: ${novoProgresso.toFixed(2)}%`);
+        console.log(`   Distância: ${updatedPartida.distancia_percorrida}km/${totalDistance}km`);
+
+        // Se houve um salto significativo no progresso (bônus de distância)
+        if (novoProgresso - progressoAnterior > 1) {
+          console.log(`🚀 BÔNUS DE DISTÂNCIA APLICADO: +${(novoProgresso - progressoAnterior).toFixed(2)}% de progresso!`);
+        }
+      }
 
       // Mostrar resultado do evento
       if (data.detail && data.detail !== "Sua decisão foi processada.") {
@@ -354,7 +388,6 @@ export function GameScene() {
       currentPathIndex,
       pathProgress: pathProgressRef.current,
       gameTime,
-      // manualTimeAdjustment REMOVIDO
       timestamp: Date.now(),
       activeGameId: activeGameIdRef.current
     };
@@ -373,7 +406,6 @@ export function GameScene() {
       currentPathIndex,
       pathProgress: pathProgressRef.current,
       gameTime,
-      // manualTimeAdjustment REMOVIDO
       timestamp: Date.now(),
       activeGameId: activeGameIdRef.current
     };
@@ -500,9 +532,6 @@ export function GameScene() {
         loadSprite("carro_8", "/assets/carro_trafego_8.png");
 
         loadSprite("moto_1", "/assets/moto_trafego_1.png");
-
-        //loadSprite("carro_vermelho", "/assets/carro_vermelho.png");
-        //loadSprite("van_branca", "/assets/van_branca.png");
 
         console.log("Todos os sprites carregados com sucesso");
       } catch (error) {
@@ -707,7 +736,7 @@ export function GameScene() {
           if (canTriggerEvent) {
             lastEventCheckKm.current = distanciaAtualKm;
 
-            console.log(`📍 Checkpoint em ${distanciaAtualKm.toFixed(2)}km. Perguntando ao backend por eventos...`);
+            console.log(`🔍 Checkpoint em ${distanciaAtualKm.toFixed(2)}km. Perguntando ao backend por eventos...`);
 
             processingEvent.current = true;
             gamePaused.current = true;
@@ -827,7 +856,7 @@ export function GameScene() {
     const { savedProgress } = location.state || {};
 
     if (savedProgress) {
-      console.log("🔄 Restaurando progresso salvo...");
+      console.log("📄 Restaurando progresso salvo...");
       setCurrentFuel(savedProgress.currentFuel);
       setProgress(savedProgress.progress);
       setCurrentPathIndex(savedProgress.currentPathIndex);
@@ -926,8 +955,6 @@ export function GameScene() {
       return false;
     }
 
-    // REMOVEMOS O IF QUE USAVA gameStartTime
-
     if (currentFuel <= 0) {
       console.log("Game Over: Combustível esgotado - currentFuel:", currentFuel);
       gamePaused.current = true;
@@ -975,7 +1002,7 @@ export function GameScene() {
     const pathCoords = selectedRoute.pathCoordinates;
     const totalSegments = pathCoords.length - 1;
 
-    const targetDurationSeconds = 1200;
+    const targetDurationSeconds = 60;
     const segmentsPerSecond = totalSegments / targetDurationSeconds;
     const segmentSpeed = segmentsPerSecond * deltaTime;
 
@@ -1069,7 +1096,7 @@ export function GameScene() {
           </div>
           {createGameMutation.isPending && (
             <div style={{ fontSize: "12px", marginTop: "5px", color: "#00ff00" }}>
-              🔄 Criando partida no servidor...
+              📄 Criando partida no servidor...
             </div>
           )}
         </div>
@@ -1400,7 +1427,7 @@ export function GameScene() {
               color: "#666",
               fontStyle: "italic"
             }}>
-              🔄 Enviando sua escolha para o servidor...
+              📄 Enviando sua escolha para o servidor...
             </div>
           )}
         </div>
