@@ -304,7 +304,7 @@ export const VehicleSelectionPage = () => {
         <div className="flex justify-between items-center p-4 relative z-10">
           <div className="absolute top-4 left-4">
             <Button
-              onClick={() => navigate(-1)}
+              onClick={() => navigate('/desafio')}
               className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 border border-black rounded-md shadow-md font-['Silkscreen'] h-10"
             >
               ← Voltar
