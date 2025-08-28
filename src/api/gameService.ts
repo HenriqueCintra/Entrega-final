@@ -323,7 +323,13 @@ export const GameService = {
     }
   },
 
-  async syncGameProgress(progressData: { tempo_decorrido_segundos: number }): Promise<PartidaResponse> {
+  async syncGameProgress(progressData: { 
+    tempo_decorrido_segundos: number;
+    combustivel_atual?: number;
+    saldo_atual?: number;
+    distancia_percorrida?: number;
+    forcar_game_over?: boolean;
+  }): Promise<PartidaResponse> {
     console.log('🔄 Sincronizando progresso do jogo...', progressData);
     try {
       const response = await api.post<PartidaResponse>('/jogo1/partidas/sincronizar/', progressData);

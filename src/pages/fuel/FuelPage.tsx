@@ -74,6 +74,13 @@ export const FuelPage: React.FC = () => {
 
       const newBalance = availableMoney - cost;
 
+      console.log("=== DADOS SENDO ENVIADOS PARA GAME ===");
+      console.log("Veículo atualizado:", updatedVehicle);
+      console.log("Combustível do veículo:", updatedVehicle.currentFuel);
+      console.log("Novo saldo:", newBalance);
+      console.log("Rota selecionada:", selectedRoute);
+      console.log("=====================================");
+
       // ATUALIZADO: Passar dados completos incluindo selectedRoute para a GameScene
       navigate('/game', {
         state: {
@@ -90,6 +97,13 @@ export const FuelPage: React.FC = () => {
   };
 
   const handleSkipFuel = () => {
+    console.log("=== DADOS SENDO ENVIADOS PARA GAME (SEM ABASTECER) ===");
+    console.log("Veículo:", selectedVehicle);
+    console.log("Combustível do veículo:", selectedVehicle.currentFuel);
+    console.log("Saldo disponível:", availableBalance);
+    console.log("Rota selecionada:", selectedRoute);
+    console.log("======================================================");
+
     // ATUALIZADO: Navegar para o jogo 2D sem abastecer, mas passando dados completos
     navigate('/game', {
       state: {

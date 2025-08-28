@@ -88,10 +88,16 @@ export interface Route {
     type: 'rest' | 'construction' | 'gas' | 'toll' | 'danger';
   }[];
 
+  // Postos de gasolina
+  fuelStop?:{
+    locationName: string;
+    coordinates:[number, number]
+  }[];
+
   // Custos e coordenadas do percurso
   fuelCostPerKm?: number;
   dangerZonesDetails?: string;
-  pathCoordinates?: [number, number][];
+  pathCoordinates?: number[][];
   actualDistance?: number;
   actualDuration?: number;
 

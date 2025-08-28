@@ -63,6 +63,23 @@ export const recifeRoutes: Route[] = [
         coordinates: [-8.11369016197662, -35.213640052121924] // Coordenada do trajeto próxima a Recife
       }
     ],
+
+    fuelStop: [
+      {
+        locationName: "Posto de Combustível BR-428 Lagoa Grande",
+        coordinates: [-8.990769147116964, -40.267255831665864]
+      },
+      {
+        locationName: "Posto de Combustível BR-428 - Cabrobó",
+        coordinates: [-8.510823117424199, -39.30245492934792]
+      },{
+        locationName: "Posto de Combustível BR-232 - Arcoverde",
+        coordinates: [-8.423505107867827, -37.05310323521806]
+      },{
+        locationName: "Posto de Combustível BR-322 - Caruaru",
+        coordinates: [-8.30305034168899, -35.9764853919906]
+      }
+    ],
     
     fuelCostPerKm: 4.80
   },
@@ -144,6 +161,24 @@ export const recifeRoutes: Route[] = [
         riskLevel: 'Médio'
       }
     ],
+
+    fuelStop: [
+      {
+        locationName: "Posto de Combustível BR-316 Parnamirim",
+        coordinates: [-8.093787736755141, -39.571817974204855]
+      },
+      {
+        locationName: "Posto de Combustível BR-232 Serra Talhada",
+        coordinates: [-7.983431157981043, -38.28121554426697]
+      },{
+        locationName: "Posto de Combustível BR-232 - Arcoverde",
+        coordinates: [-8.423505107867827, -37.05310323521806]
+      },{
+        locationName: "Posto de Combustível BR-322 - Caruaru",
+        coordinates: [-8.30305034168899, -35.9764853919906]
+      }
+    ],
+
     fuelCostPerKm: 5.10
   },
   {
@@ -253,6 +288,25 @@ export const recifeRoutes: Route[] = [
         description: "Estradas secundárias com risco de roubos de carga",
         coordinates: [-8.740447, -36.430714], // Coordenada real do path da rota 3
         riskLevel: 'Alto'
+      }
+    ],
+    fuelStop: [
+      {
+        locationName: "Posto de Combustível BR-210 Curaçá",
+        coordinates: [-8.996053994082077, -39.891206384410026]
+      },
+      {
+        locationName: "Posto de Combustível BR-316 Belém do São Francisco",
+        coordinates: [-8.746924816077652, -38.95351772288374]
+      },{
+        locationName: "Posto de Combustível BR-423 Águas Belas",
+        coordinates: [-9.129879204614392, -37.108644218193405]
+      },{
+        locationName: "Posto de Combustível BR-432 Garanhuns",
+        coordinates: [-8.871632279165526, -36.466459320747575]
+      },{
+        locationName: "Posto de Combustível BR-322 - Caruaru",
+        coordinates: [-8.30305034168899, -35.9764853919906]
       }
     ],
     fuelCostPerKm: 5.20, // Maior custo devido à baixa eficiência em estradas ruins

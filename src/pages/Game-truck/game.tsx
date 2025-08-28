@@ -13,7 +13,13 @@ import { GameService } from "../../api/gameService";
 import { PixelProgressBar } from "../../components/PixelProgressBar/PixelProgressBar";
 import '../../components/PixelProgressBar/PixelProgressBar.css';
 import type {
-  GameObj
+  GameObj,
+  SpriteComp,
+  PosComp,
+  ZComp,
+  AreaComp,
+  BodyComp,
+  ScaleComp
 } from "kaboom";
 
 // Interface para eventos vindos da API
@@ -50,7 +56,7 @@ export function GameScene() {
   const navigate = useNavigate();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [showPopup, setShowPopup] = useState(false);
-
+  const [playerChoice, setPlayerChoice] = useState<string | null>(null);
   const [isPaused, setIsPaused] = useState(false);
   const gamePaused = useRef(false);
   const collidedObstacle = useRef<GameObj | null>(null);
@@ -82,21 +88,18 @@ export function GameScene() {
 
   const [gameTime, setGameTime] = useState(0);
   const [finalGameResults, setFinalGameResults] = useState<PartidaData | null>(null);
-  const [currentFuel, setCurrentFuel] = useState<number>(location.state?.selectedVehicle?.currentFuel || 0);
+  const [currentFuel, setCurrentFuel] = useState<number>(() => {
+    const fuel = location.state?.selectedVehicle?.currentFuel || 0;
+    return fuel;
+  });
   // ✅ CORREÇÃO: Ref para manter valor atual do combustível no loop do Kaboom
   const currentFuelRef = useRef<number>(location.state?.selectedVehicle?.currentFuel || 0);
   const [totalDistance, setTotalDistance] = useState<number>(500);
 
   // ✅ CORREÇÃO: Função helper para atualizar combustível (estado + ref)
   const updateCurrentFuel = useCallback((newFuel: number) => {
-    console.log(`🔄 updateCurrentFuel: ${currentFuelRef.current.toFixed(1)}L → ${newFuel.toFixed(1)}L`);
     setCurrentFuel(newFuel);
     currentFuelRef.current = newFuel;
-    
-    // ✅ DEBUG: Verificar se chegou a zero
-    if (newFuel <= 0) {
-      console.log("🚨 ALERTA: Combustível zerado via updateCurrentFuel!");
-    }
   }, []);
 
   const [showMapModal, setShowMapModal] = useState(false);
@@ -118,7 +121,9 @@ export function GameScene() {
 
   const [money, setMoney] = useState(() => {
     const money = location.state?.availableMoney;
-    console.log("Dinheiro recebido:", money);
+    console.log("💰 Inicializando dinheiro - valor recebido:", money);
+    console.log("💰 Tipo do valor:", typeof money);
+    console.log("💰 Valor final usado:", money !== undefined ? money : 1000);
     return money !== undefined ? money : 1000;
   });
 
@@ -131,12 +136,20 @@ export function GameScene() {
   useEffect(() => {
     console.log("🎮 GameScene montado com estado:", {
       vehicle: location.state?.selectedVehicle?.name,
+      vehicleFuel: location.state?.selectedVehicle?.currentFuel,
       route: location.state?.selectedRoute?.name,
       hasPathCoordinates: !!location.state?.selectedRoute?.pathCoordinates,
       pathCoordinatesLength: location.state?.selectedRoute?.pathCoordinates?.length || 0,
       money: location.state?.availableMoney,
       savedProgress: !!location.state?.savedProgress
     });
+
+    console.log("=== ESTADO COMPLETO RECEBIDO NO GAME ===");
+    console.log("location.state completo:", location.state);
+    console.log("selectedVehicle:", location.state?.selectedVehicle);
+    console.log("availableMoney:", location.state?.availableMoney);
+    console.log("selectedRoute:", location.state?.selectedRoute);
+    console.log("=======================================");
   }, []);
 
   // ============= MUTAÇÕES PARA COMUNICAÇÃO COM A API =============
@@ -157,12 +170,31 @@ export function GameScene() {
       setActiveGameId(partida.id);           // Atualiza o estado para a UI do React
       activeGameIdRef.current = partida.id;  // Atualiza a ref para o loop do Kaboom
 
-      // Sincronizar estados do frontend com os valores iniciais do backend
-      setMoney(partida.saldo);
-      updateCurrentFuel(partida.combustivel_atual);
+      // ✅ CORREÇÃO: Sincronizar apenas se os valores do frontend forem inválidos
+      
+      // Só atualizar se os valores do frontend forem inválidos (0 ou undefined)
+      if (money === 0 || money === undefined || money === 1000) {
+        setMoney(partida.saldo);
+      }
 
-      console.log('💰 Estado sincronizado - Saldo:', partida.saldo, 'Combustível:', partida.combustivel_atual);
+      if (currentFuelRef.current === 0 || currentFuelRef.current === undefined) {
+        updateCurrentFuel(partida.combustivel_atual);
+      }
+
       console.log('🔗 activeGameIdRef definido como:', activeGameIdRef.current);
+
+      // ✅ CORREÇÃO CRÍTICA: Verificar se combustível é zero após criar partida
+      if (currentFuelRef.current <= 0) {
+        // Pausar o jogo imediatamente
+        gamePaused.current = true;
+        
+        // Aguardar um pequeno delay para garantir que a partida foi criada
+        setTimeout(() => {
+          if (!isFinishing.current) {
+            checkGameOver();
+          }
+        }, 500); // 500ms de delay para garantir que a partida foi completamente criada
+      }
     },
     onError: (error) => {
       console.error('❌ Erro ao criar partida:', error);
@@ -329,13 +361,22 @@ export function GameScene() {
 
   // ============= FUNÇÕES ORIGINAIS MANTIDAS =============
   const syncGameMutation = useMutation({
-    mutationFn: (progressData: { tempo_decorrido_segundos: number }) =>
-      GameService.syncGameProgress(progressData),
+    mutationFn: (progressData: { 
+      tempo_decorrido_segundos: number;
+      combustivel_atual?: number;
+      saldo_atual?: number;
+      distancia_percorrida?: number;
+      forcar_game_over?: boolean;
+    }) => GameService.syncGameProgress(progressData),
     onSuccess: (updatedPartida: PartidaData) => {
       console.log("✅ Progresso sincronizado!", updatedPartida);
+      console.log("📊 Status da partida:", updatedPartida.status);
+      console.log("🏆 Resultado da partida:", updatedPartida.resultado);
+      console.log("💾 Partida salva no banco com ID:", updatedPartida.id);
 
       if (updatedPartida.status === 'concluido') {
         console.log("🏁 PARTIDA FINALIZADA! Resultados:", updatedPartida);
+        console.log("🎯 Motivo da finalização:", updatedPartida.motivo_finalizacao);
         setFinalGameResults(updatedPartida);
         setGameEnded(true);
         setShowEndMessage(true);
@@ -417,7 +458,6 @@ export function GameScene() {
     
     // ✅ CORREÇÃO: Enviar combustível atual para evitar dessincronia
     const combustivelAtual = currentFuelRef.current;
-    console.log("⛽ Enviando combustível atual com resposta do evento:", combustivelAtual);
     
     respondToEventMutation.mutate({ 
       optionId, 
@@ -425,38 +465,23 @@ export function GameScene() {
     });
   };
 
-  // ============= USEEFFECT PRINCIPAL COM PROTEÇÃO CONTRA STRICTMODE =============
 
-  // ============= FUNÇÃO INITIALIZEGAME MOVIDA PARA FORA =============
-
-  const initializeGame = (savedProgress?: any) => {
-    // REMOVIDO: verificações de gameInitialized - isso é controlado no useEffect!
-
-    if (!vehicle || !vehicle.name) {
-      console.error("Dados do veículo não encontrados");
+  const initializeGame = async (savedProgress?: any) => {
+    // Verificações iniciais para garantir que o ambiente está pronto
+    if (!vehicle || !vehicle.name || !vehicle.spriteSheet) {
+      console.error("Dados do veículo incompletos ou não encontrados. Verifique o fallback e a navegação.", vehicle);
+      setLoadingError("Dados do veículo incompletos para iniciar o jogo.");
       return;
     }
-
     if (!canvasRef.current) {
-      console.error("Canvas não encontrado, tentando novamente...");
       setTimeout(() => initializeGame(savedProgress), 100);
       return;
     }
-
-    console.log("Canvas encontrado:", canvasRef.current);
-
-    if (!document.contains(canvasRef.current)) {
-      console.error("Canvas não está no DOM, aguardando...");
-      setTimeout(() => initializeGame(savedProgress), 100);
-      return;
-    }
-
     if ((window as any).__kaboom_initiated__) {
       (window as any).__kaboom_initiated__ = false;
     }
 
-    console.log("Inicializando jogo com veículo:", vehicle.name, "Imagem:", vehicle.image);
-    console.log("Combustível atual no início:", currentFuel);
+    console.log("Iniciando jogo com veículo:", vehicle.name, "Sprite Sheet:", vehicle.spriteSheet);
 
     handleResizeRef.current = () => {
       if (canvasRef.current) {
@@ -466,14 +491,7 @@ export function GameScene() {
     };
 
     try {
-      setGameLoaded(false);
-      setLoadingError(null);
-
-      const testContext = canvasRef.current!.getContext('webgl') || canvasRef.current!.getContext('experimental-webgl');
-      if (!testContext) {
-        throw new Error("WebGL não suportado neste navegador");
-      }
-
+      // A tela de loading já está ativa, aqui preparamos a instância do Kaboom
       const k = kaboom({
         canvas: canvasRef.current!,
         width: window.innerWidth,
@@ -485,90 +503,148 @@ export function GameScene() {
       window.addEventListener('resize', handleResizeRef.current!);
       (window as any).__kaboom_initiated__ = true;
 
-              const {
-        loadSprite,
-        scene,
-        go,
-        add,
-        sprite,
-        pos,
-        area,
-        body,
-        width,
-        height,
-        dt,
-        onUpdate,
-        z,
-        scale,
-        destroy,
+      const {
+        loadSprite, scene, go, add, sprite, pos, area, body, width,
+        height, dt, onUpdate, z, scale, destroy, get, loop, rand, choose,
+        move, tween, easings, LEFT, RIGHT, camScale, camPos, vec2, opacity
       } = k;
 
       destroyRef.current = destroy;
 
-      try {
-        console.log("Tentando carregar sprites...");
-        loadSprite("background", "/assets/backgroundd.png");
+      // ---- CARREGAMENTO SEGURO DE TODOS OS SPRITES ----
+      console.log("Iniciando carregamento de todos os sprites...");
 
-        const vehicleImageUrl = getVehicleImageUrl(vehicle.spriteSheet);
-        console.log("Imagem original do veículo:", vehicle.image);
-        console.log("URL convertida para kaboom:", vehicleImageUrl);
+      await Promise.all([
+        loadSprite("background_cidade", "/assets/background-cidade.png"),
+        loadSprite("background_terra", "/assets/background-terra.png"),
+        loadSprite("car", vehicle.spriteSheet, {
+          sliceX: 2,
+          sliceY: 1,
+          anims: { run: { from: 0, to: 1, loop: true, speed: 8 } },
+        }),
+        loadSprite("carro_1", "/assets/carro_trafego_1.png"),
+        loadSprite("carro_2", "/assets/carro_trafego_2.png"),
+        loadSprite("carro_3", "/assets/carro_trafego_3.png"),
+        loadSprite("carro_4", "/assets/carro_trafego_4.png"),
+        loadSprite("carro_5", "/assets/carro_trafego_5.png"),
+        loadSprite("carro_6", "/assets/carro_trafego_6.png"),
+        loadSprite("carro_7", "/assets/carro_trafego_7.png"),
+        loadSprite("carro_8", "/assets/carro_trafego_8.png"),
+        loadSprite("moto_1", "/assets/moto_trafego_1.png"),
+      ]);
 
-        loadSprite("car", vehicleImageUrl, {
-          sliceX: 2, // número de colunas (quadros) no spritesheet
-          sliceY: 1, // geralmente 1 linha
-          anims: {
-            run: { from: 0, to: 1, loop: true, speed: 8 },
-          },
-        });
+      console.log("✅ Todos os sprites foram COMPLETAMENTE carregados.");
 
-        // veiculos do trafego
-        loadSprite("carro_1", "/assets/carro_trafego_1.png");
-        loadSprite("carro_2", "/assets/carro_trafego_2.png");
-        loadSprite("carro_3", "/assets/carro_trafego_3.png");
-        loadSprite("carro_4", "/assets/carro_trafego_4.png");
-        loadSprite("carro_5", "/assets/carro_trafego_5.png");
-        loadSprite("carro_6", "/assets/carro_trafego_6.png");
-        loadSprite("carro_7", "/assets/carro_trafego_7.png");
-        loadSprite("carro_8", "/assets/carro_trafego_8.png");
-
-        loadSprite("moto_1", "/assets/moto_trafego_1.png");
-
-        //loadSprite("carro_vermelho", "/assets/carro_vermelho.png");
-        //loadSprite("van_branca", "/assets/van_branca.png");
-
-        console.log("Todos os sprites carregados com sucesso");
-      } catch (error) {
-        console.error("Erro ao carregar sprites:", error);
-      }
-
+      // ---- DEFINIÇÃO DA CENA PRINCIPAL ----
       scene("main", () => {
         const speed = 5000;
 
-        const bgScaleX = width() / 1365;
-        const bgScaleY = height() / 762;
+        const LARGURA_ORIGINAL_BG = 2048; // Largura correta da sua imagem
+        const ALTURA_ORIGINAL_BG = 762;   // Altura correta
+
+        const bgScaleX = width() / LARGURA_ORIGINAL_BG;
+        const bgScaleY = height() / ALTURA_ORIGINAL_BG;
         const bgScale = Math.max(bgScaleX, bgScaleY);
 
-        const bgOffsetY = -height() * 0.15;
+        const bgOffsetY = -height() * 0.05;
+        const bgWidth = LARGURA_ORIGINAL_BG * bgScale; // Usa a variável correta
 
-        const bg1 = add([
-          sprite("background"),
-          pos(0, bgOffsetY),
-          scale(bgScale),
-          z(0),
-          { speed },
-        ]);
+        let currentBg = 'cidade';
+        let nextBg: 'cidade' | 'terra' | null = null;
+        let backgroundSwitchTimer = rand(2, 4);
+        let transitionProgress = 0; // 0 = apenas atual, 1 = apenas próximo
+        let isTransitioning = false;
+        let transitionCooldown = 0; // Pequena pausa após transição para estabilizar
+        const TRANSITION_DURATION = 5; // segundos para completar a transição
+        const COOLDOWN_DURATION = 0.1; // 100ms de pausa após transição
 
-        const bg2 = add([
-          sprite("background"),
-          pos(1365 * bgScale, bgOffsetY),
-          scale(bgScale),
-          z(0),
-          { speed },
-        ]);
+        const ZOOM_CONFIG = {
+          MAX_ZOOM: 1.5,      // AJUSTE AQUI: O nível máximo de zoom (1.5 = 150%)
+          LEAD_IN_TIME: 0.5,  // AJUSTE AQUI: Segundos que o zoom começa ANTES do fade
+          LEAD_OUT_TIME: 1.0, // AJUSTE AQUI: Segundos que o zoom continua DEPOIS do fade
+        };
+        const ZOOM_TOTAL_DURATION = ZOOM_CONFIG.LEAD_IN_TIME + TRANSITION_DURATION + ZOOM_CONFIG.LEAD_OUT_TIME;
+
+        // Função para suavizar a transição (ease-in-out)
+        const easeInOutCubic = (t: number): number => {
+          return t < 0.5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1;
+        };
+
+        // ========== SISTEMA DE ZOOM CINEMATOGRÁFICO ==========
+        let zoomEffect = {
+          isActive: false,
+          progress: 0,
+          // ✅ MUDANÇA: Usa a nova duração total calculada
+          duration: ZOOM_TOTAL_DURATION,
+          // ✅ MUDANÇA: Usa o novo nível de zoom da configuração
+          maxZoom: ZOOM_CONFIG.MAX_ZOOM,
+          originalZoom: 1.0,
+        };
+
+        // Função para aplicar zoom cinematográfico CORRIGIDA
+        const applyZoomEffect = () => {
+          if (!zoomEffect.isActive) return;
+
+          zoomEffect.progress += dt() / zoomEffect.duration;
+          let currentZoom = zoomEffect.originalZoom;
+
+          // Atingimos o final do efeito
+          if (zoomEffect.progress >= 1.0) {
+            zoomEffect.isActive = false;
+            zoomEffect.progress = 0;
+
+            // Restaura a câmera para o estado padrão
+            camScale(vec2(1.0));
+            camPos(k.center());
+
+            console.log("🎬 Efeito de zoom de transição finalizado!");
+            return;
+          }
+
+          // ✅ NOVA LÓGICA DE ZOOM: Sem pausa no meio
+          if (zoomEffect.progress < 0.5) {
+            // FASE 1: ZOOM IN (da metade 0% a 50% do tempo)
+            // 't' vai de 0 a 1 durante a primeira metade do progresso
+            const t = zoomEffect.progress / 0.5;
+            currentZoom = zoomEffect.originalZoom + (zoomEffect.maxZoom - zoomEffect.originalZoom) * easeInOutCubic(t);
+          } else {
+            // FASE 2: ZOOM OUT (da metade 50% a 100% do tempo)
+            // 't' vai de 0 a 1 durante a segunda metade do progresso
+            const t = (zoomEffect.progress - 0.5) / 0.5;
+            currentZoom = zoomEffect.maxZoom - (zoomEffect.maxZoom - zoomEffect.originalZoom) * easeInOutCubic(t);
+          }
+
+          // Aplica o zoom
+          camScale(vec2(currentZoom));
+
+          // Calcula a posição correta da câmera para focar embaixo (mesma lógica de antes)
+          const centerX = width() / 2;
+          const centerY = height() / 2;
+          const yOffset = (centerY * 0.5) * (currentZoom - 1);
+          // NOVO: Calcula o deslocamento horizontal para a esquerda
+          const xOffset = (centerX * -0.9) * (currentZoom - 1);
+
+          // MUDANÇA: Define a nova posição da câmera com AMBOS os deslocamentos
+          camPos(centerX + xOffset, centerY + yOffset);
+        };
+
+
+        // Função para iniciar o efeito de zoom
+        const startZoomEffect = () => {
+          console.log("🎬 Iniciando efeito de zoom cinematográfico!");
+          zoomEffect.isActive = true;
+          zoomEffect.progress = 0;
+        };
+
+        // Criar backgrounds com opacity inicial
+        const bg_cidade_1 = add([sprite("background_cidade"), pos(0, bgOffsetY), scale(bgScale), z(0), "bg_cidade", opacity(1)]);
+        const bg_cidade_2 = add([sprite("background_cidade"), pos(bgWidth, bgOffsetY), scale(bgScale), z(0), "bg_cidade", opacity(1)]);
+        const bg_terra_1 = add([sprite("background_terra"), pos(0, bgOffsetY), scale(bgScale), z(0), "bg_terra", opacity(0)]);
+        const bg_terra_2 = add([sprite("background_terra"), pos(bgWidth, bgOffsetY), scale(bgScale), z(0), "bg_terra", opacity(0)]);
 
         const roadYPosition = height() * 0.48;
-        const baseWidth = 600; // largura de um frame do caminhão
-        const scaleFactor = (width() / baseWidth) * 0.3; // ajusta pelo tamanho da tela mantendo proporção
+        const baseWidth = 600;
+        const scaleFactor = (width() / baseWidth) * 0.3;
 
         const car = add([
           sprite("car", { anim: "run" }),
@@ -579,145 +655,165 @@ export function GameScene() {
           scale(scaleFactor),
         ]);
 
-
-        // ========== INICIO TRAFEGO VEICULOS ========== I
         const lane_contramao = height() * 0.60;
         const lane_mesmo_sentido = height() * 0.68;
-
-        // Lista de sprites de carros disponíveis para o tráfego
         const trafficCarSprites = ["carro_1", "carro_2", "carro_3", "carro_4", "carro_5", "carro_6", "carro_7", "carro_8", "moto_1"];
 
-        // Gerador de carros de tráfego
-        k.loop(k.rand(4, 7), () => {
-            if (gamePaused.current) return;
+        loop(rand(4, 7), () => {
+          if (gamePaused.current) return;
+          if (get("traffic_car").length > 0) return;
 
-            if (k.get("traffic_car").length > 0) {
-                return; 
-            }
+          const carSprite = choose(trafficCarSprites);
+          const carType = choose(["ultrapassagem", "contramao"]);
 
-            const carSprite = k.choose(trafficCarSprites);
-            
-            const carType = k.choose(["ultrapassagem", "contramao"]);
-
-            if (carType === "contramao") {
-                const startX = width() + 150; // Começa fora da tela, à DIREITA
-                const carSpeed = speed * k.rand(0.2, 0.3); // Velocidade alta, somada à do cenário
-                
-                add([
-                    sprite(carSprite, { flipX: true }), 
-                    pos(startX, lane_contramao), // Anda na faixa da contramão
-                    scale(scaleFactor * 1.6), // Um pouco menor por estar mais "distante"
-                    k.move(k.LEFT, carSpeed), // Move para a ESQUERDA
-                    "traffic_car",
-                    z(1),
-                    // Propriedade para identificar o comportamento
-                    { behavior: "contramao" }, 
-                ]);
-
-            } else { // carType === "ultrapassagem"
-
-                const startX = -250; // Começa fora da tela, à ESQUERDA
-                const carSpeed = speed * k.rand(0.05, 0.1);
-                
-                add([
-                    sprite(carSprite, { flipX: false }), // Aponta para a direita (correto)
-                    pos(startX, lane_contramao), // Começa na contramão para ultrapassar
-                    scale(scaleFactor * 1.7),
-                    k.move(k.RIGHT, carSpeed), // Move para a DIREITA
-                    "traffic_car",
-                    z(1),
-                    // Propriedades para controlar o estado
-                    { 
-                        isChangingLane: false,
-                        behavior: "ultrapassagem", // Identifica o comportamento
-                    }, 
-                ]);
-            }
+          if (carType === "contramao") {
+            const startX = width() + 150;
+            const carSpeed = speed * rand(0.2, 0.3);
+            add([sprite(carSprite, { flipX: true }), pos(startX, lane_contramao), scale(scaleFactor * 1.6), move(LEFT, carSpeed), "traffic_car", z(1), { behavior: "contramao" }]);
+          } else {
+            const startX = -250;
+            const carSpeed = speed * rand(0.05, 0.1);
+            add([sprite(carSprite, { flipX: false }), pos(startX, lane_contramao), scale(scaleFactor * 1.7), move(RIGHT, carSpeed), "traffic_car", z(1), { isChangingLane: false, behavior: "ultrapassagem" }]);
+          }
         });
 
-        // Lógica de atualização e limpeza
-        onUpdate("traffic_car", (trafficCar) => {
-            
-            // a lógica de mudança de faixa agora SÓ se aplica ao carro de ultrapassagem
-            if (trafficCar.behavior === "ultrapassagem" && !trafficCar.isChangingLane && trafficCar.pos.x > (car.pos.x + car.width - 150)) {
-                
-                trafficCar.isChangingLane = true;
-                
-                k.tween(
-                    trafficCar.pos.y,
-                    lane_mesmo_sentido,
-                    0.9,
-                    (newY) => trafficCar.pos.y = newY,
-                    k.easings.easeInOutQuad
-                );
-            }
-
-            // limpeza de carros que saíram da tela
-            if (trafficCar.pos.x < -trafficCar.width || trafficCar.pos.x > width() + trafficCar.width) {
-                destroy(trafficCar);
-            }
+        onUpdate("traffic_car", (trafficCar: any) => {
+          if (trafficCar.behavior === "ultrapassagem" && !trafficCar.isChangingLane && trafficCar.pos.x > (car.pos.x + car.width - 150)) {
+            trafficCar.isChangingLane = true;
+            tween(trafficCar.pos.y, lane_mesmo_sentido, 0.9, (newY) => trafficCar.pos.y = newY, easings.easeInOutQuad);
+          }
+          if (trafficCar.pos.x < -trafficCar.width || trafficCar.pos.x > width() + trafficCar.width) {
+            destroy(trafficCar);
+          }
         });
-        
-        // ========== FIM TRAFEGO VEICULOS ========== I
 
         onUpdate(() => {
-          // ✅ CRÍTICO: Verificar game over ANTES da verificação de pausa
-          if (currentFuelRef.current <= 0 && !isFinishing.current) {
-            console.log("🚨 LOOP PRINCIPAL: Combustível esgotado!");
-            console.log(`🔍 Estado: currentFuel=${currentFuelRef.current}, isFinishing=${isFinishing.current}, gamePaused=${gamePaused.current}`);
-            requestAnimationFrame(() => {
-              checkGameOver();
-            });
-            return; // Para o loop para evitar processamento adicional
-          }
-
-          if (gamePaused.current) {
-            return;
-          }
-
+          if (gamePaused.current) return;
           const deltaTime = dt();
-
-          if (collisionCooldownRef.current > 0) {
-            collisionCooldownRef.current = Math.max(0, collisionCooldownRef.current - deltaTime);
-          }
-
           const moveAmount = -speed * deltaTime;
 
-          bg1.move(moveAmount, 0);
-          bg2.move(moveAmount, 0);
+          // ✨ APLICAR EFEITO DE ZOOM
+          applyZoomEffect();
 
-          const bgWidth = bg1.width * bgScale;
+          get("bg_cidade").forEach((bg) => bg.move(moveAmount, 0));
+          get("bg_terra").forEach((bg) => bg.move(moveAmount, 0));
 
-          if (bg1.pos.x + bgWidth <= 0) {
-            bg1.pos.x = bg2.pos.x + bgWidth;
+          // Gerenciar cooldown
+          if (transitionCooldown > 0) {
+            transitionCooldown -= deltaTime;
           }
-          if (bg2.pos.x + bgWidth <= 0) {
-            bg2.pos.x = bg1.pos.x + bgWidth;
+
+          // Garantir que sempre temos um background visível quando não há transição (apenas na inicialização)
+          if (!isTransitioning && !nextBg && transitionProgress === 0 && transitionCooldown <= 0) {
+            get(`bg_${currentBg}`).forEach(bg => {
+              if (bg.opacity !== 1) bg.opacity = 1;
+            });
+            const otherBg = currentBg === 'cidade' ? 'terra' : 'cidade';
+            get(`bg_${otherBg}`).forEach(bg => {
+              if (bg.opacity !== 0) bg.opacity = 0;
+            });
           }
 
+          if (bg_cidade_1.pos.x + bgWidth <= 0) if (nextBg !== 'cidade') bg_cidade_1.pos.x = bg_cidade_2.pos.x + bgWidth;
+          if (bg_cidade_2.pos.x + bgWidth <= 0) if (nextBg !== 'cidade') bg_cidade_2.pos.x = bg_cidade_1.pos.x + bgWidth;
+          if (bg_terra_1.pos.x + bgWidth <= 0) if (nextBg !== 'terra') bg_terra_1.pos.x = bg_terra_2.pos.x + bgWidth;
+          if (bg_terra_2.pos.x + bgWidth <= 0) if (nextBg !== 'terra') bg_terra_2.pos.x = bg_terra_1.pos.x + bgWidth;
+
+          // Sistema de transição suave com opacity
+          if (isTransitioning && nextBg) {
+            transitionProgress += deltaTime / TRANSITION_DURATION;
+
+            if (transitionProgress >= 1) {
+              // Transição completa - aplicar estado final de uma só vez
+              transitionProgress = 0; // Reset para próxima transição
+              isTransitioning = false;
+
+              // Trocar os backgrounds de forma direta
+              const newCurrentBg = nextBg;
+              const oldBg = currentBg;
+
+              // Aplicar opacities finais
+              get(`bg_${newCurrentBg}`).forEach(bg => { bg.opacity = 1; });
+              get(`bg_${oldBg}`).forEach(bg => { bg.opacity = 0; });
+
+              currentBg = newCurrentBg;
+              nextBg = null;
+              transitionCooldown = COOLDOWN_DURATION; // Iniciar cooldown
+
+              console.log(`Transição suave completa! Novo cenário é ${currentBg}`);
+              console.log("Estado final - Cidade opacity:", get("bg_cidade")[0]?.opacity, "Terra opacity:", get("bg_terra")[0]?.opacity);
+            }
+
+            // Aplicar opacity gradual com curva suave (apenas se ainda estivermos transitioning)
+            if (isTransitioning && nextBg) {
+              const easedProgress = easeInOutCubic(transitionProgress);
+              const currentOpacity = 1 - easedProgress;
+              const nextOpacity = easedProgress;
+
+              get(`bg_${currentBg}`).forEach(bg => { bg.opacity = currentOpacity; });
+              get(`bg_${nextBg}`).forEach(bg => { bg.opacity = nextOpacity; });
+            }
+          }
+
+          backgroundSwitchTimer -= deltaTime;
+          if (backgroundSwitchTimer <= 0 && !nextBg && !isTransitioning) {
+            const shouldSwitchToTerra = (currentBg === 'cidade' && rand() < 0.3);
+            const shouldSwitchToCidade = (currentBg === 'terra' && rand() < 0.8);
+
+            if (shouldSwitchToTerra || shouldSwitchToCidade) {
+
+              // ✅ PASSO 1: Inicia o zoom IMEDIATAMENTE
+              startZoomEffect();
+
+              // ✅ PASSO 2: Espera o tempo de "LEAD_IN" para iniciar o FADE do background
+              k.wait(ZOOM_CONFIG.LEAD_IN_TIME, () => {
+                if (shouldSwitchToTerra) {
+                  nextBg = 'terra';
+                  // ... código para posicionar o background de terra ...
+                  bg_terra_1.pos.x = 0;
+                  bg_terra_2.pos.x = bgWidth;
+                  console.log("🎬 Iniciando FADE: cidade → terra");
+                } else if (shouldSwitchToCidade) {
+                  nextBg = 'cidade';
+                  // ... código para posicionar o background de cidade ...
+                  bg_cidade_1.pos.x = 0;
+                  bg_cidade_2.pos.x = bgWidth;
+                  console.log("🎬 Iniciando FADE: terra → cidade");
+                }
+
+                isTransitioning = true;
+                transitionProgress = 0;
+              });
+
+              backgroundSwitchTimer = rand(15, 25);
+            }
+          }
+          // Lógica de progresso, combustível e eventos...
           const progressPercent = calculatePathProgress(deltaTime);
           const previousProgress = progressRef.current;
           progressRef.current = progressPercent;
-
-          // Atualizar progresso mais frequentemente para sincronização suave
-          if (Math.abs(progressPercent - progress) > 0.05) {
-            setProgress(progressPercent);
-          }
-
+          if (Math.abs(progressPercent - progress) > 0.05) { setProgress(progressPercent); }
           const routeDistance = totalDistance || 500;
           const progressDelta = progressPercent - previousProgress;
           const distanceInKm = (progressDelta / 100) * routeDistance;
 
+          // ✅ VERIFICAÇÃO ADICIONAL: Game over por combustível esgotado
+          if (currentFuelRef.current <= 0 && !isFinishing.current && !gameEnded && activeGameIdRef.current) {
+            gamePaused.current = true;
+            requestAnimationFrame(() => {
+              checkGameOver();
+            });
+            return; // Parar o loop se o combustível acabou
+          }
+
           // ✅ CORREÇÃO: Melhor controle do consumo de combustível usando ref
           if (distanceInKm > 0) {
-            const consumptionRate = vehicle.consumption?.asphalt || 10;
+            const consumptionRate = (currentBg === 'cidade' ? vehicle.consumption.asphalt : vehicle.consumption.dirt) || 10;
             const fuelConsumption = distanceInKm / consumptionRate;
 
             const currentFuelValue = currentFuelRef.current; // ✅ Usar ref em vez do estado
             const calculatedFuel = currentFuelValue - fuelConsumption;
             const updatedFuel = Math.max(0, calculatedFuel);
-            
-            console.log(`🔍 Cálculo combustível: ${currentFuelValue.toFixed(1)} - ${fuelConsumption.toFixed(2)} = ${calculatedFuel.toFixed(2)} → ${updatedFuel.toFixed(1)}`);
             
             // ✅ CORREÇÃO: Atualizar tanto estado quanto ref
             updateCurrentFuel(updatedFuel);
@@ -725,18 +821,17 @@ export function GameScene() {
             const newGasolinePercent = (updatedFuel / vehicle.maxCapacity) * 100;
             setGasoline(newGasolinePercent);
 
-            console.log(`⛽ Combustível: ${currentFuelValue.toFixed(1)}L → ${updatedFuel.toFixed(1)}L (consumiu ${fuelConsumption.toFixed(2)}L em ${distanceInKm.toFixed(2)}km)`);
-            console.log(`🔍 Debug: currentFuelRef.current = ${currentFuelRef.current.toFixed(1)}L, updatedFuel = ${updatedFuel.toFixed(1)}L`);
-
             // ✅ NOVO: Aviso visual quando combustível baixo
             const fuelPercent = (updatedFuel / vehicle.maxCapacity) * 100;
-            if (fuelPercent <= 20 && fuelPercent > 10) {
-              console.log("⚠️ COMBUSTÍVEL BAIXO! Restam apenas " + updatedFuel.toFixed(1) + "L");
-              setFuelWarning("⚠️ COMBUSTÍVEL BAIXO!");
-            } else if (fuelPercent <= 10 && fuelPercent > 0) {
-              console.log("🚨 COMBUSTÍVEL CRÍTICO! Restam apenas " + updatedFuel.toFixed(1) + "L");
+            if (fuelPercent <= 0) {
+              setFuelWarning("💀 SEM COMBUSTÍVEL!");
+            } else if (fuelPercent <= 5) {
+              setFuelWarning("🚨 COMBUSTÍVEL ACABANDO!");
+            } else if (fuelPercent <= 15 && fuelPercent > 5) {
               setFuelWarning("🚨 COMBUSTÍVEL CRÍTICO!");
-            } else if (fuelPercent > 20) {
+            } else if (fuelPercent <= 25 && fuelPercent > 15) {
+              setFuelWarning("⚠️ COMBUSTÍVEL BAIXO!");
+            } else if (fuelPercent > 25) {
               setFuelWarning(null); // Limpar aviso quando combustível estiver ok
             }
 
@@ -753,34 +848,20 @@ export function GameScene() {
               });
             }
 
-            // ✅ CORREÇÃO: Verificar game over com delay para evitar setState durante render
-            if (currentFuelValue > 0 && updatedFuel <= 0) {
-              console.log("🚨 COMBUSTÍVEL ACABOU! Finalizando jogo...");
+            // ✅ CORREÇÃO: Verificar game over quando combustível acaba
+            if (updatedFuel <= 0 && !isFinishing.current) {
+              // Pausar o jogo imediatamente
+              gamePaused.current = true;
+              
+              // Chamar checkGameOver com delay para evitar setState durante render
               requestAnimationFrame(() => {
                 checkGameOver();
               });
             }
           }
-
-          // ============= LÓGICA CORRIGIDA DE GATILHO DE EVENTOS =============
-
-          // ✅ CORREÇÃO: Configurações de evento mais robustas
-          const EVENT_CHECK_INTERVAL_KM = 10 // Aumentado para dar mais espaço
-
-          // ✅ CORREÇÃO: Use progressPercent (valor atualizado) consistentemente
+          const EVENT_CHECK_INTERVAL_KM = 10;
           const distanciaAtualKm = (progressPercent / 100) * totalDistance;
-
-          // ====== VALIDAÇÕES EXTRAS PARA EVITAR REQUESTS DUPLICADOS ======
-          const canTriggerEvent = (
-            activeGameIdRef.current && // ✅ Partida deve existir no backend
-            !processingEvent.current && // ✅ Não pode haver outro evento sendo processado
-            !gamePaused.current && // ✅ O jogo não pode estar pausado
-            !activeEvent && // ✅ Não pode haver evento ativo no estado React
-            !showPopup && // ✅ Não pode haver popup sendo exibido
-            !fetchNextEventMutation.isPending && // ✅ NOVA: Não pode haver request em andamento
-            distanciaAtualKm - lastEventCheckKm.current >= EVENT_CHECK_INTERVAL_KM // ✅ Distância suficiente
-          );
-
+          const canTriggerEvent = (activeGameIdRef.current && !processingEvent.current && !gamePaused.current && !activeEvent && !showPopup && !fetchNextEventMutation.isPending && distanciaAtualKm - lastEventCheckKm.current >= EVENT_CHECK_INTERVAL_KM);
           if (canTriggerEvent) {
             lastEventCheckKm.current = distanciaAtualKm;
 
@@ -800,37 +881,52 @@ export function GameScene() {
             gamePaused.current = true;
             fetchNextEventMutation.mutate(distanciaAtualKm);
           }
-          // ================================================================
-
         });
-
       });
 
       go("main");
 
-      setCurrentPathIndex(0);
-      currentPathIndexRef.current = 0;
-      pathProgressRef.current = 0;
-      progressRef.current = 0;
-      setProgress(0);
-      distanceTravelled.current = 0;
-
+      // ✅ CORREÇÃO: Aplicar progresso salvo ou valores padrão
+      if (savedProgress) {
+        console.log("🔄 Aplicando progresso salvo na inicialização...");
+        console.log("🔄 Progresso salvo:", savedProgress.progress);
+        
+        setCurrentPathIndex(savedProgress.currentPathIndex || 0);
+        currentPathIndexRef.current = savedProgress.currentPathIndex || 0;
+        pathProgressRef.current = savedProgress.pathProgress || 0;
+        progressRef.current = savedProgress.progress || 0;
+        setProgress(savedProgress.progress || 0);
+        distanceTravelled.current = ((savedProgress.progress || 0) / 100) * (totalDistance || 500) / gameSpeedMultiplier.current / 0.2 * 5000;
+        
+        console.log("✅ Progresso aplicado:", savedProgress.progress, "%");
+      } else {
+        console.log("✨ Iniciando jogo do zero...");
+        
+        setCurrentPathIndex(0);
+        currentPathIndexRef.current = 0;
+        pathProgressRef.current = 0;
+        progressRef.current = 0;
+        setProgress(0);
+        distanceTravelled.current = 0;
+      }
+      
       obstacleTimerRef.current = 0;
       gamePaused.current = false;
-
       setGameLoaded(true);
 
       console.log("✅ Jogo inicializado com sucesso!");
       console.log("🔍 gameLoaded agora está:", true);
+      console.log("✅ Jogo inicializado e cena 'main' iniciada.");
 
     } catch (error) {
-      console.error("Erro ao inicializar o jogo:", error);
-      setLoadingError(`Erro ao carregar o jogo: ${error}`);
+      console.error("❌ Erro fatal durante a inicialização ou carregamento de sprites:", error);
+      setLoadingError(`Falha ao carregar recursos do jogo. Verifique se todos os arquivos existem na pasta public/assets e se os nomes estão corretos.`);
       setGameLoaded(false);
-      (window as any).__kaboom_initiated__ = false;
+      if ((window as any).__kaboom_initiated__) {
+        (window as any).__kaboom_initiated__ = false;
+      }
     }
   };
-
   // ============= USEEFFECT PRINCIPAL SIMPLIFICADO =============
 
   useEffect(() => {
@@ -853,33 +949,44 @@ export function GameScene() {
       return;
     }
 
-    // Se há savedProgress com activeGameId, reutiliza a partida sem criar nova
-    if (savedProgress && savedProgress.activeGameId) {
-      console.log("🟢 Restaurando partida existente com ID:", savedProgress.activeGameId);
-      setActiveGameId(savedProgress.activeGameId);
-      activeGameIdRef.current = savedProgress.activeGameId;
+    // 1. Inicia o jogo Kaboom IMEDIATAMENTE.
+    // A promessa de 'initializeGame' é resolvida e o jogo começa a carregar.
+    initializeGame(savedProgress).then(() => {
+      console.log("✅ Kaboom.js inicializado com sucesso.");
 
-      // opcional: notificar backend que estamos retomando
-      // await GameService.resumeGame(savedProgress.activeGameId);
+      // 2. SÓ DEPOIS que o Kaboom estiver pronto, tentamos criar a partida no backend.
+      // Isso acontece em paralelo, sem travar a tela.
+      if (savedProgress && savedProgress.activeGameId) {
+        console.log("🟢 Restaurando partida existente com ID:", savedProgress.activeGameId);
+        setActiveGameId(savedProgress.activeGameId);
+        activeGameIdRef.current = savedProgress.activeGameId;
+      } else {
+        console.log("📡 Enviando requisição para criar partida no backend...");
+        console.log("📡 Dados que serão enviados:", {
+          mapa: route.mapaId,
+          rota: route.id,
+          veiculo: parseInt(selectedVehicle.id, 10) || 1,
+          saldo_inicial: money,
+          combustivel_inicial: currentFuelRef.current
+        });
 
-      // Agora só inicializa o kaboom com o progresso salvo
-      initializeGame(savedProgress);
-      return;
-    }
-
-    // ✅ CORREÇÃO: Inicia a criação da partida no backend com saldo e combustível corretos
-    createGameMutation.mutateAsync({
-      mapa: route.mapaId,
-      rota: route.id,
-      veiculo: parseInt(selectedVehicle.id, 10) || 1,
-      saldo_inicial: money,  // ✅ Enviar saldo atual (já com desconto do combustível)
-      combustivel_inicial: currentFuel  // ✅ Enviar combustível atual
-    }).then(() => {
-      // Apenas após o sucesso da criação, inicializa o Kaboom.js,
-      // passando os dados do jogo salvo (se existirem).
-      initializeGame(savedProgress);
+        // ✅ VERIFICAÇÃO: Se combustível for zero desde o início
+        if (currentFuelRef.current <= 0) {
+          // Mostrar aviso visual imediatamente
+          setFuelWarning("💀 SEM COMBUSTÍVEL! GAME OVER IMINENTE!");
+        }
+        
+        createGameMutation.mutate({
+          mapa: route.mapaId,
+          rota: route.id,
+          veiculo: parseInt(selectedVehicle.id, 10) || 1,
+          saldo_inicial: money,
+          combustivel_inicial: currentFuelRef.current
+        });
+      }
     }).catch(error => {
-      console.error("❌ Falha crítica na criação da partida, não inicializando Kaboom", error);
+      console.error("❌ Falha crítica na inicialização do Kaboom", error);
+      setLoadingError(`Falha ao iniciar o motor gráfico do jogo: ${error.message}`);
     });
 
     // Função de limpeza quando o componente é desmontado
@@ -907,8 +1014,14 @@ export function GameScene() {
       
       // ✅ DEBUG: Tecla F para forçar fim do combustível
       if (e.key === 'f' || e.key === 'F') {
-        console.log("🔧 DEBUG: Forçando combustível a zero!");
         updateCurrentFuel(0);
+        
+        // Forçar verificação de game over
+        setTimeout(() => {
+          if (!isFinishing.current) {
+            checkGameOver();
+          }
+        }, 100);
       }
     };
 
@@ -918,39 +1031,32 @@ export function GameScene() {
     };
   }, [activeEvent, gameEnded, updateCurrentFuel]);
 
-  // Inicializar estados baseados nos dados recebidos
+  // ✅ CORREÇÃO: UseEffect simplificado - apenas para configurações que não são do progresso
   useEffect(() => {
     const { savedProgress } = location.state || {};
 
+    // ✅ CORREÇÃO: Apenas configurar combustível e tempo aqui, o progresso já foi configurado na initializeGame
     if (savedProgress) {
-      console.log("🔄 Restaurando progresso salvo...");
       updateCurrentFuel(savedProgress.currentFuel);
-      setProgress(savedProgress.progress);
-      setCurrentPathIndex(savedProgress.currentPathIndex);
       setGameTime(Math.max(0, savedProgress.gameTime || 0));
-
-      progressRef.current = savedProgress.progress;
-      currentPathIndexRef.current = savedProgress.currentPathIndex;
-      pathProgressRef.current = savedProgress.pathProgress;
     } else {
-      console.log("✨ Iniciando um novo jogo...");
       updateCurrentFuel(vehicle?.currentFuel || 0); // O combustível vem do backend
       setGameTime(0);
     }
 
+    // Configurar rota e velocidade do jogo
     if (selectedRoute) {
       const routeDistance = selectedRoute.actualDistance || selectedRoute.distance;
       setTotalDistance(routeDistance);
 
       const estimatedHours = selectedRoute.estimatedTimeHours || 7.5;
-      const targetGameDurationMinutes = 20; // O jogo deve durar 3 minutos
+      const targetGameDurationMinutes = 20; // O jogo deve durar 20 minutos
       gameSpeedMultiplier.current = (estimatedHours * 60) / targetGameDurationMinutes;
     }
-  }, [vehicle, selectedRoute, location.state]); // Dependências corretas
+  }, [vehicle, selectedRoute, location.state, updateCurrentFuel]); // Dependências corretas
 
   const [gasoline, setGasoline] = useState(() => {
     const fuelPercent = (currentFuel / vehicle.maxCapacity) * 100;
-    console.log("Inicializando gasoline com:", fuelPercent, "%");
     return fuelPercent;
   });
 
@@ -965,8 +1071,6 @@ export function GameScene() {
     }
   }, []);
 
-  // Timer do jogo
-  // Timer do jogo (VERSÃO CORRIGIDA E SIMPLIFICADA)
   useEffect(() => {
     const interval = setInterval(() => {
       if (!gamePaused.current && !gameEnded && !processingEvent.current) {
@@ -992,22 +1096,22 @@ export function GameScene() {
       console.log(`⏱️ Tempo enviado para sincronização: ${tempoFinal} segundos`);
 
       // 2. Chama a mutação. Se falhar, a trava impede que seja chamada de novo.
-      syncGameMutation.mutate({ tempo_decorrido_segundos: tempoFinal });
+      const distanciaAtual = (progress / 100) * totalDistance;
+      
+      syncGameMutation.mutate({ 
+        tempo_decorrido_segundos: tempoFinal,
+        combustivel_atual: currentFuelRef.current,
+        saldo_atual: money,
+        distancia_percorrida: distanciaAtual
+      });
     }
   }, [progress, gameTime]);
 
   const checkGameOver = () => {
-    console.log(`🔍 CheckGameOver: gameLoaded=${gameLoaded}, currentFuel=${currentFuelRef.current}, isFinishing=${isFinishing.current}, activeGameId=${activeGameIdRef.current}`);
-    
     // ✅ CORREÇÃO: Permitir game over mesmo se jogo não está totalmente carregado
     // O importante é que o combustível acabou, não se todos os assets carregaram
-    if (!gameLoaded) {
-      console.log("⚠️ Jogo não totalmente carregado, mas combustível esgotado - prosseguindo com game over");
-    }
 
     if (currentFuelRef.current <= 0) {
-      console.log("🚨 GAME OVER: Combustível esgotado - currentFuel:", currentFuelRef.current);
-      console.log("🎯 Processando game over por combustível...");
       gamePaused.current = true;
       
       // ✅ CORREÇÃO: Usar syncGameMutation para finalizar a partida no backend
@@ -1015,22 +1119,52 @@ export function GameScene() {
       
       if (activeGameIdRef.current && !syncGameMutation.isPending && !isFinishing.current) {
         isFinishing.current = true; // Prevenir múltiplas chamadas
-        console.log("🏁 Finalizando partida devido ao fim do combustível");
-        
         const tempoFinal = Math.max(0, gameTime);
-        console.log(`⏱️ Tempo final para sincronização: ${tempoFinal} segundos`);
-        syncGameMutation.mutate({ tempo_decorrido_segundos: tempoFinal });
+        const distanciaAtual = (progressRef.current / 100) * totalDistance;
+        
+        syncGameMutation.mutate({ 
+          tempo_decorrido_segundos: tempoFinal,
+          combustivel_atual: currentFuelRef.current,
+          saldo_atual: money,
+          distancia_percorrida: distanciaAtual,
+          forcar_game_over: true // Indicar que é um game over forçado
+        });
         
         // A mensagem e redirecionamento serão tratados no onSuccess do syncGameMutation
         return true;
-      } else {
-        console.log("❌ Não foi possível finalizar - condições não atendidas");
-        console.log(`   activeGameIdRef.current: ${activeGameIdRef.current}`);
-        console.log(`   syncGameMutation.isPending: ${syncGameMutation.isPending}`);
-        console.log(`   isFinishing.current: ${isFinishing.current}`);
+      } else if (!activeGameIdRef.current) {
+        // Se não há activeGameId ainda, aguardar um pouco e tentar novamente
+        setTimeout(() => {
+          if (activeGameIdRef.current && !isFinishing.current) {
+            checkGameOver();
+          } else if (!activeGameIdRef.current) {
+            // Usar fallback manual se ainda não há ID
+            const resultadoManual = {
+              id: 0,
+              status: 'concluido' as const,
+              resultado: 'derrota' as const,
+              motivo_finalizacao: "Fim de jogo! O veículo ficou sem combustível.",
+              saldo: money,
+              combustivel_atual: 0,
+              pontuacao: 0,
+              eficiencia: 0,
+              tempo_real: gameTime / 60,
+              distancia_percorrida: (progressRef.current / 100) * totalDistance,
+              quantidade_carga: 0,
+              quantidade_carga_inicial: 40,
+              condicao_veiculo: 50,
+              estresse_motorista: 100
+            };
+            
+            setFinalGameResults(resultadoManual);
+            setGameEnded(true);
+            setShowEndMessage(true);
+          }
+        }, 2000); // Aguardar 2 segundos para a criação da partida
         
+        return true;
+      } else {
         // ✅ FALLBACK: Criar resultado manual e mostrar tela de derrota
-        console.log("🔄 Criando resultado de derrota manual...");
         const resultadoManual = {
           id: activeGameIdRef.current || 0,
           status: 'concluido' as const,
@@ -1056,24 +1190,27 @@ export function GameScene() {
     }
 
     if (money <= 0) {
-      console.log("💰 GAME OVER: Sem recursos financeiros - money:", money);
-      gamePaused.current = true;
-      
-      // ✅ CORREÇÃO: Usar syncGameMutation para finalizar a partida no backend
-      if (activeGameIdRef.current && !syncGameMutation.isPending && !isFinishing.current) {
-        isFinishing.current = true; // Prevenir múltiplas chamadas
-        console.log("🏁 Finalizando partida devido à falta de recursos");
+              gamePaused.current = true;
         
-        const tempoFinal = Math.max(0, gameTime);
-        syncGameMutation.mutate({ tempo_decorrido_segundos: tempoFinal });
+        // ✅ CORREÇÃO: Usar syncGameMutation para finalizar a partida no backend
+        if (activeGameIdRef.current && !syncGameMutation.isPending && !isFinishing.current) {
+          isFinishing.current = true; // Prevenir múltiplas chamadas
+          
+          const tempoFinal = Math.max(0, gameTime);
+          const distanciaAtual = (progressRef.current / 100) * totalDistance;
+        
+        syncGameMutation.mutate({ 
+          tempo_decorrido_segundos: tempoFinal,
+          combustivel_atual: currentFuelRef.current,
+          saldo_atual: money,
+          distancia_percorrida: distanciaAtual,
+          forcar_game_over: true // Indicar que é um game over forçado
+        });
         
         // A mensagem e redirecionamento serão tratados no onSuccess do syncGameMutation
         return true;
-      } else {
-        console.log("❌ Não foi possível finalizar por dinheiro - condições não atendidas");
-        
-        // ✅ FALLBACK: Criar resultado manual e mostrar tela de derrota
-        console.log("🔄 Criando resultado de derrota por dinheiro manual...");
+              } else {
+          // ✅ FALLBACK: Criar resultado manual e mostrar tela de derrota
         const resultadoManual = {
           id: activeGameIdRef.current || 0,
           status: 'concluido' as const,
@@ -1122,7 +1259,7 @@ export function GameScene() {
     const pathCoords = selectedRoute.pathCoordinates;
     const totalSegments = pathCoords.length - 1;
 
-    const targetDurationSeconds = 1200;
+    const targetDurationSeconds = 120;
     const segmentsPerSecond = totalSegments / targetDurationSeconds;
     const segmentSpeed = segmentsPerSecond * deltaTime;
 
@@ -1194,7 +1331,6 @@ export function GameScene() {
 
   return (
     <div style={{ position: "relative" }}>
-
       {/* Indicador de carregamento */}
       {!gameLoaded && !loadingError && (
         <div style={{
