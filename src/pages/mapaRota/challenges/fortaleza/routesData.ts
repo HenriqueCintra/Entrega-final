@@ -116,6 +116,25 @@ export const fortalezaRoutes: Route[] = [
       },
       
     ],
+    fuelStop: [
+      {
+        locationName: "Posto de Combustível BR-407 Rajada",
+        coordinates: [-8.809728907407866, -40.83427013403349]
+      },
+      {
+        locationName: "Posto de Combustível BR-407 Paulistana",
+        coordinates: [-8.132297075524907, -41.14646536547212]
+      },{
+        locationName: "Posto de Combustível PI-229 Jaicós",
+        coordinates: [-7.350961468862075, -41.13266471696775]
+      },{
+        locationName: "Posto de Combustível BR-020 Boa Viagem",
+        coordinates: [-5.1170288436873985, -39.72693187455153]
+      },{
+        locationName: "Posto de Combustível BR-020 - Canindé",
+        coordinates: [-4.343869770583812, -39.29575819199985]
+      }
+    ],
   },
   {
     routeId: 2,
@@ -215,7 +234,23 @@ export const fortalezaRoutes: Route[] = [
         coordinates: [-7.969389592948101, -40.130733219287556], // Coordenada real do path da rota 2
         riskLevel: 'Alto'
       }
-    ]
+    ],
+    fuelStop: [
+      {
+        locationName: "Posto de Combustível BR-428 Lagoa Grande",
+        coordinates: [-8.990769147116964, -40.267255831665864]
+      },
+      {
+        locationName: "Posto de Combustível BR-122 Ouricuri",
+        coordinates: [-7.894169346342305, -40.09020614031245]
+      },{
+        locationName: "Posto de Combustível BR-122 Crato",
+        coordinates: [-7.216224173040459, -39.42214202889295]
+      },{
+        locationName: "Posto de Combustível BR-122 Quixadá",
+        coordinates: [-4.946402927394321, -38.99752158634602]
+      }
+    ],
   },
   {
     routeId: 3,
@@ -347,6 +382,24 @@ export const fortalezaRoutes: Route[] = [
         riskLevel: 'Alto'
       }
     ],
+
+    fuelStop: [
+      {
+        locationName: "Posto de Combustível BR-428 Lagoa Grande",
+        coordinates: [-8.990769147116964, -40.267255831665864]
+      },
+      {
+        locationName: "Posto de Combustível BR-116 - Salgueiro",
+        coordinates: [-8.062193252149735, -39.13642947997828]
+      },{
+        locationName: "Posto de Combustível BR-116 - Icó",
+        coordinates: [-6.402078621247194, -38.84105149576468]
+      },{
+        locationName: "Posto de Combustível CE-138 - Morada Nova",
+        coordinates: [-5.082973295280688, -38.38415686333298]
+      }
+    ],
+
     fuelCostPerKm: 5.50, // Maior custo devido à baixa eficiência em estradas ruins
     dangerZonesDetails: "Rota extremamente longa com múltiplas áreas de alto risco, estradas precárias e isolamento"
   }

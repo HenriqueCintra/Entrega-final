@@ -34,6 +34,7 @@ interface ApiRoute {
   actualDuration?: number;
   dirtSegments?: any[];
   dangerZones?: any[];
+  fuelStop?: any[];
 }
 
 export const RoutesPage: React.FC = () => {
@@ -127,7 +128,8 @@ export const RoutesPage: React.FC = () => {
       actualDistance: route.actualDistance || route.distance,
       actualDuration: route.actualDuration || (route.estimatedTimeHours * 3600),
       dirtSegments: route.dirtSegments || [],
-      dangerZones: route.dangerZones || []
+      dangerZones: route.dangerZones || [],
+      fuelStop: route.fuelStop || []
     }));
 
     console.log(`✅ ${formattedRoutes.length} rotas formatadas para o desafio ${challengeId}`);
@@ -145,7 +147,8 @@ export const RoutesPage: React.FC = () => {
         pathCoordinates: routeToSelect.pathCoordinates?.length || 0,
         dirtSegments: routeToSelect.dirtSegments?.length || 0,
         tollBooths: routeToSelect.tollBooths?.length || 0,
-        dangerZones: routeToSelect.dangerZones?.length || 0
+        dangerZones: routeToSelect.dangerZones?.length || 0,
+        fuelStop: routeToSelect.fuelStop?.length || 0
       });
       setSelectedRoute(routeToSelect);
     }
