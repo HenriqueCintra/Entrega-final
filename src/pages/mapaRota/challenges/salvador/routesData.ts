@@ -154,6 +154,23 @@ export const salvadorRoutes: Route[] = [
       }
     ],
 
+    fuelStop: [
+      {
+        locationName: "Posto de Combustível BR-407 - Carnaíba do Sertão",
+        coordinates: [-9.584752, -40.424889]
+      },
+      {
+        locationName: "Posto de Combustível BR-407 - Ponto Novo",
+        coordinates: [-10.863741, -40.111523]
+      },{
+        locationName: "Posto de Combustível BR-407 - Capim Grosso",
+        coordinates: [-11.376665, -40.011828]
+      },{
+        locationName: "Posto de Combustível BR-324 - Amélia Rodrigues",
+        coordinates: [-12.393574, -38.776686]
+      }
+    ],
+
     pathCoordinates: salvadorRoute1Path,
     actualDistance: 505.7681,
     actualDuration: 24512.5
