@@ -361,6 +361,9 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   const location = useLocation();
   const navigate = useNavigate();
   const juazeiroCoordinates = REFERENCE_COORDINATES.JUAZEIRO;
+  const salvadorCoordinates = REFERENCE_COORDINATES.SALVADOR;
+  const recifeCoordinates = REFERENCE_COORDINATES.RECIFE;
+  const fortalezaCoordinates = REFERENCE_COORDINATES.FORTALEZA;
   
   // Obter o desafio selecionado
   const challengeId = location.state?.challengeId || 'salvador';
@@ -445,20 +448,41 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   function MapViewControl({ route }: { route: Route | null }) {
     const map = useMapEvents({});
 
-    useEffect(() => {
-      // Só ajuste o mapa automaticamente quando uma rota for selecionada pela primeira vez
-      // ou quando isPlaying for false (não está em execução)
-      if (route && route.pathCoordinates && route.pathCoordinates.length > 1 && (!initialMapViewSet || !isPlaying)) {
-        const bounds = L.latLngBounds(route.pathCoordinates);
-        map.fitBounds(bounds, { padding: [50, 50] }); // Ajusta o zoom para caber a rota
-        setInitialMapViewSet(true);
-      } else if (!route && !initialMapViewSet) {
-        // Se nenhuma rota estiver selecionada, centraliza em Juazeiro/Salvador
-        const bounds = L.latLngBounds(juazeiroCoordinates, salvadorCoordinates);
-        map.fitBounds(bounds, { padding: [100, 100] });
-        setInitialMapViewSet(true);
+useEffect(() => {
+  if (route?.pathCoordinates) {
+    // Converta pathCoordinates para o formato esperado pelo Leaflet
+    const pathCoordinates: [number, number][] = route.pathCoordinates.map(coord => {
+      if (coord.length === 2) {
+        return [coord[0], coord[1]]; // Garante que cada coordenada tenha exatamente dois elementos
       }
-    }, [map, route, isPlaying]); // Adicionado isPlaying para reajustar o zoom quando pausado
+      throw new Error("Coordenada inválida: cada ponto deve ter exatamente [latitude, longitude]");
+    });
+
+    // Ajusta os limites do mapa com as coordenadas convertidas
+    const bounds = L.latLngBounds(pathCoordinates);
+    map.fitBounds(bounds, { padding: [50, 50] });
+  }
+
+  // Só ajuste o mapa automaticamente quando uma rota for selecionada pela primeira vez
+  // ou quando isPlaying for false (não está em execução)
+  if (route && route.pathCoordinates && route.pathCoordinates.length > 1 && (!initialMapViewSet || !isPlaying)) {
+    const pathCoordinates: [number, number][] = route.pathCoordinates.map(coord => {
+      if (coord.length === 2) {
+        return [coord[0], coord[1]];
+      }
+      throw new Error("Coordenada inválida: cada ponto deve ter exatamente [latitude, longitude]");
+    });
+
+    const bounds = L.latLngBounds(pathCoordinates);
+    map.fitBounds(bounds, { padding: [50, 50] }); // Ajusta o zoom para caber a rota
+    setInitialMapViewSet(true);
+  } else if (!route && !initialMapViewSet) {
+    // Se nenhuma rota estiver selecionada, centraliza em Juazeiro/Salvador
+    const bounds = L.latLngBounds(juazeiroCoordinates, salvadorCoordinates);
+    map.fitBounds(bounds, { padding: [100, 100] });
+    setInitialMapViewSet(true);
+  }
+}, [map, route, isPlaying]); // Adicionado isPlaying para reajustar o zoom quando pausado
 
     return null;
   }
@@ -534,6 +558,10 @@ export const MapComponent: React.FC<MapComponentProps> = ({
       case 'Alto': return highRiskIcon;
       default: return mediumRiskIcon;
     }
+  };
+
+  const getGasIcon = (): L.Icon => {
+    return gasStationIcon;
   };
 
   const handleChangeRoute = () => {
@@ -691,8 +719,24 @@ export const MapComponent: React.FC<MapComponentProps> = ({
           ))}
 
           {/* Renderiza os marcadores */}
-          {selectedRoute?.tollBooths.map((toll: any, index: number) => <Marker key={`toll-${index}`} position={toll.coordinates as L.LatLngTuple} icon={tollIcon}><Popup>{toll.location}</Popup></Marker>)}
+          {selectedRoute?.tollBooths.map((toll: any, index: number) =>{ 
+            // console.log("Renderizando tollBooths:", toll);
+            <Marker key={`toll-${index}`} position={toll.coordinates as L.LatLngTuple} icon={tollIcon}><Popup>{toll.location}</Popup></Marker>})}
+
+          {selectedRoute?.fuelStop?.map((gas: any, index: number) => {
+            return (
+              <Marker
+                key={`fuel-${index}`}
+                position={gas.coordinates as L.LatLngTuple}
+                icon={getGasIcon()}
+              >
+                <Popup>{gas.locationName}</Popup>
+              </Marker>
+            );
+          })}
+
           {selectedRoute?.dangerZones?.map((zone: any, index: number) => <Marker key={`danger-${index}`} position={zone.coordinates as L.LatLngTuple} icon={getRiskIcon(zone.riskLevel)}><Popup>{zone.description}</Popup></Marker>)}
+
           <Marker position={juazeiroCoordinates}><Popup>Ponto de Partida: Juazeiro</Popup></Marker>
           <Marker position={destinationCoordinates}><Popup>Destino: {challengeId === 'recife' ? 'Recife' : challengeId === 'fortaleza' ? 'Fortaleza' : 'Salvador'}</Popup></Marker>
 

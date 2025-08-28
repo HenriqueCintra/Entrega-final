@@ -83,17 +83,17 @@ class AuthServiceClass {
     }
   }
 
-async register(userData: RegistrationData): Promise<any> {
-    try {
-      console.log('📝 Tentando registrar novo usuário...');
-      const response = await api.post('/auth/registro/', userData);
-      console.log('✅ Registro bem-sucedido:', response.data);
-      return response.data;
-    } catch (error: any) {
-      console.error('❌ Erro no registro:', error.response?.data || error.message);
-      throw error;
-    }
-  }
+// async register(userData: RegistrationData): Promise<any> {
+//     try {
+//       console.log('📝 Tentando registrar novo usuário...');
+//       const response = await api.post('/auth/registro/', userData);
+//       console.log('✅ Registro bem-sucedido:', response.data);
+//       return response.data;
+//     } catch (error: any) {
+//       console.error('❌ Erro no registro:', error.response?.data || error.message);
+//       throw error;
+//     }
+//   }
 
   /**
    * Obtém o perfil do usuário logado.

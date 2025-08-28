@@ -154,6 +154,23 @@ export const salvadorRoutes: Route[] = [
       }
     ],
 
+    fuelStop: [
+      {
+        locationName: "Posto de Combustível BR-407 - Carnaíba do Sertão",
+        coordinates: [-9.584752, -40.424889]
+      },
+      {
+        locationName: "Posto de Combustível BR-407 - Ponto Novo",
+        coordinates: [-10.863741, -40.111523]
+      },{
+        locationName: "Posto de Combustível BR-407 - Capim Grosso",
+        coordinates: [-11.376665, -40.011828]
+      },{
+        locationName: "Posto de Combustível BR-324 - Amélia Rodrigues",
+        coordinates: [-12.393574, -38.776686]
+      }
+    ],
+
     pathCoordinates: salvadorRoute1Path,
     actualDistance: 505.7681,
     actualDuration: 24512.5
@@ -282,6 +299,23 @@ export const salvadorRoutes: Route[] = [
         eventChance: 0.10,
         speedFactor: 0.80,
         description: "Trecho alternativo com pavimento irregular para evitar centro urbano."
+      }
+    ],
+
+    fuelStop: [
+      {
+        locationName: "Posto de Combustível BR-235 - Pinhões",
+        coordinates: [-9.578039618820661, -39.89237497283994]
+      },
+      {
+        locationName: "Posto de Combustível BR-235 - Canudos",
+        coordinates: [-9.880707092052218, -39.013423364230675]
+      },{
+        locationName: "Posto de Combustível BR-410 - Ribeira do Pombal",
+        coordinates: [-10.821731515761318, -38.531246315092915]
+      },{
+        locationName: "Posto de Combustível BR-110 - Olindina",
+        coordinates: [-11.363962655278954, -38.327163957876316]
       }
     ],
 
@@ -426,6 +460,23 @@ export const salvadorRoutes: Route[] = [
         eventChance: 0.20,
         speedFactor: 0.65,
         description: "Trecho de BA não pavimentada ou com muitos buracos."
+      }
+    ],
+
+    fuelStop: [
+      {
+        locationName: "Posto de Combustível BR-407 - Senhor do Bonfim",
+        coordinates: [-10.45641147347408, -40.1804612320232]
+      },
+      {
+        locationName: "Posto de Combustível BR-407 - Filadélfia",
+        coordinates: [-10.740711937907149, -40.12150982483666]
+      },{
+        locationName: "Posto de Combustível BR-407 - Capim Grosso",
+        coordinates: [-11.369650606395455, -40.01254872277952]
+      },{
+        locationName: "Posto de Combustível BR-324 - Tanquinho",
+        coordinates: [-11.975314709157553, -39.12123490894501]
       }
     ],
 
@@ -578,6 +629,23 @@ export const salvadorRoutes: Route[] = [
         eventChance: 0.10,
         speedFactor: 0.80,
         description: "Pequeno trecho da BR-235 com manutenção pendente."
+      }
+    ],
+
+    fuelStop: [
+      {
+        locationName: "Posto de Combustível BR-235 - Pinhões",
+        coordinates: [-9.578039618820661, -39.89237497283994]
+      },
+      {
+        locationName: "Posto de Combustível BR-116 - Euclides da Cunha",
+        coordinates: [-10.498988944246129, -39.01278894423617]
+      },{
+        locationName: "Posto de Combustível BR-116 - Santa Bárbara",
+        coordinates: [-11.967183120652637, -38.97367691497505]
+      },{
+        locationName: "Posto de Combustível BR-324 - Amélia Rodrigues",
+        coordinates: [-12.393574, -38.776686]
       }
     ],
 
