@@ -1,4 +1,4 @@
-// src/pages/Game-truck/game.tsx - VERSÃO FINAL CORRIGIDA
+// src/pages/Game-truck/game.tsx - VERSÃO FINAL CORRIGIDA COM BACKGROUND FUNCIONANDO
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
@@ -95,6 +95,32 @@ export function GameScene() {
   const [totalDistance, setTotalDistance] = useState<number>(500);
 
   const [showMapModal, setShowMapModal] = useState(false);
+
+  // ✅ ADIÇÃO: Estados para sistema de background da versão antiga
+  const currentBg = useRef<'cidade' | 'terra'>('cidade');
+  const nextBg = useRef<'cidade' | 'terra' | null>(null);
+  const backgroundSwitchTimer = useRef(0);
+  const transitionProgress = useRef(0);
+  const isTransitioning = useRef(false);
+  const transitionCooldown = useRef(0);
+  const TRANSITION_DURATION = 5;
+  const COOLDOWN_DURATION = 0.1;
+
+  // ✅ ADIÇÃO: Sistema de zoom cinematográfico
+  const ZOOM_CONFIG = {
+    MAX_ZOOM: 1.5,
+    LEAD_IN_TIME: 0.5,
+    LEAD_OUT_TIME: 1.0,
+  };
+  const ZOOM_TOTAL_DURATION = ZOOM_CONFIG.LEAD_IN_TIME + TRANSITION_DURATION + ZOOM_CONFIG.LEAD_OUT_TIME;
+
+  const zoomEffect = useRef({
+    isActive: false,
+    progress: 0,
+    duration: ZOOM_TOTAL_DURATION,
+    maxZoom: ZOOM_CONFIG.MAX_ZOOM,
+    originalZoom: 1.0,
+  });
 
   // Estados vindos dos parâmetros de navegação
   const [vehicle, setVehicle] = useState<Vehicle>(() => {
@@ -306,6 +332,7 @@ export function GameScene() {
       processingEvent.current = false;
     }
   });
+
   // Função de finalização
   const syncGameMutation = useMutation({
     mutationFn: (progressData: { tempo_decorrido_segundos: number }) =>
@@ -326,6 +353,165 @@ export function GameScene() {
       alert("Houve um erro ao finalizar a partida. Tente novamente.");
     }
   });
+
+  // ✅ ADIÇÃO: Funções do sistema de zoom
+  const easeInOutCubic = (t: number): number => {
+    return t < 0.5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1;
+  };
+
+  const applyZoomEffect = (k: any, deltaTime: number) => {
+    if (!zoomEffect.current.isActive) return;
+
+    zoomEffect.current.progress += deltaTime / zoomEffect.current.duration;
+    let currentZoom = zoomEffect.current.originalZoom;
+
+    if (zoomEffect.current.progress >= 1.0) {
+      zoomEffect.current.isActive = false;
+      zoomEffect.current.progress = 0;
+
+      k.camScale(k.vec2(1.0));
+      k.camPos(k.center());
+
+      console.log("🎬 Efeito de zoom de transição finalizado!");
+      return;
+    }
+
+    if (zoomEffect.current.progress < 0.5) {
+      const t = zoomEffect.current.progress / 0.5;
+      currentZoom = zoomEffect.current.originalZoom + (zoomEffect.current.maxZoom - zoomEffect.current.originalZoom) * easeInOutCubic(t);
+    } else {
+      const t = (zoomEffect.current.progress - 0.5) / 0.5;
+      currentZoom = zoomEffect.current.maxZoom - (zoomEffect.current.maxZoom - zoomEffect.current.originalZoom) * easeInOutCubic(t);
+    }
+
+    k.camScale(k.vec2(currentZoom));
+
+    const centerX = k.width() / 2;
+    const centerY = k.height() / 2;
+    const yOffset = (centerY * 0.5) * (currentZoom - 1);
+    const xOffset = (centerX * -0.9) * (currentZoom - 1);
+
+    k.camPos(centerX + xOffset, centerY + yOffset);
+  };
+
+  const startZoomEffect = () => {
+    console.log("🎬 Iniciando efeito de zoom cinematográfico!");
+    zoomEffect.current.isActive = true;
+    zoomEffect.current.progress = 0;
+  };
+
+  // ✅ ADIÇÃO: Sistema de background modular da versão antiga
+  const updateBackgroundSystem = (k: any, deltaTime: number, moveAmount: number) => {
+    // Aplicar efeito de zoom
+    applyZoomEffect(k, deltaTime);
+
+    // Movimento dos backgrounds
+    k.get("bg_cidade").forEach((bg: any) => bg.move(moveAmount, 0));
+    k.get("bg_terra").forEach((bg: any) => bg.move(moveAmount, 0));
+
+    // Gerenciar cooldown
+    if (transitionCooldown.current > 0) {
+      transitionCooldown.current -= deltaTime;
+    }
+
+    // Garantir que sempre temos um background visível quando não há transição
+    if (!isTransitioning.current && !nextBg.current && transitionProgress.current === 0 && transitionCooldown.current <= 0) {
+      k.get(`bg_${currentBg.current}`).forEach((bg: any) => {
+        if (bg.opacity !== 1) bg.opacity = 1;
+      });
+      const otherBg = currentBg.current === 'cidade' ? 'terra' : 'cidade';
+      k.get(`bg_${otherBg}`).forEach((bg: any) => {
+        if (bg.opacity !== 0) bg.opacity = 0;
+      });
+    }
+
+    // Reposicionamento dos backgrounds
+    const bgWidth = 2048 * Math.max(k.width() / 2048, k.height() / 762);
+    const backgrounds = k.get("bg_cidade").concat(k.get("bg_terra"));
+
+    backgrounds.forEach((bg: any, index: number) => {
+      if (index % 2 === 0) { // bg1 de cada tipo
+        const otherBg = backgrounds[index + 1];
+        if (otherBg && bg.pos.x + bgWidth <= 0) {
+          bg.pos.x = otherBg.pos.x + bgWidth;
+        }
+      } else { // bg2 de cada tipo
+        const otherBg = backgrounds[index - 1];
+        if (otherBg && bg.pos.x + bgWidth <= 0) {
+          bg.pos.x = otherBg.pos.x + bgWidth;
+        }
+      }
+    });
+
+    // Sistema de transição suave com opacity
+    if (isTransitioning.current && nextBg.current) {
+      transitionProgress.current += deltaTime / TRANSITION_DURATION;
+
+      if (transitionProgress.current >= 1) {
+        transitionProgress.current = 0;
+        isTransitioning.current = false;
+
+        const newCurrentBg = nextBg.current;
+        const oldBg = currentBg.current;
+
+        k.get(`bg_${newCurrentBg}`).forEach((bg: any) => { bg.opacity = 1; });
+        k.get(`bg_${oldBg}`).forEach((bg: any) => { bg.opacity = 0; });
+
+        currentBg.current = newCurrentBg;
+        nextBg.current = null;
+        transitionCooldown.current = COOLDOWN_DURATION;
+
+        console.log(`Transição suave completa! Novo cenário é ${currentBg.current}`);
+      }
+
+      if (isTransitioning.current && nextBg.current) {
+        const easedProgress = easeInOutCubic(transitionProgress.current);
+        const currentOpacity = 1 - easedProgress;
+        const nextOpacity = easedProgress;
+
+        k.get(`bg_${currentBg.current}`).forEach((bg: any) => { bg.opacity = currentOpacity; });
+        k.get(`bg_${nextBg.current}`).forEach((bg: any) => { bg.opacity = nextOpacity; });
+      }
+    }
+
+    // Timer para mudança de background
+    backgroundSwitchTimer.current -= deltaTime;
+    if (backgroundSwitchTimer.current <= 0 && !nextBg.current && !isTransitioning.current) {
+      const shouldSwitchToTerra = (currentBg.current === 'cidade' && k.rand() < 0.3);
+      const shouldSwitchToCidade = (currentBg.current === 'terra' && k.rand() < 0.8);
+
+      if (shouldSwitchToTerra || shouldSwitchToCidade) {
+        startZoomEffect();
+
+        k.wait(ZOOM_CONFIG.LEAD_IN_TIME, () => {
+          const bgWidth = 2048 * Math.max(k.width() / 2048, k.height() / 762);
+
+          if (shouldSwitchToTerra) {
+            nextBg.current = 'terra';
+            const bgTerra = k.get("bg_terra");
+            if (bgTerra.length >= 2) {
+              bgTerra[0].pos.x = 0;
+              bgTerra[1].pos.x = bgWidth;
+            }
+            console.log("🎬 Iniciando FADE: cidade → terra");
+          } else if (shouldSwitchToCidade) {
+            nextBg.current = 'cidade';
+            const bgCidade = k.get("bg_cidade");
+            if (bgCidade.length >= 2) {
+              bgCidade[0].pos.x = 0;
+              bgCidade[1].pos.x = bgWidth;
+            }
+            console.log("🎬 Iniciando FADE: terra → cidade");
+          }
+
+          isTransitioning.current = true;
+          transitionProgress.current = 0;
+        });
+
+        backgroundSwitchTimer.current = k.rand(15, 25);
+      }
+    }
+  };
 
   const togglePause = () => {
     const nextPausedState = !gamePaused.current;
@@ -455,13 +641,27 @@ export function GameScene() {
         z,
         scale,
         destroy,
+        loop,
+        rand,
+        choose,
+        move,
+        tween,
+        easings,
+        LEFT,
+        RIGHT,
+        get,
+        wait,
+        opacity
       } = k;
 
       destroyRef.current = destroy;
 
       try {
         console.log("Tentando carregar sprites...");
-        loadSprite("background", "/assets/backgroundd.png");
+
+        // ✅ CORREÇÃO: Carregamento correto dos backgrounds
+        loadSprite("background_cidade", "/assets/background-cidade.png");
+        loadSprite("background_terra", "/assets/background-terra.png");
 
         const vehicleImageUrl = getVehicleImageUrl(vehicle.spriteSheet);
         console.log("Imagem original do veículo:", vehicle.image);
@@ -484,7 +684,6 @@ export function GameScene() {
         loadSprite("carro_6", "/assets/carro_trafego_6.png");
         loadSprite("carro_7", "/assets/carro_trafego_7.png");
         loadSprite("carro_8", "/assets/carro_trafego_8.png");
-
         loadSprite("moto_1", "/assets/moto_trafego_1.png");
 
         console.log("Todos os sprites carregados com sucesso");
@@ -495,27 +694,25 @@ export function GameScene() {
       scene("main", () => {
         const speed = 5000;
 
-        const bgScaleX = width() / 1365;
-        const bgScaleY = height() / 762;
+        // ✅ CORREÇÃO: Uso das dimensões corretas
+        const LARGURA_ORIGINAL_BG = 2048;
+        const ALTURA_ORIGINAL_BG = 762;
+
+        const bgScaleX = width() / LARGURA_ORIGINAL_BG;
+        const bgScaleY = height() / ALTURA_ORIGINAL_BG;
         const bgScale = Math.max(bgScaleX, bgScaleY);
+        const bgWidth = LARGURA_ORIGINAL_BG * bgScale;
 
-        const bgOffsetY = -height() * 0.15;
+        const bgOffsetY = -height() * 0.05;
 
-        const bg1 = add([
-          sprite("background"),
-          pos(0, bgOffsetY),
-          scale(bgScale),
-          z(0),
-          { speed },
-        ]);
+        // ✅ ADIÇÃO: Sistema de background completo da versão antiga
+        const bg_cidade_1 = add([sprite("background_cidade"), pos(0, bgOffsetY), scale(bgScale), z(0), "bg_cidade", opacity(1)]);
+        const bg_cidade_2 = add([sprite("background_cidade"), pos(bgWidth, bgOffsetY), scale(bgScale), z(0), "bg_cidade", opacity(1)]);
+        const bg_terra_1 = add([sprite("background_terra"), pos(0, bgOffsetY), scale(bgScale), z(0), "bg_terra", opacity(0)]);
+        const bg_terra_2 = add([sprite("background_terra"), pos(bgWidth, bgOffsetY), scale(bgScale), z(0), "bg_terra", opacity(0)]);
 
-        const bg2 = add([
-          sprite("background"),
-          pos(1365 * bgScale, bgOffsetY),
-          scale(bgScale),
-          z(0),
-          { speed },
-        ]);
+        // Inicializar timer de transição
+        backgroundSwitchTimer.current = rand(2, 4);
 
         const roadYPosition = height() * 0.48;
         const baseWidth = 600;
@@ -530,50 +727,40 @@ export function GameScene() {
           scale(scaleFactor),
         ]);
 
-        // TRÁFEGO DE VEÍCULOS
         const lane_contramao = height() * 0.60;
         const lane_mesmo_sentido = height() * 0.68;
         const trafficCarSprites = ["carro_1", "carro_2", "carro_3", "carro_4", "carro_5", "carro_6", "carro_7", "carro_8", "moto_1"];
 
-        k.loop(k.rand(4, 7), () => {
-          if (gamePaused.current) return;
-
-          if (k.get("traffic_car").length > 0) {
+        loop(rand(4, 7), () => {
+          if (gamePaused.current || get("traffic_car").length > 0) {
             return;
           }
-
-          const carSprite = k.choose(trafficCarSprites);
-          const carType = k.choose(["ultrapassagem", "contramao"]);
+          const carSprite = choose(trafficCarSprites);
+          const carType = choose(["ultrapassagem", "contramao"]);
 
           if (carType === "contramao") {
             const startX = width() + 150;
-            const carSpeed = speed * k.rand(0.2, 0.3);
-
+            const carSpeed = speed * rand(0.2, 0.3);
             add([
               sprite(carSprite, { flipX: true }),
               pos(startX, lane_contramao),
               scale(scaleFactor * 1.6),
-              k.move(k.LEFT, carSpeed),
+              move(LEFT, carSpeed),
               "traffic_car",
               z(1),
               { behavior: "contramao" },
             ]);
-
           } else {
             const startX = -250;
-            const carSpeed = speed * k.rand(0.05, 0.1);
-
+            const carSpeed = speed * rand(0.05, 0.1);
             add([
               sprite(carSprite, { flipX: false }),
               pos(startX, lane_contramao),
               scale(scaleFactor * 1.7),
-              k.move(k.RIGHT, carSpeed),
+              move(RIGHT, carSpeed),
               "traffic_car",
               z(1),
-              {
-                isChangingLane: false,
-                behavior: "ultrapassagem",
-              },
+              { isChangingLane: false, behavior: "ultrapassagem" },
             ]);
           }
         });
@@ -581,46 +768,37 @@ export function GameScene() {
         onUpdate("traffic_car", (trafficCar) => {
           if (trafficCar.behavior === "ultrapassagem" && !trafficCar.isChangingLane && trafficCar.pos.x > (car.pos.x + car.width - 150)) {
             trafficCar.isChangingLane = true;
-
-            k.tween(
+            tween(
               trafficCar.pos.y,
               lane_mesmo_sentido,
               0.9,
-              (newY) => trafficCar.pos.y = newY,
-              k.easings.easeInOutQuad
+              (newY) => (trafficCar.pos.y = newY),
+              easings.easeInOutQuad
             );
           }
-
           if (trafficCar.pos.x < -trafficCar.width || trafficCar.pos.x > width() + trafficCar.width) {
             destroy(trafficCar);
           }
         });
 
         onUpdate(() => {
+          // ✅ MANTÉM: Proteção de pausa da versão atual
           if (gamePaused.current) {
             return;
           }
-
           const deltaTime = dt();
 
+          // ✅ MANTÉM: Sistema de cooldown da versão atual
           if (collisionCooldownRef.current > 0) {
             collisionCooldownRef.current = Math.max(0, collisionCooldownRef.current - deltaTime);
           }
 
           const moveAmount = -speed * deltaTime;
 
-          bg1.move(moveAmount, 0);
-          bg2.move(moveAmount, 0);
+          // ✅ ADIÇÃO: Chamada para o sistema de background modular
+          updateBackgroundSystem(k, deltaTime, moveAmount);
 
-          const bgWidth = bg1.width * bgScale;
-
-          if (bg1.pos.x + bgWidth <= 0) {
-            bg1.pos.x = bg2.pos.x + bgWidth;
-          }
-          if (bg2.pos.x + bgWidth <= 0) {
-            bg2.pos.x = bg1.pos.x + bgWidth;
-          }
-
+          // ✅ MANTÉM: Toda a lógica da versão atual
           const progressPercent = calculatePathProgress(deltaTime);
           const previousProgress = progressRef.current;
           progressRef.current = progressPercent;
@@ -633,17 +811,14 @@ export function GameScene() {
           const progressDelta = progressPercent - previousProgress;
           const distanceInKm = (progressDelta / 100) * routeDistance;
 
-          // Consumo de combustível
           if (distanceInKm > 0) {
-            const consumptionRate = vehicle.consumption?.asphalt || 10;
+            // ✅ MELHORIA: Consumo dinâmico baseado no terreno
+            const consumptionRate = (currentBg.current === 'cidade' ? vehicle.consumption?.asphalt : vehicle.consumption?.dirt) || 10;
             const fuelConsumption = distanceInKm / consumptionRate;
-
             const updatedFuel = Math.max(0, currentFuel - fuelConsumption);
             setCurrentFuel(updatedFuel);
-
             const newGasolinePercent = (updatedFuel / vehicle.maxCapacity) * 100;
             setGasoline(newGasolinePercent);
-
             if (currentFuel > 0 && updatedFuel <= 0) {
               requestAnimationFrame(() => {
                 checkGameOver();
@@ -651,10 +826,9 @@ export function GameScene() {
             }
           }
 
-          // Sistema de eventos
+          // ✅ MANTÉM: Sistema de eventos refinado da versão atual
           const EVENT_CHECK_INTERVAL_KM = 10;
           const distanciaAtualKm = (progressPercent / 100) * totalDistance;
-
           const canTriggerEvent = (
             activeGameIdRef.current &&
             !processingEvent.current &&
@@ -667,16 +841,12 @@ export function GameScene() {
 
           if (canTriggerEvent) {
             lastEventCheckKm.current = distanciaAtualKm;
-
             console.log(`🔍 Checkpoint em ${distanciaAtualKm.toFixed(2)}km. Perguntando ao backend por eventos...`);
-
             processingEvent.current = true;
             gamePaused.current = true;
             fetchNextEventMutation.mutate(distanciaAtualKm);
           }
-
         });
-
       });
 
       go("main");
