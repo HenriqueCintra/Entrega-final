@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Vehicle } from '../../types/vehicle';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import { AudioControl } from '../../components/AudioControl';
 
 export const FuelPage: React.FC = () => {
   const location = useLocation();
@@ -145,8 +146,11 @@ export const FuelPage: React.FC = () => {
             ⛽ ABASTECIMENTO
           </h1>
 
-          <div className="bg-gradient-to-r from-[#E3922A] to-[#FFC06F] text-black text-sm lg:text-base font-bold px-3 py-1.5 rounded-md shadow-lg border-2 border-black">
-            R$ {availableBalance.toFixed(2)}
+          <div className="flex items-center gap-2">
+            <AudioControl />
+            <div className="bg-gradient-to-r from-[#E3922A] to-[#FFC06F] text-black text-sm lg:text-base font-bold px-3 py-1.5 rounded-md shadow-lg border-2 border-black">
+              R$ {availableBalance.toFixed(2)}
+            </div>
           </div>
         </div>
       </div>
