@@ -11,6 +11,8 @@ import { ChangePassword } from "./pages/Perfil/ChangePassword";
 import { TutorialPage } from "./pages/Tutorial/TutorialPage";
 import { PerfilPage } from "./pages/Perfil/PerfilPage";
 import { AuthProvider } from "./contexts/AuthContext";
+import { AudioProvider } from "./contexts/AudioContext";
+import { AudioManager } from "./components/AudioManager";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { EditarPerfilPage } from "./pages/Perfil/EditarPerfil";
 import { ExcluirEquipePage } from "./pages/Perfil/ExcluirEquipe";
@@ -43,9 +45,11 @@ const queryClient = new QueryClient({
 createRoot(document.getElementById("app") as HTMLElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <AudioProvider>
         <AuthProvider>
-          <Routes>
+          <BrowserRouter>
+            <AudioManager />
+            <Routes>
             {/* Rotas públicas */}
             <Route path="/" element={<HomePage />} />
             {/* <Route path="/select-vehicle" element={<HomePage />} />
@@ -162,9 +166,10 @@ createRoot(document.getElementById("app") as HTMLElement).render(
             <Route path="/fuel" element={<FuelPage />} />
             <Route path="/map" element={<MapComponent />} />
 
-          </Routes>
+            </Routes>
+          </BrowserRouter>
         </AuthProvider>
-      </BrowserRouter>
+      </AudioProvider>
       {/* DevTools apenas em desenvolvimento */}
       {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
     </QueryClientProvider>

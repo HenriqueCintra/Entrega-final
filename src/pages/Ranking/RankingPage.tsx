@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRanking } from '../../hooks/useRanking';
+import { AudioControl } from "../../components/AudioControl";
 import { TeamRanking, UserStats, RankingTab, TeamData } from "../../types/ranking";
 
 export const RankingPage = () => {
@@ -155,7 +156,8 @@ export const RankingPage = () => {
             <ArrowLeft size={24} className="text-black" />
           </Button>
         </div>
-        <div className="absolute top-4 right-4 z-20">
+        <div className="absolute top-4 right-4 z-20 flex gap-2">
+          <AudioControl />
           <Button
             onClick={() => refetch()}
             disabled={loading}

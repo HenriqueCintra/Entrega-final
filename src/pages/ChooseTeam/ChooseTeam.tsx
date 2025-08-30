@@ -8,6 +8,7 @@ import TeamCard from '../../components/TeamCard';
 import CreateTeamButton from '../../components/CreateTeamButton';
 import SelectTeamButton from '../../components/SelectTeamButton';
 import { ButtonHomeBack } from '@/components/ButtonHomeBack';
+import { AudioControl } from '@/components/AudioControl';
 import { ArrowLeft, House, LogIn } from 'lucide-react';
 
 export const ChooseTeam = () => {
@@ -105,6 +106,10 @@ export const ChooseTeam = () => {
                     <ButtonHomeBack onClick={() => navigate("/perfil")}>
                         <House />
                     </ButtonHomeBack>
+                </div>
+
+                <div className="absolute top-14 right-8">
+                    <AudioControl />
                 </div>
 
                 <div className="flex-1 md:pt-20 overflow-auto container mx-auto px-4 py-4">
