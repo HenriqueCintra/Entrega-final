@@ -307,21 +307,8 @@ export const GameService = {
     }
   },
 
-  async updateGameProgress(progressData: { 
-    distancia_percorrida?: number; 
-    combustivel_atual?: number; 
-    tempo_jogo_segundos?: number 
-  }): Promise<PartidaResponse> {
-    console.log('🔄 Atualizando progresso do jogo...', progressData);
-    try {
-      const response = await api.post<PartidaResponse>('/jogo1/partidas/atualizar-progresso/', progressData);
-      console.log('✅ Progresso atualizado no backend');
-      return response.data;
-    } catch (error) {
-      console.error('❌ Erro ao atualizar progresso:', error);
-      throw error;
-    }
-  },
+  // ✅ REMOVIDO: updateGameProgress - URL não existe no backend
+  // Use syncGameProgress em vez disso
 
   async syncGameProgress(progressData: { 
     tempo_decorrido_segundos: number;

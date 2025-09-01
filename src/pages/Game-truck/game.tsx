@@ -203,25 +203,8 @@ export function GameScene() {
     }
   });
 
-  // ✅ NOVA MUTAÇÃO: Para atualizar progresso durante o jogo
-  const updateProgressMutation = useMutation({
-    mutationFn: (progressData: { 
-      distancia_percorrida?: number; 
-      combustivel_atual?: number; 
-      tempo_jogo_segundos?: number 
-    }) => GameService.updateGameProgress(progressData),
-    onSuccess: (partida) => {
-      console.log('📊 Progresso sincronizado com backend:', {
-        distancia: partida.distancia_percorrida,
-        combustivel: partida.combustivel_atual,
-        tempo: partida.tempo_jogo
-      });
-    },
-    onError: (error) => {
-      console.error('❌ Erro ao sincronizar progresso:', error);
-      // Não interromper o jogo por erro de sincronização
-    }
-  });
+  // ✅ REMOVIDO: updateProgressMutation - função não existe mais
+  // Usar syncGameMutation para sincronização de progresso
 
   // ============= MUTAÇÃO CORRIGIDA PARA BUSCAR EVENTOS =============
   const fetchNextEventMutation = useMutation({
@@ -395,14 +378,15 @@ export function GameScene() {
     setIsPaused(nextPausedState);
     console.log(`Jogo ${nextPausedState ? "pausado" : "despausado"}`);
     
-    // ✅ NOVO: Sincronizar com backend quando pausar o jogo
-    if (nextPausedState && activeGameIdRef.current && !updateProgressMutation.isPending) {
+    // ✅ CORREÇÃO: Sincronizar com backend quando pausar o jogo usando syncGameMutation
+    if (nextPausedState && activeGameIdRef.current && !syncGameMutation.isPending) {
       const distanciaAtualKm = (progressRef.current / 100) * totalDistance;
       console.log("🔄 Sincronizando progresso devido à pausa do jogo");
-      updateProgressMutation.mutate({
+      syncGameMutation.mutate({
+        tempo_decorrido_segundos: gameTime,
         distancia_percorrida: distanciaAtualKm,
         combustivel_atual: currentFuelRef.current,
-        tempo_jogo_segundos: gameTime
+        saldo_atual: money
       });
     }
   };
@@ -835,18 +819,10 @@ export function GameScene() {
               setFuelWarning(null); // Limpar aviso quando combustível estiver ok
             }
 
-            // ✅ OTIMIZADO: Sincronizar apenas a cada 10% de progresso (reduz carga no backend)
-            const shouldSyncProgress = Math.floor(progressPercent / 10) !== Math.floor((progressPercent - progressDelta) / 10);
-
-            if (shouldSyncProgress && activeGameIdRef.current && !updateProgressMutation.isPending) {
-              const distanciaAtualKm = (progressPercent / 100) * totalDistance;
-              console.log(`🔄 Sincronizando progresso a cada 10% - Atual: ${progressPercent.toFixed(1)}%`);
-              updateProgressMutation.mutate({
-                distancia_percorrida: distanciaAtualKm,
-                combustivel_atual: updatedFuel,
-                tempo_jogo_segundos: gameTime
-              });
-            }
+            // ✅ CORREÇÃO: Remover sincronização automática durante o jogo para evitar sobrecarga
+            // A sincronização será feita apenas nos momentos críticos (pausa, eventos, fim de jogo)
+            // const shouldSyncProgress = Math.floor(progressPercent / 10) !== Math.floor((progressPercent - progressDelta) / 10);
+            // Comentado para evitar chamadas excessivas ao backend
 
             // ✅ CORREÇÃO: Verificar game over quando combustível acaba
             if (updatedFuel <= 0 && !isFinishing.current) {
@@ -867,15 +843,9 @@ export function GameScene() {
 
             console.log(`📍 Checkpoint em ${distanciaAtualKm.toFixed(2)}km. Perguntando ao backend por eventos...`);
 
-            // ✅ NOVO: Sincronizar progresso antes de buscar evento
-            if (activeGameIdRef.current && !updateProgressMutation.isPending) {
-              console.log("🔄 Sincronizando progresso antes de buscar evento");
-              updateProgressMutation.mutate({
-                distancia_percorrida: distanciaAtualKm,
-                combustivel_atual: currentFuelRef.current,
-                tempo_jogo_segundos: gameTime
-              });
-            }
+            // ✅ CORREÇÃO: Remover sincronização antes de eventos para simplificar
+            // A sincronização será feita apenas quando necessário (pausa, fim de jogo)
+            // console.log("🔄 Progresso será sincronizado apenas quando necessário");
 
             processingEvent.current = true;
             gamePaused.current = true;
