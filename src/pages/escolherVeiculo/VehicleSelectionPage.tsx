@@ -25,7 +25,6 @@ import {
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { ButtonHomeBack } from "@/components/ButtonHomeBack";
-import { AudioControl } from "@/components/AudioControl";
 
 // TODO: Ajustar imagens, (adicionar imagens ao banco?)
 import caminhaoMedioPng from '@/assets/caminhao_medio.png';
@@ -312,12 +311,9 @@ export const VehicleSelectionPage = () => {
             </Button>
           </div>
 
-          {/* Controle de áudio */}
-          <div className="absolute top-4 right-4 flex gap-2">
-            <AudioControl />
-            <div className="font-['Silkscreen'] bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 border border-black rounded-md shadow-md flex items-center justify-center h-10">
-              R$ {availableMoney.toLocaleString()}
-            </div>
+          {/* Saldo disponível */}
+          <div className="absolute top-4 right-4 font-['Silkscreen'] bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 border border-black rounded-md shadow-md flex items-center justify-center h-10">
+            R$ {availableMoney.toLocaleString()}
           </div>
         </div>
 

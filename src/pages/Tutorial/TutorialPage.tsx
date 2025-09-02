@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { Button } from "../../components/ui/button";
 import { ArrowLeft, Home } from 'lucide-react'; 
 import { ButtonHomeBack } from "@/components/ButtonHomeBack";
-import { AudioControl } from "@/components/AudioControl";
 import { useNavigate } from "react-router-dom";
 
 export const TutorialPage = () => {
@@ -71,10 +70,6 @@ export const TutorialPage = () => {
         <div className="flex gap-5 absolute top-14 left-[33px]">
           <ButtonHomeBack onClick={() => navigate(-1)}><ArrowLeft/></ButtonHomeBack>
           <ButtonHomeBack onClick={() => navigate("/perfil")}><Home/></ButtonHomeBack>
-        </div>
-
-        <div className="absolute top-14 right-[33px]">
-          <AudioControl />
         </div>
 
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[70%] max-w-[750px]">

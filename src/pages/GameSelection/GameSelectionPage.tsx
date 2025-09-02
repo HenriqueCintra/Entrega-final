@@ -8,7 +8,6 @@ import PixelHeading from './components/PixelHeading';
 import Footer from './components/Footer';
 import { ArrowLeft, ImageIcon, Loader, AlertTriangle } from 'lucide-react';
 import { ButtonHomeBack } from '@/components/ButtonHomeBack';
-import { AudioControl } from '@/components/AudioControl';
 import { GameService } from '@/api/gameService';
 import { Map as Desafio } from '@/types'; // O tipo Map representa um Desafio
 
@@ -78,10 +77,6 @@ const GameSelectionPage = () => {
     >
       <div className="flex gap-5 absolute top-14 left-[33px]">
         <ButtonHomeBack onClick={() => navigate(-1)}><ArrowLeft /></ButtonHomeBack>
-      </div>
-      
-      <div className="absolute top-14 right-[33px]">
-        <AudioControl />
       </div>
 
       <div className="w-full max-w-6xl flex flex-col items-center">

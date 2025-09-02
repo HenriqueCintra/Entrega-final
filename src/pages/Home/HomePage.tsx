@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
 import { Separator } from "../../components/ui/separator";
-import { AudioControl } from "../../components/AudioControl";
 
 export const HomePage = () => {
   const navigate = useNavigate();
@@ -19,9 +18,6 @@ export const HomePage = () => {
   return (
     <div className="bg-white flex flex-row justify-center w-full ">
       <div className="bg-white py-5 [background:linear-gradient(180deg,rgba(57,189,248,1)_0%,rgba(154,102,248,1)_100%)] w-full min-h-screen relative flex flex-col items-center justify-center">
-        <div className="absolute top-14 right-[33px]">
-          <AudioControl />
-        </div>
         <Card className="w-[1039px] h-[455px] relative border-[3px] border-solid border-black rounded">
           <CardContent className="p-0 flex h-full">
             {/* Left purple section */}

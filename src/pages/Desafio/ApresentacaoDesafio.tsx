@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { ArrowLeft, Home, Trophy, Clock, Users, Truck, Car, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { ButtonHomeBack } from "@/components/ButtonHomeBack";
-import { AudioControl } from "@/components/AudioControl";
 import { fetchChallengesFromBackend, FrontendChallenge } from "../../services/challengeService";
 
 export const ApresentacaoDesafioPage = () => {
@@ -149,10 +148,6 @@ export const ApresentacaoDesafioPage = () => {
         <div className="flex gap-5 absolute top-4 left-4 z-10">
           <ButtonHomeBack onClick={() => navigate(-1)}><ArrowLeft/></ButtonHomeBack>
           <ButtonHomeBack onClick={() => navigate("/perfil")}><Home/></ButtonHomeBack>
-        </div>
-
-        <div className="absolute top-4 right-4 z-10">
-          <AudioControl />
         </div>
 
         <div className="pt-16 pb-8 px-4 flex justify-center items-center min-h-screen z-10">

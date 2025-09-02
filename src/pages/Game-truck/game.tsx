@@ -13,13 +13,7 @@ import { GameService } from "../../api/gameService";
 import { PixelProgressBar } from "../../components/PixelProgressBar/PixelProgressBar";
 import '../../components/PixelProgressBar/PixelProgressBar.css';
 import type {
-  GameObj,
-  SpriteComp,
-  PosComp,
-  ZComp,
-  AreaComp,
-  BodyComp,
-  ScaleComp
+  GameObj
 } from "kaboom";
 
 // Interface para eventos vindos da API
@@ -46,7 +40,6 @@ interface EventData {
 export function GameScene() {
 
   // REFs DE CONTROLE DE EVENTOS
-  const lastEventCheckKm = useRef(0);
   const activeGameIdRef = useRef<number | null>(null);
   const isFinishing = useRef(false);
 
@@ -54,7 +47,6 @@ export function GameScene() {
   const navigate = useNavigate();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [showPopup, setShowPopup] = useState(false);
-  const [playerChoice, setPlayerChoice] = useState<string | null>(null);
   const [isPaused, setIsPaused] = useState(false);
   const gamePaused = useRef(false);
   const collidedObstacle = useRef<GameObj | null>(null);
@@ -123,7 +115,7 @@ export function GameScene() {
   });
 
   // Estados vindos dos parâmetros de navegação
-  const [vehicle, setVehicle] = useState<Vehicle>(() => {
+  const [vehicle] = useState<Vehicle>(() => {
     console.log("Estado recebido no jogo:", location.state);
 
     if (location.state && location.state.selectedVehicle) {
@@ -142,7 +134,7 @@ export function GameScene() {
     return money !== undefined ? money : 1000;
   });
 
-  const [selectedRoute, setSelectedRoute] = useState(() => {
+  const [selectedRoute] = useState(() => {
     const route = location.state?.selectedRoute;
     console.log("Rota recebida:", route);
     return route || null;
@@ -163,8 +155,13 @@ export function GameScene() {
 
   // Mutação para criar o jogo no backend
   const createGameMutation = useMutation({
-    mutationFn: (gameData: { mapa: number; rota: number; veiculo: number }) =>
-      GameService.createGame(gameData),
+    mutationFn: (gameData: {
+      mapa: number;
+      rota: number;
+      veiculo: number;
+      saldo_inicial?: number;
+      combustivel_inicial?: number
+    }) => GameService.createGame(gameData),
     onSuccess: (partida) => {
       console.log('🎮 Partida criada com sucesso no backend, ID:', partida.id);
 
@@ -183,88 +180,63 @@ export function GameScene() {
     }
   });
 
-  // MUTAÇÃO DE TICK CORRIGIDA - SEM SINCRONIZAÇÃO DE TEMPO
+  // MUTAÇÃO DE TICK ATUALIZADA - AGORA LIDA COM EVENTOS
   const partidaTickMutation = useMutation({
     mutationFn: (data: { distancia_percorrida: number }) => GameService.partidaTick(data),
-    onSuccess: (updatedPartida) => {
-      // Sincroniza apenas dados financeiros e combustível
-      setMoney(updatedPartida.saldo);
-      setCurrentFuel(updatedPartida.combustivel_atual);
+    onSuccess: (tickResult) => {
+      // Sincroniza dados financeiros e combustível
+      setMoney(tickResult.saldo);
+      setCurrentFuel(tickResult.combustivel_atual);
 
-      // ✅ CORREÇÃO: REMOVIDA sincronização de tempo aqui
-      // O tempo continua acelerado no frontend sem interferência
-      console.log(`💰 Tick processado - Saldo: ${updatedPartida.saldo}, Combustível: ${updatedPartida.combustivel_atual}`);
+      // ✅ VERIFICAÇÃO DE GAME OVER APÓS TICK DO BACKEND
+      console.log("🔍 Verificando Game Over no tick - Combustível:", tickResult.combustivel_atual, "Saldo:", tickResult.saldo);
+
+      if (tickResult.combustivel_atual <= 0) {
+        console.log("🚨 Game Over detectado pelo backend: Combustível esgotado");
+        gamePaused.current = true;
+        setGameEnded(true);
+
+        // Finalizar jogo via backend para obter resultados
+        const tempoFinal = Math.max(0, gameTime);
+        console.log("🔄 Finalizando jogo por combustível via tick...");
+        syncGameMutation.mutate({ tempo_decorrido_segundos: tempoFinal });
+        return;
+      }
+
+      if (tickResult.saldo <= 0) {
+        console.log("🚨 Game Over detectado pelo backend: Sem recursos financeiros");
+        gamePaused.current = true;
+        setGameEnded(true);
+
+        // Finalizar jogo via backend para obter resultados
+        const tempoFinal = Math.max(0, gameTime);
+        console.log("🔄 Finalizando jogo por saldo via tick...");
+        syncGameMutation.mutate({ tempo_decorrido_segundos: tempoFinal });
+        return;
+      }
+
+      // Verifica se há evento pendente retornado pelo tick
+      if (tickResult.evento_pendente && !activeEvent && !showPopup) {
+        console.log('🎲 Evento pendente detectado no tick:', tickResult.evento_pendente.evento.nome);
+        // Adapta o formato do evento para o EventData esperado
+        const eventData: EventData = {
+          ...tickResult.evento_pendente,
+          partida: tickResult.id // Adiciona o ID da partida
+        };
+        setActiveEvent(eventData);
+        setShowPopup(true);
+        gamePaused.current = true;
+        processingEvent.current = true;
+      }
+
+      console.log(`💰 Tick processado - Saldo: ${tickResult.saldo}, Combustível: ${tickResult.combustivel_atual}`);
     },
     onError: (error) => {
       console.error("Erro no tick:", error);
     }
   });
 
-  // MUTAÇÃO PARA BUSCAR EVENTOS
-  const fetchNextEventMutation = useMutation({
-    mutationFn: (distancia: number) => GameService.getNextEvent(distancia),
-    onSuccess: (data) => {
-      if (data && data.evento) {
-        console.log('🎲 Evento recebido do backend:', data.evento.nome, '(categoria:', data.evento.categoria + ')');
-        setActiveEvent(data);
-        setShowPopup(true);
-      } else {
-        console.warn('⚠️ onSuccess chamado com dados inválidos, resetando estado');
-        processingEvent.current = false;
-        gamePaused.current = false;
-      }
-    },
-    onError: (error: any) => {
-      console.warn('⚠️ Erro ao buscar evento:', error);
 
-      if (error.message === 'NO_EVENT_AVAILABLE') {
-        console.log('ℹ️ Nenhum evento desta vez (NORMAL) - continuando jogo');
-
-        setActiveEvent(null);
-        setShowPopup(false);
-        setIsResponding(false);
-        gamePaused.current = false;
-        processingEvent.current = false;
-        collidedObstacle.current = null;
-
-        obstacleTimerRef.current = -3;
-        collisionCooldownRef.current = 1.5;
-
-        return;
-      }
-
-      console.error('❌ Erro real detectado:', error.message);
-
-      setActiveEvent(null);
-      setShowPopup(false);
-      setIsResponding(false);
-      gamePaused.current = false;
-      processingEvent.current = false;
-      collidedObstacle.current = null;
-
-      if (error.message === 'INVALID_REQUEST') {
-        console.warn('⚠️ Request inválido, aguardando próximo checkpoint');
-        lastEventCheckKm.current += 10;
-      } else if (error.message === 'SERVER_ERROR' || error.message === 'NETWORK_ERROR') {
-        console.error('💥 Erro de servidor/rede, aguardando recuperação');
-        lastEventCheckKm.current += 30;
-      } else if (error.message === 'INVALID_API_RESPONSE') {
-        console.error('💥 API retornou dados inválidos');
-        lastEventCheckKm.current += 15;
-      } else {
-        console.error('❌ Erro não categorizado:', error.message);
-        lastEventCheckKm.current += 15;
-      }
-
-      obstacleTimerRef.current = -5;
-      collisionCooldownRef.current = 2.0;
-
-      setTimeout(() => {
-        obstacleSystemLockedRef.current = false;
-        console.log('🔓 Sistema de obstáculos destravado após erro de evento');
-      }, 3000);
-    }
-  });
 
   // MUTAÇÃO PARA RESPONDER EVENTO - MANTÉM sincronização de tempo apenas aqui
   const respondToEventMutation = useMutation({
@@ -279,9 +251,10 @@ export function GameScene() {
       setCurrentFuel(updatedPartida.combustivel_atual);
 
       // Sincronizar tempo (para penalidades e bônus de eventos)
-      if (updatedPartida.tempo_jogo_segundos !== undefined) {
-        setGameTime(updatedPartida.tempo_jogo_segundos);
-        console.log(`⏱️ TEMPO ATUALIZADO APÓS EVENTO: ${updatedPartida.tempo_jogo_segundos}s (${Math.floor(updatedPartida.tempo_jogo_segundos / 60)}min)`);
+      if (updatedPartida.tempo_jogo !== undefined) {
+        const tempoSegundos = Math.round(updatedPartida.tempo_jogo * 60);
+        setGameTime(tempoSegundos);
+        console.log(`⏱️ TEMPO ATUALIZADO APÓS EVENTO: ${tempoSegundos}s (${Math.floor(tempoSegundos / 60)}min)`);
       }
 
       // ✅ CORREÇÃO: Sincronizar distância se houve mudança (bônus de distância)
@@ -335,17 +308,27 @@ export function GameScene() {
 
   // Função de finalização
   const syncGameMutation = useMutation({
-    mutationFn: (progressData: { tempo_decorrido_segundos: number }) =>
-      GameService.syncGameProgress(progressData),
+    mutationFn: (progressData: { tempo_decorrido_segundos: number }) => {
+      console.log("🔄 Executando syncGameProgress com dados:", progressData);
+      return GameService.syncGameProgress(progressData);
+    },
     onSuccess: (updatedPartida: PartidaData) => {
-      console.log("✅ Progresso sincronizado!", updatedPartida);
+      console.log("✅ Progresso sincronizado! Status:", updatedPartida.status);
+      console.log("📊 Dados da partida finalizada:", {
+        resultado: updatedPartida.resultado,
+        motivo: updatedPartida.motivo_finalizacao,
+        combustivel: updatedPartida.combustivel_atual,
+        saldo: updatedPartida.saldo
+      });
 
       if (updatedPartida.status === 'concluido') {
-        console.log("🏁 PARTIDA FINALIZADA! Resultados:", updatedPartida);
+        console.log("🏁 PARTIDA FINALIZADA! Mostrando modal de resultados...");
         setFinalGameResults(updatedPartida);
         setGameEnded(true);
         setShowEndMessage(true);
         gamePaused.current = true;
+      } else {
+        console.warn("⚠️ Partida não foi marcada como concluída. Status:", updatedPartida.status);
       }
     },
     onError: (error) => {
@@ -663,7 +646,7 @@ export function GameScene() {
         loadSprite("background_cidade", "/assets/background-cidade.png");
         loadSprite("background_terra", "/assets/background-terra.png");
 
-        const vehicleImageUrl = getVehicleImageUrl(vehicle.spriteSheet);
+        const vehicleImageUrl = getVehicleImageUrl(vehicle.spriteSheet || vehicle.image);
         console.log("Imagem original do veículo:", vehicle.image);
         console.log("URL convertida para kaboom:", vehicleImageUrl);
 
@@ -788,6 +771,11 @@ export function GameScene() {
           }
           const deltaTime = dt();
 
+          // ✅ VERIFICAÇÃO DE GAME OVER - COMBUSTÍVEL E DINHEIRO
+          if (checkGameOver()) {
+            return;
+          }
+
           // ✅ MANTÉM: Sistema de cooldown da versão atual
           if (collisionCooldownRef.current > 0) {
             collisionCooldownRef.current = Math.max(0, collisionCooldownRef.current - deltaTime);
@@ -812,40 +800,14 @@ export function GameScene() {
           const distanceInKm = (progressDelta / 100) * routeDistance;
 
           if (distanceInKm > 0) {
-            // ✅ MELHORIA: Consumo dinâmico baseado no terreno
-            const consumptionRate = (currentBg.current === 'cidade' ? vehicle.consumption?.asphalt : vehicle.consumption?.dirt) || 10;
-            const fuelConsumption = distanceInKm / consumptionRate;
-            const updatedFuel = Math.max(0, currentFuel - fuelConsumption);
-            setCurrentFuel(updatedFuel);
-            const newGasolinePercent = (updatedFuel / vehicle.maxCapacity) * 100;
+            // ✅ CONSUMO DE COMBUSTÍVEL AGORA É CONTROLADO PELO BACKEND VIA TICK
+            // A atualização da UI do combustível acontece via partidaTickMutation.onSuccess
+            const newGasolinePercent = (currentFuel / vehicle.maxCapacity) * 100;
             setGasoline(newGasolinePercent);
-            if (currentFuel > 0 && updatedFuel <= 0) {
-              requestAnimationFrame(() => {
-                checkGameOver();
-              });
-            }
           }
 
-          // ✅ MANTÉM: Sistema de eventos refinado da versão atual
-          const EVENT_CHECK_INTERVAL_KM = 10;
-          const distanciaAtualKm = (progressPercent / 100) * totalDistance;
-          const canTriggerEvent = (
-            activeGameIdRef.current &&
-            !processingEvent.current &&
-            !gamePaused.current &&
-            !activeEvent &&
-            !showPopup &&
-            !fetchNextEventMutation.isPending &&
-            distanciaAtualKm - lastEventCheckKm.current >= EVENT_CHECK_INTERVAL_KM
-          );
-
-          if (canTriggerEvent) {
-            lastEventCheckKm.current = distanciaAtualKm;
-            console.log(`🔍 Checkpoint em ${distanciaAtualKm.toFixed(2)}km. Perguntando ao backend por eventos...`);
-            processingEvent.current = true;
-            gamePaused.current = true;
-            fetchNextEventMutation.mutate(distanciaAtualKm);
-          }
+          // ✅ EVENTOS AGORA SÃO TRATADOS AUTOMATICAMENTE NO TICK
+          // Não precisamos mais verificar eventos separadamente
         });
       });
 
@@ -904,7 +866,9 @@ export function GameScene() {
     createGameMutation.mutateAsync({
       mapa: route.mapaId,
       rota: route.id,
-      veiculo: parseInt(selectedVehicle.id, 10) || 1
+      veiculo: parseInt(selectedVehicle.id, 10) || 1,
+      saldo_inicial: money, // Passa o saldo da tela de abastecimento
+      combustivel_inicial: vehicle.currentFuel // Passa o combustível da tela de abastecimento
     }).then(() => {
       initializeGame(savedProgress);
     }).catch(error => {
@@ -1036,24 +1000,33 @@ export function GameScene() {
   }, [progress, gameTime]);
 
   const checkGameOver = () => {
-    if (!gameLoaded) {
-      console.log("Game Over check skipped - jogo não carregado ainda");
+    if (!gameLoaded || gameEnded) {
       return false;
     }
 
+    console.log("🔍 Verificando Game Over - Combustível:", currentFuel, "Dinheiro:", money);
+
     if (currentFuel <= 0) {
-      console.log("Game Over: Combustível esgotado - currentFuel:", currentFuel);
+      console.log("🚨 Game Over: Combustível esgotado - currentFuel:", currentFuel);
       gamePaused.current = true;
-      alert("Combustível esgotado! Jogo encerrado.");
-      navigate('/routes');
+      setGameEnded(true);
+
+      // Finalizar jogo via backend para obter resultados
+      const tempoFinal = Math.max(0, gameTime);
+      console.log("🔄 Chamando syncGameMutation para finalizar por combustível...");
+      syncGameMutation.mutate({ tempo_decorrido_segundos: tempoFinal });
       return true;
     }
 
     if (money <= 0) {
-      console.log("Game Over: Sem recursos financeiros - money:", money);
+      console.log("🚨 Game Over: Sem recursos financeiros - money:", money);
       gamePaused.current = true;
-      alert("Sem recursos financeiros! Jogo encerrado.");
-      navigate('/routes');
+      setGameEnded(true);
+
+      // Finalizar jogo via backend para obter resultados
+      const tempoFinal = Math.max(0, gameTime);
+      console.log("🔄 Chamando syncGameMutation para finalizar por dinheiro...");
+      syncGameMutation.mutate({ tempo_decorrido_segundos: tempoFinal });
       return true;
     }
 

@@ -4,7 +4,6 @@ import { Button } from "../../../components/ui/button";
 import { Card, CardContent } from "../../../components/ui/card";
 import { ArrowLeft, AlertCircle } from 'lucide-react';
 import { ButtonHomeBack } from "@/components/ButtonHomeBack";
-import { AudioControl } from "@/components/AudioControl";
 import AuthService from "../../../api/authService";
 
 export const Cadastro = () => {
@@ -108,11 +107,6 @@ export const Cadastro = () => {
         {/* Botão de navegação */}
         <div className="absolute top-14 left-[33px]">
           <ButtonHomeBack onClick={() => navigate("/")}><ArrowLeft /></ButtonHomeBack>
-        </div>
-
-        {/* Controle de áudio */}
-        <div className="absolute top-14 right-[33px]">
-          <AudioControl />
         </div>
 
         {/* Card de Cadastro */}
