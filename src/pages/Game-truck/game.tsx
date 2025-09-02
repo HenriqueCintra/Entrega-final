@@ -1,8 +1,9 @@
-// src/pages/Game-truck/game.tsx - VERSÃO FINAL CORRIGIDA COM BACKGROUND FUNCIONANDO
+// src/pages/Game-truck/game.tsx 
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import kaboom from "kaboom";
+import kaplay from "kaplay";
 import './game.css';
 import { PartidaData } from "../../types/ranking";
 import { Vehicle } from "../../types/vehicle";
@@ -83,6 +84,11 @@ export function GameScene() {
   const collisionCooldownRef = useRef(0);
   const obstacleSystemLockedRef = useRef(false);
   const handleResizeRef = useRef<(() => void) | null>(null);
+
+  //CONTROLE DE VELOCIDADE
+  const [speedLevel, setSpeedLevel] = useState(1); // 1 = 1x, 2 = 1.5x, 3 = 2x
+  const speedMultiplierRef = useRef(1);
+  const MAX_SPEED_LEVEL = 3;
 
   // LÓGICA DE TEMPO CORRIGIDA
   const [gameTime, setGameTime] = useState(0);
@@ -512,6 +518,24 @@ export function GameScene() {
       }
     }
   };
+  
+  //Função para aumentar a velocidade
+  const handleSpeedUp = () => {
+    if (gamePaused.current || showPopup) return; // Não muda velocidade se pausado ou em evento
+
+    setSpeedLevel(prevLevel => {
+      const nextLevel = prevLevel >= MAX_SPEED_LEVEL ? 1 : prevLevel + 1;
+      
+      let newMultiplier = 1;
+      if (nextLevel === 2) newMultiplier = 1.5;
+      if (nextLevel === 3) newMultiplier = 2.0;
+
+      speedMultiplierRef.current = newMultiplier;
+
+      console.log(`🚀 Velocidade alterada para nível ${nextLevel} (Multiplicador: ${newMultiplier}x)`);
+      return nextLevel;
+    });
+  };
 
   const togglePause = () => {
     const nextPausedState = !gamePaused.current;
@@ -793,7 +817,8 @@ export function GameScene() {
             collisionCooldownRef.current = Math.max(0, collisionCooldownRef.current - deltaTime);
           }
 
-          const moveAmount = -speed * deltaTime;
+          //Aplica o multiplicador de velocidade
+          const moveAmount = -speed * speedMultiplierRef.current * deltaTime;
 
           // ✅ ADIÇÃO: Chamada para o sistema de background modular
           updateBackgroundSystem(k, deltaTime, moveAmount);
@@ -1083,7 +1108,8 @@ export function GameScene() {
 
     const targetDurationSeconds = 1200;
     const segmentsPerSecond = totalSegments / targetDurationSeconds;
-    const segmentSpeed = segmentsPerSecond * deltaTime;
+    //Aplica o multiplicador de velocidade ao progresso
+    const segmentSpeed = segmentsPerSecond * speedMultiplierRef.current * deltaTime;
 
     pathProgressRef.current += segmentSpeed;
 
@@ -1101,7 +1127,8 @@ export function GameScene() {
 
   const calculateFallbackProgress = (deltaTime: number) => {
     const routeDistance = totalDistance || 500;
-    distanceTravelled.current += deltaTime * gameSpeedMultiplier.current * 0.2;
+    //Aplica o multiplicador de velocidade ao progresso
+    distanceTravelled.current += deltaTime * gameSpeedMultiplier.current * 0.2 * speedMultiplierRef.current;
     const progressKm = (distanceTravelled.current * routeDistance) / 5000;
     return Math.min(100, Math.max(0, (progressKm / routeDistance) * 100));
   };
@@ -1373,6 +1400,65 @@ export function GameScene() {
           )}
         </div>
       </div>
+
+      {/* ✅ MODIFICAÇÃO: PAINEL DE CONTROLE REMOVIDO, FICANDO APENAS O BOTÃO */}
+      {gameLoaded && !showPopup && !isPaused && (
+        <div style={{
+          position: 'fixed',
+          bottom: '4vh', // Ajuste na posição para compensar a falta do painel
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 1001,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <button
+            onClick={handleSpeedUp}
+            style={{
+              background: 'linear-gradient(180deg, #6fd250 0%, #3a9c1e 100%)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '12px',
+              padding: '10px 25px',
+              fontFamily: "'Press Start 2P', cursive",
+              fontSize: '18px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              boxShadow: 'inset 0px -6px 0px rgba(0,0,0,0.3), 0px 4px 0px 0px #2a6f18',
+              transition: 'all 0.1s ease-out',
+              textShadow: '2px 2px 0px rgba(0,0,0,0.4)',
+              letterSpacing: '1px',
+              position: 'relative',
+              outline: 'none',
+            }}
+            onMouseDown={(e) => {
+              e.currentTarget.style.transform = 'translateY(2px)';
+              e.currentTarget.style.boxShadow = 'inset 0px -2px 0px rgba(0,0,0,0.3), 0px 2px 0px 0px #2a6f18';
+            }}
+            onMouseUp={(e) => {
+              e.currentTarget.style.transform = 'translateY(0px)';
+              e.currentTarget.style.boxShadow = 'inset 0px -6px 0px rgba(0,0,0,0.3), 0px 4px 0px 0px #2a6f18';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0px)';
+              e.currentTarget.style.boxShadow = 'inset 0px -6px 0px rgba(0,0,0,0.3), 0px 4px 0px 0px #2a6f18';
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(180deg, #87e96b 0%, #4cb82d 100%)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(180deg, #6fd250 0%, #3a9c1e 100%)';
+            }}
+            title="Alterar Velocidade"
+          >
+            <span style={{ fontSize: '28px', lineHeight: '1', transform: 'translateY(-2px)' }}>▶️</span>
+            <span>{speedMultiplierRef.current.toFixed(1)}x</span>
+          </button>
+        </div>
+      )}
 
       <canvas
         ref={canvasRef}
@@ -1698,7 +1784,7 @@ export function GameScene() {
                   border: 'none',
                   borderRadius: '50%',
                   height: '45px',
-                  width: '25px',
+                  width: '45px', // Corrigido para ser um círculo perfeito
                   fontSize: '20px',
                   fontWeight: 'bold',
                   cursor: 'pointer',
