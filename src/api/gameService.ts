@@ -2,25 +2,7 @@ import api from './config';
 import { Map as Desafio } from '../types';
 import { TeamData, RankingApiResponse } from '../types/ranking';
 
-interface EventResponse {
-  id: number;
-  partida: number;
-  evento: {
-    id: number;
-    nome: string;
-    descricao: string;
-    tipo: 'positivo' | 'negativo';
-    categoria: string;
-    opcoes: Array<{
-      id: number;
-      descricao: string;
-      efeitos: any;
-    }>;
-  };
-  momento: string;
-  ordem: number;
-  opcao_escolhida: null;
-}
+
 
 interface PartidaResponse {
   id: number;
@@ -39,6 +21,24 @@ interface PartidaResponse {
   eficiencia?: number;
   saldo_inicial?: number;
   quantidade_carga_inicial?: number;
+  eventos_ocorridos?: Array<{
+    id: number;
+    evento: {
+      id: number;
+      nome: string;
+      descricao: string;
+      tipo: 'positivo' | 'negativo';
+      categoria: string;
+      opcoes: Array<{
+        id: number;
+        descricao: string;
+        efeitos: any;
+      }>;
+    };
+    momento: string;
+    ordem: number;
+    opcao_escolhida: null | any;
+  }>;
 }
 
 interface RespondResponse {
@@ -81,6 +81,33 @@ interface MapResponse {
   max_jogadores: number;
   imagem: string;
   rotas: RouteResponse[];
+}
+
+// === NOVA INTERFACE PARA O TICK ===
+interface TickData {
+  distancia_percorrida: number;
+}
+
+// === INTERFACE PARA RESULTADO DO TICK COM EVENTOS ===
+interface TickResult extends PartidaResponse {
+  evento_pendente?: {
+    id: number;
+    evento: {
+      id: number;
+      nome: string;
+      descricao: string;
+      tipo: 'positivo' | 'negativo';
+      categoria: string;
+      opcoes: Array<{
+        id: number;
+        descricao: string;
+        efeitos: any;
+      }>;
+    };
+    momento: string;
+    ordem: number;
+    opcao_escolhida: null;
+  };
 }
 
 export const GameService = {
@@ -175,57 +202,16 @@ export const GameService = {
     }
   },
 
-  async getNextEvent(distancia_percorrida: number): Promise<EventResponse> {
-    console.log('🎲 Buscando próximo evento para distância:', distancia_percorrida.toFixed(2), 'km');
-    try {
-      const response = await api.post<EventResponse>('/jogo1/proximo-evento/', {
-        distancia_percorrida
-      });
-      if (response.status === 200 && response.data?.evento) {
-        console.log('✅ Evento recebido:', response.data.evento.nome, '(categoria:', response.data.evento.categoria + ')');
-        return response.data;
-      }
-      if (response.status === 204) {
-        console.log('✅ Nenhum evento desta vez (HTTP 204 - NORMAL)');
-        throw new Error('NO_EVENT_AVAILABLE');
-      }
-      console.warn('⚠️ Resposta 200 mas dados inválidos:', response.data);
-      throw new Error('INVALID_API_RESPONSE');
-    } catch (error: any) {
-      if (error.message === 'NO_EVENT_AVAILABLE' || error.message === 'INVALID_API_RESPONSE') {
-        throw error;
-      }
-      if (error.response?.status === 204) {
-        console.log('✅ Nenhum evento desta vez (Erro 204 - NORMAL)');
-        throw new Error('NO_EVENT_AVAILABLE');
-      } else if (error.response?.status === 400) {
-        console.warn('⚠️ Bad Request ao buscar evento:', error.response?.data);
-        throw new Error('INVALID_REQUEST');
-      } else if (error.response?.status >= 500) {
-        console.error('💥 Erro interno do servidor:', error.response?.status);
-        throw new Error('SERVER_ERROR');
-      } else if (error.code === 'ERR_NETWORK') {
-        console.error('🔥 Erro de rede/conexão');
-        throw new Error('NETWORK_ERROR');
-      } else {
-        console.error('❌ Erro desconhecido ao buscar evento:', error);
-        throw new Error('UNKNOWN_ERROR');
-      }
-    }
-  },
 
-  async respondToEvent(optionId: number, combustivelAtual?: number): Promise<RespondResponse> {
-    console.log('✋ Respondendo ao evento com opção ID:', optionId);
-    const requestData: any = { opcao_id: optionId };
-    
-    // ✅ CORREÇÃO: Enviar combustível atual para evitar dessincronia
-    if (combustivelAtual !== undefined) {
-      requestData.combustivel_atual = combustivelAtual;
-      console.log('⛽ Enviando combustível atual:', combustivelAtual);
-    }
-    
+
+  // === FUNÇÃO MODIFICADA: Agora envia também a distância ===
+  async respondToEvent(optionId: number, distancia_percorrida: number): Promise<RespondResponse> {
+    console.log(`✋ Respondendo evento com opção ${optionId} na distância ${distancia_percorrida.toFixed(2)}km`);
     try {
-      const response = await api.post<RespondResponse>('/jogo1/eventos/responder/', requestData);
+      const response = await api.post<RespondResponse>('/jogo1/eventos/responder/', {
+        opcao_id: optionId,
+        distancia_percorrida: distancia_percorrida
+      });
       console.log('✅ Resposta do evento processada:', response.data.detail);
       return response.data;
     } catch (error) {
@@ -283,6 +269,31 @@ export const GameService = {
     }
   },
 
+  // === FUNÇÃO DE TICK ATUALIZADA (CORAÇÃO DO SISTEMA) ===
+  async partidaTick(data: TickData): Promise<TickResult> {
+    console.log('⏱️ Enviando tick para o servidor:', data.distancia_percorrida.toFixed(2), 'km');
+    try {
+      const response = await api.post<PartidaResponse>('/jogo1/partidas/tick/', data);
+      console.log('✅ Tick processado - Tempo oficial:', response.data.tempo_jogo?.toFixed(2), 'min');
+      
+      // Verifica se existe evento pendente (opcao_escolhida = null)
+      const eventoPendente = response.data.eventos_ocorridos?.find(evento => evento.opcao_escolhida === null);
+      
+      if (eventoPendente) {
+        console.log('🎲 Evento pendente detectado:', eventoPendente.evento.nome, '(categoria:', eventoPendente.evento.categoria + ')');
+        return {
+          ...response.data,
+          evento_pendente: eventoPendente
+        };
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erro no tick:', error);
+      throw error;
+    }
+  },
+
   async pauseGame(): Promise<{ detail: string }> {
     console.log('⏸️ Pausando jogo...');
     try {
@@ -307,16 +318,7 @@ export const GameService = {
     }
   },
 
-  // ✅ REMOVIDO: updateGameProgress - URL não existe no backend
-  // Use syncGameProgress em vez disso
-
-  async syncGameProgress(progressData: { 
-    tempo_decorrido_segundos: number;
-    combustivel_atual?: number;
-    saldo_atual?: number;
-    distancia_percorrida?: number;
-    forcar_game_over?: boolean;
-  }): Promise<PartidaResponse> {
+  async syncGameProgress(progressData: { tempo_decorrido_segundos: number }): Promise<PartidaResponse> {
     console.log('🔄 Sincronizando progresso do jogo...', progressData);
     try {
       const response = await api.post<PartidaResponse>('/jogo1/partidas/sincronizar/', progressData);
@@ -339,7 +341,7 @@ export const GameService = {
   async saveGameState(gameState: any) {
     return await api.post('/game/save-state/', gameState);
   },
-  
+
   async loadGameState(matchId: string) {
     return await api.get(`/game/load-state/${matchId}/`);
   }
