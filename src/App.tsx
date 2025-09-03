@@ -8,12 +8,16 @@ import { MapComponent } from './pages/mapaRota/MapComponent';
 import { GameScene } from './pages/Game-truck/game';
 import { LoginPage } from './pages/auth/LoginPage';
 import { ApresentacaoDesafioPage } from './pages/Desafio/ApresentacaoDesafio';
+import { AudioProvider } from './contexts/AudioContext';
+import { AudioManager } from './components/AudioManager';
 import './App.css';
 
 function App() {
   return (
+    <AudioProvider>
     <AuthProvider>
       <BrowserRouter>
+      <AudioManager />
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
@@ -29,6 +33,7 @@ function App() {
         </Routes>
       </BrowserRouter>
     </AuthProvider>
+    </AudioProvider>
   );
 }
 

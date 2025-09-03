@@ -8,6 +8,7 @@ import {
   Card,
   CardContent,
 } from "../../components/ui/card";
+import { AudioControl } from "../../components/AudioControl";
 import { PlayIcon, Trophy, TruckIcon, MapPin, DollarSign, X } from 'lucide-react';
 
 interface UserStats {
@@ -193,6 +194,11 @@ export const PerfilPage = () => {
             </Card>
           </div>
         )}
+
+        {/* Controle de áudio */}
+        <div className="absolute top-14 right-8 z-20">
+          <AudioControl />
+        </div>
 
         {/* Conteúdo principal */}
         <div className="max-w-5xl mx-auto pt-20 px-4 relative z-10">

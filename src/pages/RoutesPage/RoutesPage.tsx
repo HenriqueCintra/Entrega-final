@@ -7,6 +7,7 @@ import { MapComponent } from '../mapaRota/MapComponent';
 import { routes as staticRoutesData, getRoutesByChallenge } from '../mapaRota/routesData';
 import { ChallengeId } from '../mapaRota/constants';
 import { debugChallenges } from '../mapaRota/challengesManager';
+import { AudioControl } from '../../components/AudioControl';
 
 interface ApiRoute {
   id: number;
@@ -260,8 +261,11 @@ export const RoutesPage: React.FC = () => {
             ESCOLHA SUA ROTA
           </h1>
 
-          <div className="bg-[#E3922A] text-black text-sm lg:text-base font-bold px-3 py-1.5 rounded-md shadow-lg border-2 border-black">
-            R$ {availableMoney.toFixed(2)}
+          <div className="flex items-center gap-2">
+            <AudioControl />
+            <div className="bg-[#E3922A] text-black text-sm lg:text-base font-bold px-3 py-1.5 rounded-md shadow-lg border-2 border-black">
+              R$ {availableMoney.toFixed(2)}
+            </div>
           </div>
         </div>
       </div>

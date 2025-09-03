@@ -26,7 +26,8 @@ import { ChooseTeam } from "./pages/ChooseTeam/ChooseTeam";
 import { GameScene } from "./pages/Game-truck/game";
 import { FuelPage } from "./pages/fuel/FuelPage";
 import { RoutesPage } from "./pages/RoutesPage/RoutesPage";
-
+import { AudioProvider } from "./contexts/AudioContext";
+import { AudioManager } from "./components/AudioManager";
 import { PauseMenu } from "./pages/PauseMenu/PauseMenu.tsx";
 
 
@@ -43,8 +44,10 @@ const queryClient = new QueryClient({
 createRoot(document.getElementById("app") as HTMLElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+    <AudioProvider>
+     
         <AuthProvider>
+        <BrowserRouter>
           <Routes>
             {/* Rotas públicas */}
             <Route path="/" element={<HomePage />} />
@@ -163,8 +166,10 @@ createRoot(document.getElementById("app") as HTMLElement).render(
             <Route path="/map" element={<MapComponent />} />
 
           </Routes>
+        </BrowserRouter>
         </AuthProvider>
-      </BrowserRouter>
+        </AudioProvider>
+      
       {/* DevTools apenas em desenvolvimento */}
       {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
     </QueryClientProvider>

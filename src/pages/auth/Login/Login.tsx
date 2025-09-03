@@ -10,6 +10,7 @@ import {
 import { Input } from "../../../components/ui/input";
 import { ArrowLeft, AlertCircle } from 'lucide-react';
 import { ButtonHomeBack } from "@/components/ButtonHomeBack";
+import { AudioControl } from "@/components/AudioControl";
 import { useAuth } from "../../../contexts/AuthContext";
 
 export const Login = () => {
@@ -84,6 +85,10 @@ export const Login = () => {
 
         <div className="absolute top-14 left-[33px]">
           <ButtonHomeBack onClick={() => navigate("/")}><ArrowLeft /></ButtonHomeBack>
+        </div>
+
+        <div className="absolute top-14 right-[33px]">
+          <AudioControl />
         </div>
 
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
