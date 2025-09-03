@@ -15,6 +15,7 @@ import '../../components/PixelProgressBar/PixelProgressBar.css';
 import type {
   GameObj
 } from "kaboom";
+import { EventResultModal } from './EventResultModal';
 
 // Interface para eventos vindos da API
 interface EventData {
@@ -87,6 +88,14 @@ export function GameScene() {
   const [totalDistance, setTotalDistance] = useState<number>(500);
 
   const [showMapModal, setShowMapModal] = useState(false);
+
+  // Estados para o modal de resultados
+  const [isResultModalOpen, setIsResultModalOpen] = useState(false);
+  const [resultModalContent, setResultModalContent] = useState({
+    title: '',
+    description: '',
+    consequences: [] as any[],
+  });
 
   // ✅ ADIÇÃO: Estados para sistema de background da versão antiga
   const currentBg = useRef<'cidade' | 'terra'>('cidade');
@@ -276,18 +285,15 @@ export function GameScene() {
         }
       }
 
-      // Mostrar resultado do evento
-      if (data.detail && data.detail !== "Sua decisão foi processada.") {
-        alert(`📋 Resultado: ${data.detail}`);
-      }
+      // Mostrar modal de resultado ao invés de alert
+      setResultModalContent({
+        title: activeEvent?.evento.nome || 'Evento Concluído',
+        description: data.detail,
+        consequences: data.efeitos_aplicados || [],
+      });
+      setIsResultModalOpen(true);
 
-      // Limpar e continuar o jogo
-      setShowPopup(false);
-      setActiveEvent(null);
-      setIsResponding(false);
-      processingEvent.current = false;
-      gamePaused.current = false;
-      collidedObstacle.current = null;
+      // NOTA: A limpeza do estado será feita no handleCloseResultModal
 
       obstacleTimerRef.current = -8;
       collisionCooldownRef.current = 3.0;
@@ -1054,7 +1060,7 @@ export function GameScene() {
     const pathCoords = selectedRoute.pathCoordinates;
     const totalSegments = pathCoords.length - 1;
 
-    const targetDurationSeconds = 1200;
+    const targetDurationSeconds = 60;
     const segmentsPerSecond = totalSegments / targetDurationSeconds;
     const segmentSpeed = segmentsPerSecond * deltaTime;
 
@@ -1111,6 +1117,26 @@ export function GameScene() {
 
     console.log("Usando fallback truck.png");
     return '/assets/truck.png';
+  };
+
+  const handleCloseResultModal = () => {
+    setIsResultModalOpen(false);
+
+    // Limpar e continuar o jogo (movido do onSuccess)
+    setShowPopup(false);
+    setActiveEvent(null);
+    setIsResponding(false);
+    processingEvent.current = false;
+    gamePaused.current = false;
+    collidedObstacle.current = null;
+
+    obstacleTimerRef.current = -8;
+    collisionCooldownRef.current = 3.0;
+
+    setTimeout(() => {
+      obstacleSystemLockedRef.current = false;
+      console.log('🔓 Sistema de obstáculos destravado após evento');
+    }, 8000);
   };
 
   useEffect(() => {
@@ -1711,6 +1737,15 @@ export function GameScene() {
         onResume={togglePause}
         onRestart={handleRestart}
         onGoToProfile={handleGoToProfile}
+      />
+
+      {/* Modal de resultado do evento */}
+      <EventResultModal
+        isOpen={isResultModalOpen}
+        onClose={handleCloseResultModal}
+        title={resultModalContent.title}
+        description={resultModalContent.description}
+        consequences={resultModalContent.consequences}
       />
     </div>
   );
