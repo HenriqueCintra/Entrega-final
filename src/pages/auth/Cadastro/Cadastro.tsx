@@ -4,6 +4,7 @@ import { Button } from "../../../components/ui/button";
 import { Card, CardContent } from "../../../components/ui/card";
 import { ArrowLeft, AlertCircle } from 'lucide-react';
 import { ButtonHomeBack } from "@/components/ButtonHomeBack";
+import { AudioControl } from "@/components/AudioControl";
 import AuthService from "../../../api/authService";
 
 export const Cadastro = () => {
@@ -109,6 +110,11 @@ export const Cadastro = () => {
           <ButtonHomeBack onClick={() => navigate("/")}><ArrowLeft /></ButtonHomeBack>
         </div>
 
+        {/* Controle de áudio */}
+        <div className="absolute top-14 right-[33px]">
+          <AudioControl />
+        </div>
+
         {/* Card de Cadastro */}
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
           <Card className="w-[700px] rounded-[18px] border-2 border-solid border-black bg-white">
@@ -140,6 +146,7 @@ export const Cadastro = () => {
                         {field.label}
                       </label>
                       <input
+                        aria-label=" input"
                         id={field.id}
                         type={field.type}
                         className="w-full h-[55px] rounded-xl border-2 border-solid border-black bg-white p-3 text-black [font-family:'Silkscreen',Helvetica]"

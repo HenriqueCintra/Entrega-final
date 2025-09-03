@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Vehicle } from '../../types/vehicle';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import { AudioControl } from '../../components/AudioControl';
 
 export const FuelPage: React.FC = () => {
   const location = useLocation();
@@ -74,13 +75,6 @@ export const FuelPage: React.FC = () => {
 
       const newBalance = availableMoney - cost;
 
-      console.log("=== DADOS SENDO ENVIADOS PARA GAME ===");
-      console.log("Veículo atualizado:", updatedVehicle);
-      console.log("Combustível do veículo:", updatedVehicle.currentFuel);
-      console.log("Novo saldo:", newBalance);
-      console.log("Rota selecionada:", selectedRoute);
-      console.log("=====================================");
-
       // ATUALIZADO: Passar dados completos incluindo selectedRoute para a GameScene
       navigate('/game', {
         state: {
@@ -97,13 +91,6 @@ export const FuelPage: React.FC = () => {
   };
 
   const handleSkipFuel = () => {
-    console.log("=== DADOS SENDO ENVIADOS PARA GAME (SEM ABASTECER) ===");
-    console.log("Veículo:", selectedVehicle);
-    console.log("Combustível do veículo:", selectedVehicle.currentFuel);
-    console.log("Saldo disponível:", availableBalance);
-    console.log("Rota selecionada:", selectedRoute);
-    console.log("======================================================");
-
     // ATUALIZADO: Navegar para o jogo 2D sem abastecer, mas passando dados completos
     navigate('/game', {
       state: {
@@ -159,8 +146,11 @@ export const FuelPage: React.FC = () => {
             ⛽ ABASTECIMENTO
           </h1>
 
-          <div className="bg-gradient-to-r from-[#E3922A] to-[#FFC06F] text-black text-sm lg:text-base font-bold px-3 py-1.5 rounded-md shadow-lg border-2 border-black">
-            R$ {availableBalance.toFixed(2)}
+          <div className="flex items-center gap-2">
+            <AudioControl />
+            <div className="bg-gradient-to-r from-[#E3922A] to-[#FFC06F] text-black text-sm lg:text-base font-bold px-3 py-1.5 rounded-md shadow-lg border-2 border-black">
+              R$ {availableBalance.toFixed(2)}
+            </div>
           </div>
         </div>
       </div>
