@@ -9,7 +9,7 @@ import {
   CardContent,
 } from "../../components/ui/card";
 import { AudioControl } from "../../components/AudioControl";
-import { PlayIcon, Trophy, TruckIcon, MapPin, DollarSign, X } from 'lucide-react';
+import { PlayIcon, Trophy, TruckIcon, MapPin, DollarSign } from 'lucide-react';
 
 interface UserStats {
   deliveries: number;
@@ -20,7 +20,6 @@ interface UserStats {
 
 export const PerfilPage = () => {
   const navigate = useNavigate();
-  // Removido o useRef para o input de arquivo
   const { user, logout, refreshUser } = useAuth();
 
   // Buscar dados da equipe se o usuário estiver em uma
@@ -38,27 +37,8 @@ export const PerfilPage = () => {
     victories: 12
   });
 
-  // Lista de avatares predefinidos
-  const presetAvatars = [
-    "/assets/avatars/perfil_caminhao.png",
-    "/assets/avatars/perfil_volante.png",
-    "/assets/avatars/perfil1.png",
-    "/assets/avatars/perfil2.png",
-    "/assets/avatars/perfil3.png",
-    "/assets/avatars/perfil4.png",
-    "/assets/avatars/perfil5.png",
-  ];
-
-  // Estado para controlar a visibilidade do seletor de avatares
-  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
-  // Estado para o avatar local, inicializado com o primeiro da lista de presets
-  const [localAvatar, setLocalAvatar] = useState<string>(presetAvatars[0]);
-
-  // Função para lidar com a seleção de um avatar predefinido
-  const handleSelectAvatar = (avatarUrl: string) => {
-    setLocalAvatar(avatarUrl);
-    setShowAvatarPicker(false); // Fecha o seletor após a escolha
-  };
+  // === REMOVIDA TODA A LÓGICA DE SELEÇÃO DE AVATAR ===
+  // === APENAS EXIBIÇÃO DO AVATAR QUE VEM DO USER ===
 
   const handlePlayNow = () => {
     navigate("/desafio");
@@ -167,33 +147,7 @@ export const PerfilPage = () => {
           src="/nuvemright.png"
         />
 
-        {/* Modal de seleção de avatar - Adicionado para substituir o upload */}
-        {showAvatarPicker && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
-            <Card className="p-6 w-11/12 md:w-1/2 lg:w-1/3 border-2 border-black">
-              <div className="flex justify-between items-center mb-4 border-b-2 border-black pb-2">
-                <h3 className="[font-family:'Silkscreen',Helvetica] font-bold text-xl" style={titleStyle}>
-                  ESCOLHA SEU AVATAR
-                </h3>
-                <Button variant="ghost" onClick={() => setShowAvatarPicker(false)} className="text-white hover:text-gray-300 p-1">
-                  <X size={24} />
-                </Button>
-              </div>
-              <div className="grid grid-cols-4 gap-4 mt-4">
-                {presetAvatars.map((avatar, index) => (
-                  <img
-                    key={index}
-                    src={avatar}
-                    alt={`Avatar ${index + 1}`}
-                    // CORREÇÃO: Adicionada a classe object-cover aqui
-                    className={`w-16 h-16 rounded-full cursor-pointer transition-transform duration-200 transform hover:scale-110 border-2 object-cover ${localAvatar === avatar ? 'border-orange-500 shadow-lg' : 'border-black'}`}
-                    onClick={() => handleSelectAvatar(avatar)}
-                  />
-                ))}
-              </div>
-            </Card>
-          </div>
-        )}
+        {/* === REMOVIDO: Modal de seleção de avatar === */}
 
         {/* Controle de áudio */}
         <div className="absolute top-14 right-8 z-20">
@@ -213,21 +167,19 @@ export const PerfilPage = () => {
                       SEU PERFIL
                     </h2>
 
-                    {/* Seção do avatar - Agora clica para abrir o seletor */}
+                    {/* === SEÇÃO DO AVATAR SIMPLIFICADA - APENAS EXIBIÇÃO === */}
                     <div className="mt-3 flex justify-center">
                       <div className="relative">
-                        <div
-                          className="w-24 h-24 rounded-full bg-teal-100 border-4 border-teal-500 flex items-center justify-center overflow-hidden relative group cursor-pointer"
-                          onClick={() => setShowAvatarPicker(true)}
-                        >
+                        <div className="w-24 h-24 rounded-full bg-teal-100 border-4 border-teal-500 flex items-center justify-center overflow-hidden">
                           <img
-                            src={localAvatar}
+                            src={user.avatar || "/assets/avatars/perfil_caminhao.png"} // === USAR AVATAR DO USUÁRIO ===
                             alt="Avatar"
                             className="w-20 h-20 object-cover rounded-full"
                           />
                         </div>
                       </div>
                     </div>
+                    {/* ========================================================= */}
 
                     {/* Nome do usuário - usando dados reais */}
                     <h3 className="[font-family:'Silkscreen',Helvetica] font-bold text-center text-xl mt-2">
@@ -276,7 +228,7 @@ export const PerfilPage = () => {
                         className="flex flex-col items-center justify-center h-16 border-2 border-black"
                         onClick={handleChangePassword}
                       >
-                        <span className="text-2xl">🔑</span>
+                        <span className="text-2xl">🔒</span>
                         <span className="text-xs [font-family:'Silkscreen',Helvetica]">SENHA</span>
                       </Button>
                       <Button
