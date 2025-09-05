@@ -1,7 +1,10 @@
+// src/pages/Tutorial/TutorialPage.tsx
+
 import { useState, useEffect } from "react";
 import { Button } from "../../components/ui/button";
 import { ArrowLeft, Home } from 'lucide-react'; 
 import { ButtonHomeBack } from "@/components/ButtonHomeBack";
+import { AudioControl } from "@/components/AudioControl";
 import { useNavigate } from "react-router-dom";
 
 export const TutorialPage = () => {
@@ -9,9 +12,8 @@ export const TutorialPage = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
   useEffect(() => {
-    const token = localStorage.getItem('userToken');
+    const token = localStorage.getItem('token');
     setIsLoggedIn(!!token);
-    
   }, []);
 
   const tutorialSteps = [
@@ -55,7 +57,6 @@ export const TutorialPage = () => {
   return (
     <div className="bg-white flex flex-row justify-center w-full">
       <div className="w-full min-h-screen [background:linear-gradient(180deg,rgba(32,2,89,1)_0%,rgba(121,70,213,1)_100%)] relative overflow-hidden">
-        {}
         <img
           className="w-[375px] h-[147px] absolute top-[120px] left-[157px] object-cover animate-float-right"
           alt="Cloud decoration"
@@ -67,27 +68,24 @@ export const TutorialPage = () => {
           src="/nuvemright.png"
         />
 
-        {}
         <div className="flex gap-5 absolute top-14 left-[33px]">
           <ButtonHomeBack onClick={() => navigate(-1)}><ArrowLeft/></ButtonHomeBack>
           <ButtonHomeBack onClick={() => navigate("/perfil")}><Home/></ButtonHomeBack>
         </div>
 
-        {}
+        <div className="absolute top-14 right-[33px]">
+          <AudioControl />
+        </div>
+
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[70%] max-w-[750px]">
           <div className="bg-white rounded-[18px] border-2 border-solid border-black p-6">
-            {}
             <h1 className="text-center text-[35px] [font-family:'Silkscreen',Helvetica] font-bold mb-6">
               TUTORIAL
             </h1>
-
-            {}
             <p className="text-center [font-family:'Silkscreen',Helvetica] text-[14px] mb-6">
               NESTE JOGO, VOCÊ ASSUMIRÁ O PAPEL DE UMA EMPRESA DE LOGÍSTICA E PRECISARÁ PLANEJAR E
               EXECUTAR A ENTREGA DE MERCADORIAS DA FORMA MAIS EFICIENTE POSSÍVEL.
             </p>
-
-            {}
             <div className="grid grid-cols-2 gap-6 mb-6">
               {tutorialSteps.map((step, index) => (
                 <div key={index} className="flex">
@@ -107,28 +105,21 @@ export const TutorialPage = () => {
                 </div>
               ))}
             </div>
-
-            {}
             <p className="text-center [font-family:'Silkscreen',Helvetica] text-[12px] mb-6">
               AGORA QUE VOCÊ CONHECE AS REGRAS, ESTÁ PRONTO PARA O DESAFIO BOA SORTE!
             </p>
-            
-              <div className="flex justify-center">
-                <Button 
-                  onClick={() => navigate("/desafio")}
-                  className="w-[230px] px-36 h-[45px] bg-[#e3922a] rounded-md [font-family:'Silkscreen',Helvetica] font-bold text-black text-[26px] hover:bg-[#e3922a] transform transition-transform duration-300 hover:scale-105"
-                >
-                  INICIAR JOGO
-                </Button>
-              </div>
-            
+            <div className="flex justify-center">
+              {/* ✅ BOTÃO CORRIGIDO: Navega para a rota estática /desafio */}
+              <Button 
+                onClick={() => navigate("/desafio")}
+                className="w-[230px] px-36 h-[45px] bg-[#e3922a] rounded-md [font-family:'Silkscreen',Helvetica] font-bold text-black text-[26px] hover:bg-[#e3922a] transform transition-transform duration-300 hover:scale-105"
+              >
+                INICIAR JOGO
+              </Button>
+            </div>
           </div>
         </div>
-
-        {}
       </div>
     </div>
   );
 };
-
-export default TutorialPage;

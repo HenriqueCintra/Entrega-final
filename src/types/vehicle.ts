@@ -8,6 +8,7 @@ export interface Vehicle {
     dirt: number;
   };
   image: string;
+  spriteSheet: string;
   maxCapacity: number;
   currentFuel: number;
   cost: number; // Custo do aluguel + motorista

@@ -1,12 +1,15 @@
 import { useNavigate } from "react-router-dom";
-import { useState, useRef } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../../contexts/AuthContext";
+import { TeamService } from "../../api/teamService";
 import { Button } from "../../components/ui/button";
 import {
   Card,
   CardContent,
 } from "../../components/ui/card";
-import { PlayIcon, Trophy, TruckIcon, MapPin, DollarSign, Camera } from 'lucide-react';
+import { AudioControl } from "../../components/AudioControl";
+import { PlayIcon, Trophy, TruckIcon, MapPin, DollarSign, X } from 'lucide-react';
 
 interface UserStats {
   deliveries: number;
@@ -17,8 +20,15 @@ interface UserStats {
 
 export const PerfilPage = () => {
   const navigate = useNavigate();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const { user, logout } = useAuth();
+  // Removido o useRef para o input de arquivo
+  const { user, logout, refreshUser } = useAuth();
+
+  // Buscar dados da equipe se o usuário estiver em uma
+  const { data: teamData } = useQuery({
+    queryKey: ['teamDetails', user?.equipe],
+    queryFn: () => TeamService.getTeamDetails(user!.equipe!),
+    enabled: !!user?.equipe, // Só busca se o usuário estiver em uma equipe
+  });
 
   // Stats ainda estáticos (podem ser implementados depois)
   const [userStats] = useState<UserStats>({
@@ -28,41 +38,70 @@ export const PerfilPage = () => {
     victories: 12
   });
 
-  // Avatar local (melhoria futura: integrar com backend)
-  const [localAvatar, setLocalAvatar] = useState<string>("/mario.png");
+  // Lista de avatares predefinidos
+  const presetAvatars = [
+    "/assets/avatars/perfil_caminhao.png",
+    "/assets/avatars/perfil_volante.png",
+    "/assets/avatars/perfil1.png",
+    "/assets/avatars/perfil2.png",
+    "/assets/avatars/perfil3.png",
+    "/assets/avatars/perfil4.png",
+    "/assets/avatars/perfil5.png",
+  ];
+
+  // Estado para controlar a visibilidade do seletor de avatares
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  // Estado para o avatar local, inicializado com o primeiro da lista de presets
+  const [localAvatar, setLocalAvatar] = useState<string>(presetAvatars[0]);
+
+  // Função para lidar com a seleção de um avatar predefinido
+  const handleSelectAvatar = (avatarUrl: string) => {
+    setLocalAvatar(avatarUrl);
+    setShowAvatarPicker(false); // Fecha o seletor após a escolha
+  };
 
   const handlePlayNow = () => {
-    navigate("/select-vehicle");
+    navigate("/desafio");
   };
 
   const handleContinueGame = () => {
-    navigate("/select-vehicle");
-  };
+    const savedProgress = localStorage.getItem('savedGameProgress');
 
-  const handleCheckRanking = () => {
-    navigate("/ranking");
-  };
+    if (savedProgress) {
+      try {
+        const gameProgress = JSON.parse(savedProgress);
+        console.log('Carregando progresso salvo:', gameProgress);
 
-  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const result = e.target?.result;
-          if (typeof result === 'string') {
-            setLocalAvatar(result);
+        navigate('/game', {
+          state: {
+            selectedVehicle: gameProgress.vehicle,
+            availableMoney: gameProgress.money,
+            selectedRoute: gameProgress.selectedRoute,
+            savedProgress: {
+              currentFuel: gameProgress.currentFuel,
+              progress: gameProgress.progress,
+              currentPathIndex: gameProgress.currentPathIndex,
+              pathProgress: gameProgress.pathProgress,
+              gameTime: gameProgress.gameTime,
+              activeGameId: gameProgress.activeGameId
+            }
           }
-        };
-        reader.readAsDataURL(file);
-      } else {
-        alert('Por favor, selecione apenas arquivos de imagem (PNG, JPG, GIF, etc.)');
+        });
+      } catch (error) {
+        console.error('Erro ao carregar progresso:', error);
+        alert('Erro ao carregar o jogo salvo. Iniciando novo jogo...');
+        navigate("/select-vehicle");
+      }
+    } else {
+      const startNewGame = window.confirm('Não há jogo salvo. Deseja iniciar um novo jogo?');
+      if (startNewGame) {
+        navigate("/desafio");
       }
     }
   };
 
-  const handleClickUpload = () => {
-    fileInputRef.current?.click();
+  const handleCheckRanking = () => {
+    navigate("/ranking", { state: { from: 'profile' } });
   };
 
   const handleEditProfile = () => {
@@ -73,28 +112,40 @@ export const PerfilPage = () => {
     navigate("/mudar-senha");
   };
 
+  const handleGetOutTeam = async () => {
+    if (!user?.equipe) return;
+    try {
+      await TeamService.leaveTeam();
+      await refreshUser();
+      alert("Você saiu da equipe com sucesso!");
+    } catch (error) {
+      alert("Erro ao sair da equipe. Tente novamente.");
+    }
+  };
+
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
 
-  // Se não há usuário logado, redireciona
+  const handleManageTeam = () => {
+    if (user?.equipe) {
+      navigate("/perfil/editar-equipe");
+    } else {
+      navigate("/choose-team");
+    }
+  };
+
   if (!user) {
     navigate("/login");
     return null;
   }
 
-  // Calcula dados dinâmicos baseados no usuário real
-  // PRIORIZAR NOME COMPLETO - se existir first_name E last_name, usa eles
   const displayName = user.first_name && user.last_name
     ? `${user.first_name} ${user.last_name}`
     : user.nickname || user.username;
 
-  // Level e XP podem ser calculados baseado nas stats (implementação futura)
-  const level = 12;
-  const xp = 2450;
-  const maxXp = 3000;
-  const xpPercentage = Math.round((xp / maxXp) * 100);
+  const teamDisplayName = teamData?.nome || "SEM EQUIPE";
 
   const titleStyle = {
     color: "#E3922A",
@@ -104,7 +155,7 @@ export const PerfilPage = () => {
   return (
     <div className="bg-white flex flex-row justify-center w-full">
       <div className="w-full min-h-screen [background:linear-gradient(180deg,rgba(57,189,248,1)_0%,rgba(154,102,248,1)_100%)] relative overflow-hidden">
-        {/* Decorative clouds */}
+        {/* Nuvens decorativas */}
         <img
           className="w-[375px] h-[147px] absolute top-[120px] left-[157px] object-cover animate-float-right"
           alt="Cloud decoration"
@@ -116,20 +167,44 @@ export const PerfilPage = () => {
           src="/nuvemright.png"
         />
 
-        {/* Hidden file input for photo upload */}
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handlePhotoUpload}
-          accept="image/*"
-          className="hidden"
-        />
+        {/* Modal de seleção de avatar - Adicionado para substituir o upload */}
+        {showAvatarPicker && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+            <Card className="p-6 w-11/12 md:w-1/2 lg:w-1/3 border-2 border-black">
+              <div className="flex justify-between items-center mb-4 border-b-2 border-black pb-2">
+                <h3 className="[font-family:'Silkscreen',Helvetica] font-bold text-xl" style={titleStyle}>
+                  ESCOLHA SEU AVATAR
+                </h3>
+                <Button variant="ghost" onClick={() => setShowAvatarPicker(false)} className="text-white hover:text-gray-300 p-1">
+                  <X size={24} />
+                </Button>
+              </div>
+              <div className="grid grid-cols-4 gap-4 mt-4">
+                {presetAvatars.map((avatar, index) => (
+                  <img
+                    key={index}
+                    src={avatar}
+                    alt={`Avatar ${index + 1}`}
+                    // CORREÇÃO: Adicionada a classe object-cover aqui
+                    className={`w-16 h-16 rounded-full cursor-pointer transition-transform duration-200 transform hover:scale-110 border-2 object-cover ${localAvatar === avatar ? 'border-orange-500 shadow-lg' : 'border-black'}`}
+                    onClick={() => handleSelectAvatar(avatar)}
+                  />
+                ))}
+              </div>
+            </Card>
+          </div>
+        )}
 
-        {/* Main content */}
+        {/* Controle de áudio */}
+        <div className="absolute top-14 right-8 z-20">
+          <AudioControl />
+        </div>
+
+        {/* Conteúdo principal */}
         <div className="max-w-5xl mx-auto pt-20 px-4 relative z-10">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-            {/* Left column - Profile info */}
+            {/* Coluna esquerda - Informações do perfil */}
             <div className="space-y-4">
               <Card className="border-2 border-solid border-black rounded-lg overflow-hidden">
                 <CardContent className="p-4">
@@ -138,63 +213,55 @@ export const PerfilPage = () => {
                       SEU PERFIL
                     </h2>
 
-                    {/* Avatar section */}
+                    {/* Seção do avatar - Agora clica para abrir o seletor */}
                     <div className="mt-3 flex justify-center">
                       <div className="relative">
-                        <div className="w-24 h-24 rounded-full bg-teal-100 border-4 border-teal-500 flex items-center justify-center overflow-hidden relative group">
+                        <div
+                          className="w-24 h-24 rounded-full bg-teal-100 border-4 border-teal-500 flex items-center justify-center overflow-hidden relative group cursor-pointer"
+                          onClick={() => setShowAvatarPicker(true)}
+                        >
                           <img
                             src={localAvatar}
                             alt="Avatar"
-                            className="w-20 h-20 object-cover"
+                            className="w-20 h-20 object-cover rounded-full"
                           />
-
-                          {/* Upload overlay */}
-                          <div
-                            className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer rounded-full"
-                            onClick={handleClickUpload}
-                          >
-                            <Camera size={20} className="text-white" />
-                          </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* User name - usando dados reais */}
+                    {/* Nome do usuário - usando dados reais */}
                     <h3 className="[font-family:'Silkscreen',Helvetica] font-bold text-center text-xl mt-2">
                       {displayName.toUpperCase()}
                     </h3>
 
-                    {/* Level display */}
-                    <div className="flex items-center justify-center mt-1">
-                      <span className="text-yellow-500 mr-1">🏆</span>
-                      <span className="[font-family:'Silkscreen',Helvetica]">
-                        NÍVEL {level}
-                      </span>
-                    </div>
-
-                    {/* XP Progress bar */}
-                    <div className="mt-4">
-                      <div className="flex justify-between text-xs [font-family:'Silkscreen',Helvetica] mb-1">
-                        <span>XP: {xp}/{maxXp}</span>
-                        <span>{xpPercentage}%</span>
-                      </div>
-                      <div className="w-full h-4 bg-gray-200 rounded-full overflow-hidden border border-black">
-                        <div
-                          className="h-full bg-yellow-500"
-                          style={{ width: `${xpPercentage}%` }}
-                        ></div>
-                      </div>
-                    </div>
-
-                    {/* Team info - usando dados reais do backend */}
-                    <div className="mt-4 [font-family:'Silkscreen',Helvetica]">
+                    {/* Informações da equipe - usando dados reais do backend */}
+                    <div
+                      className="mt-4 [font-family:'Silkscreen',Helvetica] cursor-pointer hover:bg-gray-100 p-2 rounded transition-colors flex items-center gap-2"
+                      onClick={handleManageTeam}
+                    >
                       <span className="font-bold">EQUIPE: </span>
-                      <span className="text-orange-500 font-bold">
-                        {user.equipe ? 'TEAM_NAME' : 'SEM EQUIPE'}
+                      <span className={`font-bold ${user.equipe ? 'text-orange-500' : 'text-gray-500'}`}>
+                        {teamDisplayName}
                       </span>
+                      {user.equipe && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="ml-2 px-2 py-1 text-xs border-2 border-black"
+                            onClick={e => { e.stopPropagation(); handleGetOutTeam(); }}
+                          >
+                            SAIR
+                          </Button>
+
+                        </>
+                      )}
+                      <div className="text-xs text-gray-600 mt-1">
+                        {user.equipe ? 'Clique para gerenciar' : 'Clique para entrar em uma equipe'}
+                      </div>
                     </div>
 
-                    {/* Action buttons */}
+                    {/* Botões de ação */}
                     <div className="grid grid-cols-3 gap-2 mt-3">
                       <Button
                         variant="outline"
@@ -226,14 +293,14 @@ export const PerfilPage = () => {
               </Card>
             </div>
 
-            {/* Right column - Game info and stats */}
+            {/* Coluna direita - Informações do jogo e estatísticas */}
             <div className="space-y-4">
-              {/* Play game card */}
+              {/* Card de jogar */}
               <Card className="border-2 border-solid border-black rounded-lg overflow-hidden">
                 <CardContent className="p-4">
-                  {/* Game title and play button */}
+                  {/* Título do jogo e botão de jogar */}
                   <div className="flex justify-between items-center">
-                    {/* Game info */}
+                    {/* Informações do jogo */}
                     <div>
                       <h2 className="[font-family:'Silkscreen',Helvetica] font-bold text-2xl" style={titleStyle}>
                         ENTREGA EFICIENTE
@@ -243,7 +310,7 @@ export const PerfilPage = () => {
                       </p>
                     </div>
 
-                    {/* Play button */}
+                    {/* Botão de jogar */}
                     <Button
                       onClick={handlePlayNow}
                       className="bg-orange-400 text-black hover:bg-orange-500 h-12 flex items-center justify-between px-4 rounded border-2 border-black [font-family:'Silkscreen',Helvetica] font-bold"
@@ -253,10 +320,10 @@ export const PerfilPage = () => {
                     </Button>
                   </div>
 
-                  {/* Other games link */}
+                  {/* Link para outros jogos */}
                   <div className="text-center mt-1">
                     <button
-                      onClick={() => navigate("/games")}
+                      onClick={() => navigate("/game-selection")}
                       className="text-xs underline [font-family:'Silkscreen',Helvetica] text-blue-500"
                     >
                       JOGAR OUTRO JOGO!
@@ -265,9 +332,9 @@ export const PerfilPage = () => {
                 </CardContent>
               </Card>
 
-              {/* Stats grid */}
+              {/* Grid de estatísticas */}
               <div className="grid grid-cols-4 gap-3">
-                {/* Deliveries */}
+                {/* Entregas */}
                 <Card className="border-2 border-solid border-black rounded-lg overflow-hidden">
                   <CardContent className="py-3 px-4 flex flex-col items-center">
                     <TruckIcon size={24} />
@@ -278,7 +345,7 @@ export const PerfilPage = () => {
                   </CardContent>
                 </Card>
 
-                {/* Distance */}
+                {/* Distância */}
                 <Card className="border-2 border-solid border-black rounded-lg overflow-hidden">
                   <CardContent className="py-3 px-4 flex flex-col items-center">
                     <MapPin size={24} color="#4ade80" />
@@ -289,7 +356,7 @@ export const PerfilPage = () => {
                   </CardContent>
                 </Card>
 
-                {/* Earnings */}
+                {/* Ganhos */}
                 <Card className="border-2 border-solid border-black rounded-lg overflow-hidden">
                   <CardContent className="py-3 px-4 flex flex-col items-center">
                     <DollarSign size={24} color="#eab308" />
@@ -300,7 +367,7 @@ export const PerfilPage = () => {
                   </CardContent>
                 </Card>
 
-                {/* Victories */}
+                {/* Vitórias */}
                 <Card className="border-2 border-solid border-black rounded-lg overflow-hidden">
                   <CardContent className="py-3 px-4 flex flex-col items-center">
                     <span className="text-2xl">🏆</span>
@@ -312,10 +379,10 @@ export const PerfilPage = () => {
                 </Card>
               </div>
 
-              {/* Action cards */}
+              {/* Cards de ação */}
               <div className="grid grid-cols-2 gap-3">
-                {/* Ranking card */}
-                <Card className="border-2 border-solid border-black rounded-lg overflow-hidden">
+                {/* Card de ranking */}
+                <Card className="border-2 border-solid border-black rounded-lg overflow-hidden cursor-pointer hover:bg-gray-50 transition-colors">
                   <CardContent className="p-4" onClick={handleCheckRanking}>
                     <div className="flex items-center">
                       <Trophy size={32} className="text-yellow-500" />
@@ -331,19 +398,21 @@ export const PerfilPage = () => {
                   </CardContent>
                 </Card>
 
-                {/* Continue game card */}
-                <Card className="border-2 border-solid border-black rounded-lg overflow-hidden">
+                {/* Card de continuar jogo */}
+                <Card className="border-2 border-solid border-black rounded-lg overflow-hidden cursor-pointer hover:bg-gray-50 transition-colors">
                   <CardContent className="p-4" onClick={handleContinueGame}>
                     <div className="flex items-center">
                       <div className="w-8 h-8 bg-purple-700 rounded-full flex items-center justify-center">
-                        <span className="text-white text-2xl">⏱️</span>
+                        <span className="text-white text-2xl">{localStorage.getItem('savedGameProgress') ? '⏱️' : '🎮'}</span>
                       </div>
                       <div className="ml-3">
                         <h3 className="[font-family:'Silkscreen',Helvetica] font-bold" style={titleStyle}>
-                          CONTINUAR
+                          {localStorage.getItem('savedGameProgress') ? 'CONTINUAR' : 'NOVO JOGO'}
                         </h3>
                         <p className="[font-family:'Silkscreen',Helvetica] text-xs">
-                          RETOMAR A ÚLTIMA PARTIDA
+                          {localStorage.getItem('savedGameProgress')
+                            ? 'RETOMAR A ÚLTIMA PARTIDA'
+                            : 'INICIAR NOVA AVENTURA'}
                         </p>
                       </div>
                     </div>

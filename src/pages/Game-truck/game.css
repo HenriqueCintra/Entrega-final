@@ -1,0 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap');
+
+/* Garantir que o body não tenha margem/padding para tela cheia */
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* Evitar scroll bars em tela cheia */
+}
+
+.tittle {
+    font-family: "Silkscreen", sans-serif;
+}
+
+.endMessage {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    text-align: center;
+    color: black;
+    font-family: "Silkscreen", sans-serif;
+    z-index: 2000;
+}
+
+/* Ajustes responsivos para diferentes tamanhos de tela */
+@media (max-width: 768px) {
+  .endMessage {
+    width: 90%;
+    max-width: 350px;
+    padding: 15px;
+  }
+}

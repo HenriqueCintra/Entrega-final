@@ -19,27 +19,24 @@ export const FuelModal: React.FC<FuelModalProps> = ({
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle>({ ...vehicle });
   const [fuelAmount, setFuelAmount] = useState<'full' | 'half' | 'quarter'>('full');
   const [availableBalance, setAvailableBalance] = useState(availableMoney);
-  const [previewFuel, setPreviewFuel] = useState<number>(vehicle.currentFuel);
+  const [previewFuel, setPreviewFuel] = useState<number>(vehicle.maxCapacity); // Preview inicia com a opção 'full' selecionada
 
   const fuelCostPerLiter = 5.5;
 
   const calculateFuelCost = (option: 'full' | 'half' | 'quarter') => {
     const maxCapacity = selectedVehicle.maxCapacity;
-    const currentFuel = selectedVehicle.currentFuel;
-
     let fuelToAdd = 0;
 
+    // Como o tanque sempre começa vazio, calculamos a quantidade total desejada
     switch (option) {
       case 'full':
-        fuelToAdd = maxCapacity - currentFuel;
+        fuelToAdd = maxCapacity;
         break;
       case 'half':
-        fuelToAdd = (maxCapacity / 2) - currentFuel;
-        if (fuelToAdd < 0) fuelToAdd = 0;
+        fuelToAdd = maxCapacity / 2;
         break;
       case 'quarter':
-        fuelToAdd = (maxCapacity / 4) - currentFuel;
-        if (fuelToAdd < 0) fuelToAdd = 0;
+        fuelToAdd = maxCapacity / 4;
         break;
     }
 
@@ -50,11 +47,12 @@ export const FuelModal: React.FC<FuelModalProps> = ({
     const cost = calculateFuelCost(fuelAmount);
 
     if (cost <= availableBalance) {
+      // Calcular o novo combustível baseado na opção selecionada
       const newCurrentFuel = fuelAmount === 'full'
         ? selectedVehicle.maxCapacity
         : fuelAmount === 'half'
-          ? Math.max(selectedVehicle.currentFuel, selectedVehicle.maxCapacity / 2)
-          : Math.max(selectedVehicle.currentFuel, selectedVehicle.maxCapacity / 4);
+          ? selectedVehicle.maxCapacity / 2
+          : selectedVehicle.maxCapacity / 4;
 
       const updatedVehicle = {
         ...selectedVehicle,
@@ -74,18 +72,17 @@ export const FuelModal: React.FC<FuelModalProps> = ({
 
   const calculatePreviewFuel = (option: 'full' | 'half' | 'quarter'): number => {
     const max = selectedVehicle.maxCapacity;
-    const current = selectedVehicle.currentFuel;
 
     switch (option) {
       case 'full':
         return max;
       case 'half':
-        // Correção: a pré-visualização deve mostrar o resultado final, não o máximo entre o atual e o alvo.
         return max / 2;
       case 'quarter':
         return max / 4;
+      default:
+        return 0; // Tanque vazio por padrão
     }
-    return current; // Fallback
   };
 
 
@@ -123,25 +120,24 @@ export const FuelModal: React.FC<FuelModalProps> = ({
 
                 <div>
                   <h3 className="font-['Silkscreen'] text-lg font-bold text-black mb-2">COMBUSTÍVEL</h3>
-                  <p className="font-sans text-black text-md mb-1">ATUAL: {selectedVehicle.currentFuel.toFixed(0)}L</p>
+                  <p className="font-sans text-black text-md mb-1">ATUAL: 0L</p>
                   <p className="font-sans text-black text-md mb-3">MÁXIMO: {selectedVehicle.maxCapacity}L</p>
                 </div>
               </div>
 
               <p className="font-sans text-black text-md mb-2">NÍVEL DO TANQUE</p>
-              <div className="w-full bg-gray-300 rounded-full h-6 border-2 border-black mb-4 relative">
-                {/* Barra do combustível atual */}
+              <div className="w-full bg-gray-200 rounded-full h-6 border-2 border-black mb-4 relative overflow-hidden shadow-inner">
+                {/* Fundo branco (tanque vazio) */}
+                <div className="w-full h-full bg-white rounded-full"></div>
+                
+                {/* Barra de preview - quantidade que será abastecida (verde) */}
                 <div
-                  className="bg-green-500 h-full rounded-l-full transition-all duration-300"
-                  style={{ width: `${(selectedVehicle.currentFuel / selectedVehicle.maxCapacity) * 100}%` }}
-                ></div>
-                {/* Barra da pré-visualização */}
-                <div
-                  className="bg-yellow-400 h-full absolute top-0 left-0 rounded-full opacity-70 transition-all duration-300"
+                  className="bg-gradient-to-r from-green-400 via-green-500 to-green-600 h-full absolute top-0 left-0 transition-all duration-300"
                   style={{ width: `${(previewFuel / selectedVehicle.maxCapacity) * 100}%` }}
                 ></div>
+                
                 <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-black">
-                  {selectedVehicle.currentFuel.toFixed(0)} / {selectedVehicle.maxCapacity}L
+                  0L → {previewFuel.toFixed(0)}L / {selectedVehicle.maxCapacity}L
                 </div>
               </div>
             </div>

@@ -10,13 +10,13 @@ COPY package*.json ./
 COPY vite.config.ts ./
 
 # Instala as dependências
- RUN npm install
+RUN npm install
 
 # # Copia o restante dos arquivos do projeto
- COPY . .
+COPY . .
 
 # # Expõe a porta que o Vite usa por padrão
- EXPOSE 5173
+EXPOSE 5173
 
 # # Comando para iniciar o servidor de desenvolvimento
- CMD ["npm", "run", "dev"]
+CMD ["npm", "run", "dev"]

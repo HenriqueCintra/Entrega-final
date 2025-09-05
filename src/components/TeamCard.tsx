@@ -5,11 +5,11 @@ import clsx from 'clsx';
 
 interface TeamCardProps {
   team: Team;
-  onClick?: (id: string) => void;
+  onClick?: () => void;
   selected?: boolean;
 }
 
-const TeamCard: React.FC<TeamCardProps> = ({ team, onClick, selected }) => {
+const TeamCard = ({ team, onClick, selected }: TeamCardProps) => {
   return (
     <div 
       className={clsx(
@@ -18,14 +18,15 @@ const TeamCard: React.FC<TeamCardProps> = ({ team, onClick, selected }) => {
         'hover:-translate-x-[2px] hover:-translate-y-[2px]',
         selected ? 'ring-4 ring-yellow-400' : ''
       )}
-      onClick={() => onClick && onClick(team.id)}
+      onClick={onClick}
     >
+      
       <div className="flex items-start">
         {/* Main Team Info */}
         <div className="flex items-start space-x-4">
           <div className="w-16 h-16 bg-gray-300 border-2 border-black"></div>
           <div className="flex-1">
-            <h3 className="font-pixel text-xl font-bold">{team.name}</h3>
+            <h3 className="font-pixel text-xl font-bold">{team.nome}</h3>
             <div className="flex space-x-4 mt-2">
               <div className="flex items-center space-x-1">
                 <Users size={18} />

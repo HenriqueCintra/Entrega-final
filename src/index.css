@@ -1,10 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
 
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
@@ -75,8 +74,8 @@ button:focus-visible {
 
 @layer base {
   html {
-    font-family: 'Silkscreen', sans-serif;
-    font-family: 'Press Start 2P', cursive;
+    font-family: "Silkscreen", sans-serif;
+    font-family: "Press Start 2P", cursive;
   }
   body {
     @apply antialiased;
@@ -158,13 +157,11 @@ button:focus-visible {
     @apply bg-background text-foreground;
   }
 }
-  @layer components {
+@layer components {
   .pixel-border {
-    box-shadow: 
-      0 0 0 2px #fff,
-      0 0 0 4px #000;
+    box-shadow: 0 0 0 2px #fff, 0 0 0 4px #000;
   }
-  
+
   .pixel-button {
     @apply relative bg-amber-500 px-6 py-3 font-pixel 
     text-black font-bold border-2 border-black 
@@ -172,17 +169,17 @@ button:focus-visible {
     hover:brightness-110 active:brightness-90
     hover:-translate-y-1 active:translate-y-0;
   }
-  
+
   .pixel-card {
     @apply bg-white border-2 border-black p-4 transition-all
     hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]
     hover:-translate-x-[2px] hover:-translate-y-[2px];
   }
-  
+
   .pixel-cloud {
     @apply absolute opacity-75 animate-float;
   }
-  
+
   .pixelated {
     image-rendering: pixelated;
   }

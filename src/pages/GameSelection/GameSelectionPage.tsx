@@ -1,3 +1,5 @@
+// arquivo: src/pages/GameSelection/GameSelectionPage.tsx
+
 import React from 'react';
 import { useNavigate } from "react-router-dom";
 import { useQuery } from '@tanstack/react-query';
@@ -6,87 +8,68 @@ import PixelHeading from './components/PixelHeading';
 import Footer from './components/Footer';
 import { ArrowLeft, ImageIcon, Loader, AlertTriangle } from 'lucide-react';
 import { ButtonHomeBack } from '@/components/ButtonHomeBack';
+import { AudioControl } from '@/components/AudioControl';
 import { GameService } from '@/api/gameService';
-import { Map as GameMap } from '@/types';
+import { Map as Desafio } from '@/types'; // O tipo Map representa um Desafio
+
+// 1. DADOS ESTÁTICOS DOS JOGOS (mockado como você pediu)
+const gamesData = [
+  {
+    id: 'entrega_eficiente', // ID para controle interno
+    title: "ENTREGA EFICIENTE", // Título do JOGO que será exibido
+    description: "GERENCIE SUA FROTA DE CAMINHÕES, ESCOLHA AS MELHORES ROTAS E FAÇA ENTREGAS COM EFICIÊNCIA.",
+    borderColor: 'border-yellow-500',
+    buttonBgColor: 'bg-yellow-500',
+    buttonHoverColor: 'hover:bg-yellow-600',
+    isActive: true,
+  },
+  {
+    id: 'centro_distribuicao',
+    title: "Centro de Distribuição",
+    description: "Gerencie o fluxo de produtos em seu centro de distribuição, otimizando a logística e reduzindo custos.",
+    borderColor: 'border-green-400',
+    buttonBgColor: 'bg-green-300',
+    buttonHoverColor: 'hover:bg-green-400',
+    isActive: false,
+  },
+  {
+    id: 'gestao_estoque',
+    title: "Gestão de Estoque",
+    description: "Gerencie o estoque de produtos, otimizando a distribuição e reduzindo custos.",
+    borderColor: 'border-blue-400',
+    buttonBgColor: 'bg-blue-300',
+    buttonHoverColor: 'hover:bg-blue-400',
+    isActive: false,
+  },
+];
 
 const GameSelectionPage = () => {
   const navigate = useNavigate();
 
-  // Buscando os dados da API
-  const { data: maps, isLoading, isError } = useQuery<GameMap[]>({
-    queryKey: ['maps'],
+  // 2. A API continua buscando os DESAFIOS disponíveis nos bastidores.
+  const { data: desafios, isLoading, isError } = useQuery<Desafio[]>({
+    queryKey: ['mapas'],
     queryFn: GameService.getMaps,
   });
 
-  // Lógica de navegação baseada no NOME do mapa
-  const handleGameClick = (map: GameMap) => {
-    // Se o mapa for "ENTREGA EFICIENTE"
-    if (map.nome === "ENTREGA EFICIENTE") {
-      navigate('/tutorial'); // Leva para a tela de tutorial
+  // 3. Lógica de clique corrigida.
+  const handleGameClick = (gameId: string) => {
+    // Verifica se o jogo clicado é o 'entrega_eficiente'
+    if (gameId === 'entrega_eficiente') {
+      // Pega o primeiro (e único) desafio que veio da API
+      if (desafios && desafios.length > 0) {
+        const primeiroDesafio = desafios[0];
+        // Navega para o tutorial passando o ID do DESAFIO vindo do backend
+        navigate('/tutorial', { state: { mapaId: primeiroDesafio.id } });
+      } else if (!isLoading) {
+         alert("Nenhum desafio encontrado para este jogo. Verifique o backend.");
+      }
     } else {
-      // Para outros jogos, mostra alerta de "em desenvolvimento"
-      alert(`O jogo "${map.nome}" ainda está em desenvolvimento!`);
-      // navigate('/desafio', { state: { map } }); // Descomente quando a lógica estiver pronta
+      // Para outros jogos, o comportamento é o mesmo
+      const game = gamesData.find(g => g.id === gameId);
+      alert(`O jogo "${game?.title}" ainda está em desenvolvimento!`);
     }
   };
-
-  // Função de configuração que usa o NOME do mapa vindo da API
-  const getGameConfig = (mapName: string) => {
-    // Mapeia o NOME do mapa para a configuração visual
-    switch (mapName) {
-      case "ENTREGA EFICIENTE":
-        return {
-          borderColor: 'border-yellow-500',
-          buttonBgColor: 'bg-yellow-500',
-          buttonHoverColor: 'hover:bg-yellow-600',
-          isActive: true, // Este jogo está ATIVO
-        };
-      case "Centro de Distribuição":
-        return {
-          borderColor: 'border-green-400',
-          buttonBgColor: 'bg-green-300',
-          buttonHoverColor: 'hover:bg-green-400',
-          isActive: false, // Este jogo está INATIVO
-        };
-      case "Gestão de Estoque":
-        return {
-          borderColor: 'border-blue-400',
-          buttonBgColor: 'bg-blue-300',
-          buttonHoverColor: 'hover:bg-blue-400',
-          isActive: false, // Este jogo está INATIVO
-        };
-      // Configuração padrão para qualquer outro mapa que possa existir
-      default:
-        return {
-          borderColor: 'border-gray-400',
-          buttonBgColor: 'bg-gray-300',
-          buttonHoverColor: 'hover:bg-gray-400',
-          isActive: false,
-        };
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-purple-900 to-indigo-800 flex items-center justify-center">
-        <div className="text-white text-center text-2xl flex items-center" style={{ fontFamily: "'Press Start 2P', cursive" }}>
-          <Loader className="mr-4 animate-spin" />
-          Carregando Jogos...
-        </div>
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-purple-900 to-indigo-800 flex items-center justify-center">
-        <div className="text-red-500 text-center text-2xl flex items-center" style={{ fontFamily: "'Press Start 2P', cursive" }}>
-          <AlertTriangle className="mr-2" />
-          Erro ao carregar os jogos.
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div
@@ -96,28 +79,41 @@ const GameSelectionPage = () => {
       <div className="flex gap-5 absolute top-14 left-[33px]">
         <ButtonHomeBack onClick={() => navigate(-1)}><ArrowLeft /></ButtonHomeBack>
       </div>
+      
+      <div className="absolute top-14 right-[33px]">
+        <AudioControl />
+      </div>
 
       <div className="w-full max-w-6xl flex flex-col items-center">
         <PixelHeading text="ESCOLHA SEU JOGO" className="mb-12 mt-8" />
 
+        {isLoading && (
+            <div className="text-white text-lg flex items-center">
+                <Loader className="mr-2 animate-spin" /> Carregando desafios...
+            </div>
+        )}
+
+        {isError && (
+            <div className="text-red-400 text-lg flex items-center">
+                <AlertTriangle className="mr-2" /> Erro ao carregar desafios.
+            </div>
+        )}
+
+        {/* 4. A renderização volta a usar 'gamesData' (a lista estática) para exibir os cards. */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full">
-          {maps?.map((map) => {
-            // Passa o NOME do mapa para a função de configuração
-            const config = getGameConfig(map.nome);
-            return (
-              <GameCard
-                key={map.id}
-                title={map.nome}
-                description={map.descricao}
-                isActive={config.isActive}
-                onClick={() => config.isActive && handleGameClick(map)}
-                borderColor={config.borderColor}
-                buttonBgColor={config.buttonBgColor}
-                buttonHoverColor={config.buttonHoverColor}
-                icon={<ImageIcon className="w-12 h-12" />}
-              />
-            );
-          })}
+          {gamesData.map((game) => (
+            <GameCard
+              key={game.id}
+              title={game.title}
+              description={game.description}
+              isActive={game.isActive}
+              onClick={() => game.isActive && handleGameClick(game.id)}
+              borderColor={game.borderColor}
+              buttonBgColor={game.buttonBgColor}
+              buttonHoverColor={game.buttonHoverColor}
+              icon={<ImageIcon className="w-12 h-12" />}
+            />
+          ))}
         </div>
       </div>
 
