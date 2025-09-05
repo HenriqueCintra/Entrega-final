@@ -15,6 +15,7 @@ export default defineConfig(({ mode }) => {
   server: {
     host: '0.0.0.0',
     port: parseInt(process.env.PORT || '5173'),
+    allowedHosts: process.env.ALLOWED_HOSTS ? process.env.ALLOWED_HOSTS.split(',') : ['localhost'],
     proxy: {
       '/osrm': {
         target: 'http://router.project-osrm.org',
