@@ -6,9 +6,20 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   
   // Configuração de hosts permitidos
-  const allowedHosts = process.env.ALLOWED_HOSTS 
-    ? process.env.ALLOWED_HOSTS.split(',').map(host => host.trim())
+  console.log('ALLOWED_HOSTS env var:', process.env.ALLOWED_HOSTS)
+  console.log('ALLOWED_HOSTS from loadEnv:', env.ALLOWED_HOSTS)
+  console.log('All env vars:', Object.keys(process.env).filter(key => key.includes('HOST')))
+  
+  const allowedHostsValue = process.env.ALLOWED_HOSTS || env.ALLOWED_HOSTS
+  let allowedHosts = allowedHostsValue
+    ? allowedHostsValue.split(',').map(host => host.trim())
     : mode === 'production' ? 'all' : ['localhost', '127.0.0.1']
+  
+  // Fallback mais permissivo para produção se não conseguir ler a variável
+  if (mode === 'production' && !allowedHostsValue) {
+    console.log('Production mode detected but no ALLOWED_HOSTS found, using "all"')
+    allowedHosts = 'all'
+  }
   
   console.log('Allowed hosts:', allowedHosts)
   console.log('Mode:', mode)
