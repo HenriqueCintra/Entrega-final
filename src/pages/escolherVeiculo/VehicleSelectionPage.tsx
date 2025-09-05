@@ -49,19 +49,36 @@ const getSpriteName = (modelName: string) => {
 };
 
 // Componente VehicleCard atualizado com novo design
-const VehicleCard: React.FC<{
+interface VehicleCardProps {
   vehicle: Vehicle;
   isSelected: boolean;
   onSelect: () => void;
-}> = ({ vehicle, isSelected, onSelect }) => (
+  isEnabled: boolean;
+  requiredCapacity: number | null;
+}
+
+const VehicleCard: React.FC<VehicleCardProps> = ({ 
+  vehicle, 
+  isSelected, 
+  onSelect, 
+  isEnabled, 
+  requiredCapacity 
+}) => (
   <div
     className={`
-      relative min-w-[280px] max-w-[320px] mx-2 sm:mx-4 cursor-pointer transition-all duration-300
-      ${isSelected ? 'scale-105 border-4 border-[#e3922a] shadow-[0_0_20px_rgba(227,146,42,0.3)]' : 'hover:scale-105 border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'}
-      bg-white p-4 rounded-xl flex flex-col justify-between hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]
+      relative min-w-[280px] max-w-[320px] mx-2 sm:mx-4 transition-all duration-300
+      ${isSelected ? 'scale-105 border-4 border-[#e3922a] shadow-[0_0_20px_rgba(227,146,42,0.3)]' : 'border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'}
+      bg-white p-4 rounded-xl flex flex-col justify-between
+      ${isEnabled ? 'cursor-pointer hover:scale-105 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]' : 'opacity-50 cursor-not-allowed bg-gray-200'}
     `}
-    onClick={onSelect}
+    onClick={isEnabled ? onSelect : undefined}
   >
+    {!isEnabled && requiredCapacity && (
+      <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold p-2 rounded-md border-2 border-black z-10 [font-family:'Silkscreen',Helvetica]">
+        CARGA ALTA (Req: {requiredCapacity}kg)
+      </div>
+    )}
+    
     <div>
       <div className="flex justify-center mb-4">
         <img src={vehicle.image} alt={vehicle.name} className="h-32 sm:h-48 object-contain" />
@@ -72,7 +89,7 @@ const VehicleCard: React.FC<{
       </h3>
       
       <div className="space-y-2 text-sm">
-        <div className="flex items-center justify-between bg-gray-50 p-2 rounded border">
+        <div className={`flex items-center justify-between p-2 rounded border ${!isEnabled && requiredCapacity && vehicle.capacity < requiredCapacity ? 'bg-red-100 border-red-400' : 'bg-gray-50'}`}>
           <span className="[font-family:'Silkscreen',Helvetica] text-xs">🧱 Capacidade:</span>
           <span className="[font-family:'Silkscreen',Helvetica] text-xs font-bold">{vehicle.capacity} Kg</span>
         </div>
@@ -87,13 +104,14 @@ const VehicleCard: React.FC<{
       </div>
     </div>
 
-    <div className="mt-4 p-3 bg-[#e3922a] rounded-lg border-2 border-black">
+    <div className={`mt-4 p-3 rounded-lg border-2 border-black ${isEnabled ? 'bg-[#e3922a]' : 'bg-gray-400'}`}>
       <p className="[font-family:'Silkscreen',Helvetica] text-white font-bold text-center text-lg">
         R$ {vehicle.cost.toLocaleString()}
       </p>
     </div>
   </div>
 );
+
 
 export const VehicleSelectionPage = () => {
   const navigate = useNavigate();
@@ -107,6 +125,7 @@ export const VehicleSelectionPage = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cargoWeight, setCargoWeight] = useState<number | null>(null);
 
   // Estados para os dados do desafio
   const [challengeData, setChallengeData] = useState<{
@@ -160,55 +179,31 @@ export const VehicleSelectionPage = () => {
           setSelectedIndex(0); // Define o primeiro veículo como selecionado por padrão
         }
 
-        // Buscar dados do desafio se challengeId estiver disponível
+        let finalChallengeData = selectedChallenge;
+
         if (challengeId) {
           console.log("🔍 DEBUG - Tentando buscar desafio com ID:", challengeId);
           const challengeUrl = `${import.meta.env.VITE_API_URL}/jogo1/mapas/${challengeId}/`;
-          console.log("🔍 DEBUG - URL da requisição:", challengeUrl);
-
           const challengeResponse = await fetch(challengeUrl);
-          console.log("🔍 DEBUG - Status da resposta:", challengeResponse.status);
 
           if (challengeResponse.ok) {
-            const challengeDataFromApi = await challengeResponse.json();
-            console.log("🎯 DEBUG - Dados brutos da API:", challengeDataFromApi);
-
-            const formattedChallengeData = {
-              nome: challengeDataFromApi.nome,
-              descricao: challengeDataFromApi.descricao,
-              objetivo: challengeDataFromApi.objetivo,
-              dificuldade: challengeDataFromApi.dificuldade
-            };
-
-            console.log("🎯 DEBUG - Dados formatados:", formattedChallengeData);
-            setChallengeData(formattedChallengeData);
+            const apiData = await challengeResponse.json();
+            console.log("🎯 DEBUG - Dados brutos da API:", apiData);
+            setChallengeData(apiData);
+            finalChallengeData = apiData; // Prioriza dados frescos da API
           } else {
-            console.error("❌ Erro ao carregar desafio - Status:", challengeResponse.status);
-            const errorText = await challengeResponse.text();
-            console.error("❌ Erro detalhado:", errorText);
-
-            // Se falhar com o ID numérico, tenta usar os dados do selectedChallenge
-            if (selectedChallenge) {
-              console.log("🔄 DEBUG - Usando dados do selectedChallenge como fallback");
-              setChallengeData({
-                nome: selectedChallenge.name,
-                descricao: selectedChallenge.description,
-                objetivo: selectedChallenge.objective,
-                dificuldade: selectedChallenge.difficulty
-              });
-            }
+            // Se a busca da API falhar, usa o que veio do state
+            console.error("❌ Erro ao carregar desafio da API, usando dados do state como fallback.");
+            setChallengeData(selectedChallenge);
           }
-        } else if (selectedChallenge) {
-          // Se não tiver challengeId, usa os dados do selectedChallenge diretamente
-          console.log("🔄 DEBUG - Usando dados do selectedChallenge diretamente");
-          setChallengeData({
-            nome: selectedChallenge.name,
-            descricao: selectedChallenge.description,
-            objetivo: selectedChallenge.objective,
-            dificuldade: selectedChallenge.difficulty
-          });
+        }
+        
+        // Esta é a parte crucial que estava faltando:
+        if (finalChallengeData?.peso_carga_kg) {
+            setCargoWeight(finalChallengeData.peso_carga_kg);
+            console.log(`⚖️ Peso da carga definido: ${finalChallengeData.peso_carga_kg}kg`);
         } else {
-          console.warn("⚠️ Nem challengeId nem selectedChallenge estão disponíveis");
+            console.warn("⚠️ Não foi possível determinar o peso da carga do desafio.");
         }
 
       } catch (e) {
@@ -244,14 +239,21 @@ export const VehicleSelectionPage = () => {
   };
 
   const handleConfirm = () => {
-    if (selectedIndex === null) return; // Proteção extra
+    if (selectedIndex === null) return;
     const selectedVehicle = vehicles[selectedIndex];
+
+    const isEnabled = cargoWeight ? selectedVehicle.capacity >= cargoWeight : true;
+    if (!isEnabled) {
+      alert("Este veículo não suporta o peso da carga!");
+      return;
+    }
+
     if (selectedVehicle.cost <= availableMoney) {
       navigate('/routes', {
         state: {
           selectedVehicle: selectedVehicle,
           availableMoney: availableMoney - selectedVehicle.cost,
-          selectedChallenge: selectedChallenge,
+          selectedChallenge: challengeData || selectedChallenge,
           challengeId: challengeId
         }
       });
@@ -361,15 +363,22 @@ export const VehicleSelectionPage = () => {
               }}
             >
               <CarouselContent className="-ml-2 sm:-ml-4 py-6">
-                {vehicles.map((vehicle, index) => (
-                  <CarouselItem key={vehicle.id} className="basis-full sm:basis-auto md:basis-1/2 lg:basis-1/3 pl-2 sm:pl-4">
-                    <VehicleCard
-                      vehicle={vehicle}
-                      isSelected={selectedIndex === index}
-                      onSelect={() => handleVehicleSelect(index)}
-                    />
-                  </CarouselItem>
-                ))}
+                {vehicles.map((vehicle, index) => {
+                  const isEnabled = cargoWeight ? vehicle.capacity >= cargoWeight : true;
+                  
+                  return (
+                    <CarouselItem key={vehicle.id} className="basis-full sm:basis-auto md:basis-1/2 lg:basis-1/3 pl-2 sm:pl-4">
+                      <VehicleCard
+                        vehicle={vehicle}
+                        isSelected={selectedIndex === index}
+                        onSelect={() => handleVehicleSelect(index)}
+                        // PROPS FALTANTES: Passar a informação para o card
+                        isEnabled={isEnabled}
+                        requiredCapacity={cargoWeight}
+                      />
+                    </CarouselItem>
+                  );
+                })}
               </CarouselContent>
 
               <CarouselPrevious className="hidden md:flex opacity-100 -left-4 h-14 w-14 bg-[#e3922a] hover:bg-[#d4831f] transition-all duration-300 ease-in-out hover:scale-110 text-white border-2 border-black rounded-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" />

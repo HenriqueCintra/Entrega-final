@@ -60,6 +60,7 @@ export interface FrontendChallenge {
   difficulty: 'Fácil' | 'Médio' | 'Difícil';
   estimatedDuration: string;
   objective?: string;
+  peso_carga_kg?: number; 
   tools?: Array<{
     type: string;
     description: string;
@@ -218,6 +219,7 @@ const convertBackendToFrontend = (backendMapa: BackendMapa): FrontendChallenge =
     difficulty: mapDifficulty(backendMapa.dificuldade),
     estimatedDuration: backendMapa.tempo_limite,
     objective: backendMapa.objetivo,
+    peso_carga_kg: backendMapa.peso_carga_kg, 
     tools: backendMapa.ferramentas
   };
 };
