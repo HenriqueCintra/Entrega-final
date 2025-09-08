@@ -28,6 +28,7 @@ import { FuelPage } from "./pages/fuel/FuelPage";
 import { RoutesPage } from "./pages/RoutesPage/RoutesPage";
 import { AudioProvider } from "./contexts/AudioContext";
 import { AudioManager } from "./components/AudioManager";
+import { MinigameScreen } from './pages/fuel/MinigameScreen';
 import { PauseMenu } from "./pages/PauseMenu/PauseMenu.tsx";
 
 
@@ -62,12 +63,17 @@ createRoot(document.getElementById("app") as HTMLElement).render(
             <Route path="/tutorial" element={<TutorialPage />} />
 
             {/* Rotas protegidas */}
-
+            
             <Route path="/perfil" element={
               <ProtectedRoute>
                 <PerfilPage />
               </ProtectedRoute>
             } />
+            <Route path="/fuel-minigame" element={
+              <ProtectedRoute>
+              <MinigameScreen />
+              </ProtectedRoute>
+              } />
             <Route path="/perfil/editar" element={
               <ProtectedRoute>
                 <EditarPerfilPage />
