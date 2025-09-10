@@ -12,6 +12,7 @@ interface User {
   last_name?: string;
   data_nascimento?: string;
   equipe?: number; // ID da equipe, pode ser null
+  avatar?: string; // === CAMPO AVATAR ADICIONADO ===
   // Dados adicionais que podem vir da API
   data_cadastro?: string;
   is_active?: boolean;
@@ -55,7 +56,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const token = localStorage.getItem('authToken') || localStorage.getItem('access_token');
 
       if (token) {
-        console.log('🔑 Token encontrado no localStorage');
+        console.log('🔒 Token encontrado no localStorage');
         return token;
       }
 
@@ -64,7 +65,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Alguns AuthServices podem ter um método para obter o token atual
         if (typeof (AuthService as any).getToken === 'function') {
           const serviceToken = (AuthService as any).getToken();
-          console.log('🔑 Token obtido do AuthService');
+          console.log('🔒 Token obtido do AuthService');
           return serviceToken;
         }
       }
@@ -109,7 +110,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         id: response.data.id,
         username: response.data.username,
         nickname: response.data.nickname,
-        equipe: response.data.equipe
+        equipe: response.data.equipe,
+        avatar: response.data.avatar // === LOG DO AVATAR ADICIONADO ===
       });
 
       setUser(response.data);

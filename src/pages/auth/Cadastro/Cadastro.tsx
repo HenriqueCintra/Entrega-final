@@ -146,6 +146,7 @@ export const Cadastro = () => {
                         {field.label}
                       </label>
                       <input
+                        aria-label=" input"
                         id={field.id}
                         type={field.type}
                         className="w-full h-[55px] rounded-xl border-2 border-solid border-black bg-white p-3 text-black [font-family:'Silkscreen',Helvetica]"

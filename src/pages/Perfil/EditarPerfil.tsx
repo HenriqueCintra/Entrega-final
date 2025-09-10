@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../contexts/AuthContext";
 import AuthService from "../../api/authService";
@@ -19,6 +19,7 @@ import {
   KeyRound,
   ChevronDown,
   Users,
+  X,
 } from 'lucide-react';
 
 interface UserEditData {
@@ -26,11 +27,12 @@ interface UserEditData {
   last_name: string;
   email: string;
   data_nascimento?: string;
+  avatar?: string; // === CAMPO AVATAR ADICIONADO ===
 }
 
 export const EditarPerfilPage = () => {
   const navigate = useNavigate();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // REMOVIDO: const fileInputRef = useRef<HTMLInputElement>(null);
   const { user, refreshUser, logout } = useAuth();
   const queryClient = useQueryClient();
 
@@ -39,11 +41,20 @@ export const EditarPerfilPage = () => {
     first_name: '',
     last_name: '',
     email: '',
-    data_nascimento: ''
+    data_nascimento: '',
+    avatar: '' // === INICIALIZAR AVATAR ===
   });
 
-  // Estado para avatar local (funcionalidade futura)
-  const [localAvatar, setLocalAvatar] = useState<string>("/mario.png");
+  // === ESTADOS PARA O SELETOR DE AVATAR ADICIONADOS ===
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const presetAvatars = [
+    "/assets/avatars/perfil_caminhao.png",
+    "/assets/avatars/perfil_volante.png",
+    "/assets/avatars/perfil1.png",
+    "/assets/avatars/perfil2.png",
+    "/assets/avatars/perfil3.png",
+  ];
+  // ===================================================
 
   // Carrega dados do usuário quando componente monta
   useEffect(() => {
@@ -70,7 +81,8 @@ export const EditarPerfilPage = () => {
         first_name: user.first_name || '',
         last_name: user.last_name || '',
         email: user.email || '',
-        data_nascimento: dataFormatada
+        data_nascimento: dataFormatada,
+        avatar: user.avatar || presetAvatars[0] // === CARREGAR AVATAR DO USUÁRIO ===
       });
     }
   }, [user]);
@@ -114,25 +126,15 @@ export const EditarPerfilPage = () => {
     setUserData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file && file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result;
-        if (typeof result === 'string') {
-          setLocalAvatar(result);
-        }
-      };
-      reader.readAsDataURL(file);
-    } else {
-      alert('Por favor, selecione apenas arquivos de imagem.');
-    }
-  };
+  // === REMOVIDO: handlePhotoUpload ===
+  // === REMOVIDO: handleClickUpload ===
 
-  const handleClickUpload = () => {
-    fileInputRef.current?.click();
+  // === NOVA FUNÇÃO PARA SELECIONAR AVATAR ===
+  const handleSelectAvatar = (avatarUrl: string) => {
+    setUserData(prev => ({ ...prev, avatar: avatarUrl }));
+    setShowAvatarPicker(false);
   };
+  // ==========================================
 
   const handleSalvarAlteracoes = () => {
     console.log('💾 DEBUG - Iniciando salvamento com dados:', userData);
@@ -150,6 +152,7 @@ export const EditarPerfilPage = () => {
     if (userData.last_name.trim()) dataToSend.last_name = userData.last_name.trim();
     if (userData.email.trim()) dataToSend.email = userData.email.trim();
     if (userData.data_nascimento?.trim()) dataToSend.data_nascimento = userData.data_nascimento.trim();
+    if (userData.avatar) dataToSend.avatar = userData.avatar; // === INCLUIR AVATAR NO ENVIO ===
 
     console.log('📤 DEBUG - Dados que serão enviados para o backend:', dataToSend);
 
@@ -200,6 +203,7 @@ export const EditarPerfilPage = () => {
   const inputStyle = `bg-white border-2 border-black rounded-md p-2 w-full ${silkscreenFont} text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400`;
   const labelStyle = `text-xs ${silkscreenFont} mb-1 block text-black`;
   const buttonBaseStyle = `${silkscreenFont} border-2 border-black rounded-md px-4 py-2 text-xs font-bold flex items-center justify-center`;
+  const titleStyle = { color: "#E3922A", textShadow: "2px 3px 0.6px #000" };
 
   return (
     <div className="bg-white flex flex-row justify-center w-full h-screen overflow-hidden">
@@ -216,14 +220,35 @@ export const EditarPerfilPage = () => {
           src="/nuvemright.png"
         />
 
-        {/* Hidden file input */}
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handlePhotoUpload}
-          accept="image/*"
-          className="hidden"
-        />
+        {/* === REMOVIDO: Hidden file input === */}
+
+        {/* === MODAL DE SELEÇÃO DE AVATAR ADICIONADO === */}
+        {showAvatarPicker && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+            <Card className="p-6 w-11/12 md:w-1/2 lg:w-1/3 border-2 border-black">
+              <div className="flex justify-between items-center mb-4 border-b-2 border-black pb-2">
+                <h3 className="[font-family:'Silkscreen',Helvetica] font-bold text-xl" style={titleStyle}>
+                  ESCOLHA SEU AVATAR
+                </h3>
+                <Button variant="ghost" onClick={() => setShowAvatarPicker(false)} className="p-1">
+                  <X size={24} />
+                </Button>
+              </div>
+              <div className="grid grid-cols-4 gap-4 mt-4">
+                {presetAvatars.map((avatar, index) => (
+                  <img
+                    key={index}
+                    src={avatar}
+                    alt={`Avatar ${index + 1}`}
+                    className={`w-16 h-16 rounded-full cursor-pointer transition-transform duration-200 transform hover:scale-110 border-2 object-cover ${userData.avatar === avatar ? 'border-orange-500 shadow-lg' : 'border-black'}`}
+                    onClick={() => handleSelectAvatar(avatar)}
+                  />
+                ))}
+              </div>
+            </Card>
+          </div>
+        )}
+        {/* ============================================== */}
 
         {/* Back button */}
         <div className="absolute top-4 left-4 z-20">
@@ -241,27 +266,21 @@ export const EditarPerfilPage = () => {
               <Card className="border-2 border-solid border-black rounded-lg overflow-hidden bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] h-full">
                 <CardContent className="p-4 md:p-5 h-full overflow-y-auto">
                   <div className="text-center mb-4">
-                    {/* Avatar section */}
+                    {/* Avatar section - MODIFICADA PARA ABRIR O SELETOR */}
                     <div className="mt-1 flex justify-center">
-                      <div className="relative">
-                        <div className="w-28 h-28 rounded-full bg-[#00FFFF] border-2 border-black flex items-center justify-center overflow-hidden relative group">
-                          {localAvatar === "/mario.png" && user.first_name ? (
-                            <span className="text-5xl font-bold text-white select-none">
-                              {user.first_name.charAt(0).toUpperCase()}
-                            </span>
-                          ) : (
-                            <img
-                              src={localAvatar}
-                              alt="Avatar"
-                              className="w-24 h-24 object-cover rounded-full"
-                            />
-                          )}
-                          <div
-                            className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer rounded-full"
-                            onClick={handleClickUpload}
-                          >
-                            <Camera size={28} className="text-white" />
-                          </div>
+                      <div
+                        className="relative group cursor-pointer"
+                        onClick={() => setShowAvatarPicker(true)} // === ABRIR SELETOR ===
+                      >
+                        <div className="w-28 h-28 rounded-full bg-[#00FFFF] border-2 border-black flex items-center justify-center overflow-hidden">
+                          <img
+                            src={userData.avatar || presetAvatars[0]} // === USAR AVATAR DO ESTADO ===
+                            alt="Avatar"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-full">
+                          <Camera size={28} className="text-white" />
                         </div>
                       </div>
                     </div>

@@ -11,8 +11,6 @@ import { ChangePassword } from "./pages/Perfil/ChangePassword";
 import { TutorialPage } from "./pages/Tutorial/TutorialPage";
 import { PerfilPage } from "./pages/Perfil/PerfilPage";
 import { AuthProvider } from "./contexts/AuthContext";
-import { AudioProvider } from "./contexts/AudioContext";
-import { AudioManager } from "./components/AudioManager";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { EditarPerfilPage } from "./pages/Perfil/EditarPerfil";
 import { ExcluirEquipePage } from "./pages/Perfil/ExcluirEquipe";
@@ -28,7 +26,9 @@ import { ChooseTeam } from "./pages/ChooseTeam/ChooseTeam";
 import { GameScene } from "./pages/Game-truck/game";
 import { FuelPage } from "./pages/fuel/FuelPage";
 import { RoutesPage } from "./pages/RoutesPage/RoutesPage";
-
+import { AudioProvider } from "./contexts/AudioContext";
+import { AudioManager } from "./components/AudioManager";
+import { MinigameScreen } from './pages/fuel/MinigameScreen';
 import { PauseMenu } from "./pages/PauseMenu/PauseMenu.tsx";
 
 
@@ -45,11 +45,11 @@ const queryClient = new QueryClient({
 createRoot(document.getElementById("app") as HTMLElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <AudioProvider>
+    <AudioProvider>
+     
         <AuthProvider>
-          <BrowserRouter>
-            <AudioManager />
-            <Routes>
+        <BrowserRouter>
+          <Routes>
             {/* Rotas públicas */}
             <Route path="/" element={<HomePage />} />
             {/* <Route path="/select-vehicle" element={<HomePage />} />
@@ -63,12 +63,17 @@ createRoot(document.getElementById("app") as HTMLElement).render(
             <Route path="/tutorial" element={<TutorialPage />} />
 
             {/* Rotas protegidas */}
-
+            
             <Route path="/perfil" element={
               <ProtectedRoute>
                 <PerfilPage />
               </ProtectedRoute>
             } />
+            <Route path="/fuel-minigame" element={
+              <ProtectedRoute>
+              <MinigameScreen />
+              </ProtectedRoute>
+              } />
             <Route path="/perfil/editar" element={
               <ProtectedRoute>
                 <EditarPerfilPage />
@@ -166,10 +171,11 @@ createRoot(document.getElementById("app") as HTMLElement).render(
             <Route path="/fuel" element={<FuelPage />} />
             <Route path="/map" element={<MapComponent />} />
 
-            </Routes>
-          </BrowserRouter>
+          </Routes>
+        </BrowserRouter>
         </AuthProvider>
-      </AudioProvider>
+        </AudioProvider>
+      
       {/* DevTools apenas em desenvolvimento */}
       {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
     </QueryClientProvider>

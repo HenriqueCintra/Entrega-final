@@ -2,25 +2,7 @@ import api from './config';
 import { Map as Desafio } from '../types';
 import { TeamData, RankingApiResponse } from '../types/ranking';
 
-interface EventResponse {
-  id: number;
-  partida: number;
-  evento: {
-    id: number;
-    nome: string;
-    descricao: string;
-    tipo: 'positivo' | 'negativo';
-    categoria: string;
-    opcoes: Array<{
-      id: number;
-      descricao: string;
-      efeitos: any;
-    }>;
-  };
-  momento: string;
-  ordem: number;
-  opcao_escolhida: null;
-}
+
 
 interface PartidaResponse {
   id: number;
@@ -39,6 +21,24 @@ interface PartidaResponse {
   eficiencia?: number;
   saldo_inicial?: number;
   quantidade_carga_inicial?: number;
+  eventos_ocorridos?: Array<{
+    id: number;
+    evento: {
+      id: number;
+      nome: string;
+      descricao: string;
+      tipo: 'positivo' | 'negativo';
+      categoria: string;
+      opcoes: Array<{
+        id: number;
+        descricao: string;
+        efeitos: any;
+      }>;
+    };
+    momento: string;
+    ordem: number;
+    opcao_escolhida: null | any;
+  }>;
 }
 
 interface RespondResponse {
@@ -86,6 +86,28 @@ interface MapResponse {
 // === NOVA INTERFACE PARA O TICK ===
 interface TickData {
   distancia_percorrida: number;
+}
+
+// === INTERFACE PARA RESULTADO DO TICK COM EVENTOS ===
+interface TickResult extends PartidaResponse {
+  evento_pendente?: {
+    id: number;
+    evento: {
+      id: number;
+      nome: string;
+      descricao: string;
+      tipo: 'positivo' | 'negativo';
+      categoria: string;
+      opcoes: Array<{
+        id: number;
+        descricao: string;
+        efeitos: any;
+      }>;
+    };
+    momento: string;
+    ordem: number;
+    opcao_escolhida: null;
+  };
 }
 
 export const GameService = {
@@ -180,44 +202,7 @@ export const GameService = {
     }
   },
 
-  async getNextEvent(distancia_percorrida: number): Promise<EventResponse> {
-    console.log('🎲 Buscando próximo evento para distância:', distancia_percorrida.toFixed(2), 'km');
-    try {
-      const response = await api.post<EventResponse>('/jogo1/proximo-evento/', {
-        distancia_percorrida
-      });
-      if (response.status === 200 && response.data?.evento) {
-        console.log('✅ Evento recebido:', response.data.evento.nome, '(categoria:', response.data.evento.categoria + ')');
-        return response.data;
-      }
-      if (response.status === 204) {
-        console.log('✅ Nenhum evento desta vez (HTTP 204 - NORMAL)');
-        throw new Error('NO_EVENT_AVAILABLE');
-      }
-      console.warn('⚠️ Resposta 200 mas dados inválidos:', response.data);
-      throw new Error('INVALID_API_RESPONSE');
-    } catch (error: any) {
-      if (error.message === 'NO_EVENT_AVAILABLE' || error.message === 'INVALID_API_RESPONSE') {
-        throw error;
-      }
-      if (error.response?.status === 204) {
-        console.log('✅ Nenhum evento desta vez (Erro 204 - NORMAL)');
-        throw new Error('NO_EVENT_AVAILABLE');
-      } else if (error.response?.status === 400) {
-        console.warn('⚠️ Bad Request ao buscar evento:', error.response?.data);
-        throw new Error('INVALID_REQUEST');
-      } else if (error.response?.status >= 500) {
-        console.error('💥 Erro interno do servidor:', error.response?.status);
-        throw new Error('SERVER_ERROR');
-      } else if (error.code === 'ERR_NETWORK') {
-        console.error('🔥 Erro de rede/conexão');
-        throw new Error('NETWORK_ERROR');
-      } else {
-        console.error('❌ Erro desconhecido ao buscar evento:', error);
-        throw new Error('UNKNOWN_ERROR');
-      }
-    }
-  },
+
 
   // === FUNÇÃO MODIFICADA: Agora envia também a distância ===
   async respondToEvent(optionId: number, distancia_percorrida: number): Promise<RespondResponse> {
@@ -247,7 +232,13 @@ export const GameService = {
     }
   },
 
-  async createGame(gameData: { mapa: number; rota: number; veiculo: number }): Promise<PartidaResponse> {
+  async createGame(gameData: { 
+    mapa: number; 
+    rota: number; 
+    veiculo: number; 
+    saldo_inicial?: number; 
+    combustivel_inicial?: number 
+  }): Promise<PartidaResponse> {
     console.log('🚀 Criando nova partida com dados:', gameData);
     if (!gameData.mapa || !gameData.rota || !gameData.veiculo) {
       const error = new Error('Dados inválidos para criar partida');
@@ -278,12 +269,24 @@ export const GameService = {
     }
   },
 
-  // === NOVA FUNÇÃO DE TICK (CORAÇÃO DO SISTEMA) ===
-  async partidaTick(data: TickData): Promise<PartidaResponse> {
+  // === FUNÇÃO DE TICK ATUALIZADA (CORAÇÃO DO SISTEMA) ===
+  async partidaTick(data: TickData): Promise<TickResult> {
     console.log('⏱️ Enviando tick para o servidor:', data.distancia_percorrida.toFixed(2), 'km');
     try {
       const response = await api.post<PartidaResponse>('/jogo1/partidas/tick/', data);
       console.log('✅ Tick processado - Tempo oficial:', response.data.tempo_jogo?.toFixed(2), 'min');
+      
+      // Verifica se existe evento pendente (opcao_escolhida = null)
+      const eventoPendente = response.data.eventos_ocorridos?.find(evento => evento.opcao_escolhida === null);
+      
+      if (eventoPendente) {
+        console.log('🎲 Evento pendente detectado:', eventoPendente.evento.nome, '(categoria:', eventoPendente.evento.categoria + ')');
+        return {
+          ...response.data,
+          evento_pendente: eventoPendente
+        };
+      }
+      
       return response.data;
     } catch (error) {
       console.error('❌ Erro no tick:', error);
