@@ -21,6 +21,7 @@ import type {
   BodyComp,
   ScaleComp
 } from "kaboom";
+import { createRain } from "@/components/rain";
 
 // Interface para eventos vindos da API
 interface EventData {
@@ -763,6 +764,17 @@ export function GameScene() {
               { isChangingLane: false, behavior: "ultrapassagem" },
             ]);
           }
+        });
+
+              // --- chuva ---
+        const rain = createRain(k, {
+          density: 500,     // gotas por segundo
+          speed: 1100,      // pixels/segundo
+          wind: -300,       // negativo = vento pra esquerda
+          width: 1,
+          length: 12,
+          opacity: 0.55,
+          z: 999,
         });
 
         onUpdate("traffic_car", (trafficCar) => {
