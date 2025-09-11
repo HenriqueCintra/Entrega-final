@@ -17,6 +17,8 @@ import type {
   GameObj
 } from "kaboom";
 import { EventResultModal } from './EventResultModal';
+import { QuizModal } from "../../components/QuizModal"; // Componente do Quiz
+import { PerguntaQuiz, ResponderQuizPayload, RespostaQuizResult } from "../../api/gameService"; // Tipos e serviços
 
 // Interface para eventos vindos da API
 interface EventData {
@@ -40,6 +42,12 @@ interface EventData {
 }
 
 export function GameScene() {
+
+  const [isMainEventActive, setIsMainEventActive] = useState(false);
+  const quizTimerRef = useRef(0);
+  const [isQuizActive, setIsQuizActive] = useState(false);
+  const [currentQuiz, setCurrentQuiz] = useState<PerguntaQuiz | null>(null);
+  const isQuizActiveRef = useRef(false);
 
   // REFs DE CONTROLE DE EVENTOS
   const activeGameIdRef = useRef<number | null>(null);
@@ -238,6 +246,10 @@ export function GameScene() {
           ...tickResult.evento_pendente,
           partida: tickResult.id // Adiciona o ID da partida
         };
+
+        console.log("🚨 Evento principal ativado, quizzes serão suprimidos.");
+        setIsMainEventActive(true); // INFORMA QUE UM EVENTO PRINCIPAL ESTÁ ATIVO
+
         setActiveEvent(eventData);
         setShowPopup(true);
         gamePaused.current = true;
@@ -250,6 +262,41 @@ export function GameScene() {
       console.error("Erro no tick:", error);
     }
   });
+
+// Função que chama a API para sortear um quiz
+  const handleTriggerQuiz = async () => {
+    try {
+      const quizQuestion = await GameService.sortearQuiz();
+      if (quizQuestion) {
+        setCurrentQuiz(quizQuestion);
+        setIsQuizActive(true);
+      }
+    } catch (error) {
+      console.error("Não foi possível carregar uma pergunta do quiz.", error);
+    }
+  };
+
+  // Função passada para o modal para enviar a resposta
+  const handleAnswerSubmit = async (payload: ResponderQuizPayload): Promise<RespostaQuizResult> => {
+    try {
+      const result = await GameService.responderQuiz(payload);
+      // Atualizar o saldo se a resposta deu dinheiro
+      if (result.saldo_atual !== undefined) {
+        setMoney(result.saldo_atual);
+      }
+      return result;
+    } catch (error) {
+      console.error("Erro ao submeter resposta do quiz", error);
+      // Retornar um resultado de erro para o modal poder exibir
+      return { correta: false, detail: "Erro ao conectar com o servidor." };
+    }
+  };
+
+  // Função para fechar o modal do quiz
+  const handleCloseQuiz = () => {
+    setIsQuizActive(false);
+    setCurrentQuiz(null);
+  };
 
 
 
@@ -290,6 +337,7 @@ export function GameScene() {
           console.log(`🚀 BÔNUS DE DISTÂNCIA APLICADO: +${(novoProgresso - progressoAnterior).toFixed(2)}% de progresso!`);
         }
       }
+
 
       // Mostrar modal de resultado ao invés de alert
       setResultModalContent({
@@ -801,6 +849,21 @@ export function GameScene() {
           }
           const deltaTime = dt();
 
+          // --- LÓGICA DO TIMER DO QUIZ ---
+          quizTimerRef.current += deltaTime; // Modifica o ref diretamente
+
+          // A cada 10 segundos para teste (ou 60 para a versão final)
+          if (quizTimerRef.current >= 10) { // Verificamos o valor atual do ref
+            quizTimerRef.current = 0; // Resetamos o ref
+            // CONDIÇÃO FUNDAMENTAL: Só dispara o quiz se um evento principal NÃO estiver ativo
+            if (!isMainEventActive && !isQuizActiveRef.current) {
+              console.log("⏰ Timer do quiz disparado! Solicitando pergunta...");
+              handleTriggerQuiz();
+            } else {
+              console.log("⏰ Quiz adiado, pois um evento principal ou outro quiz já está ativo.");
+            }
+          }
+
           // ✅ VERIFICAÇÃO DE GAME OVER - COMBUSTÍVEL E DINHEIRO
           if (checkGameOver()) {
             return;
@@ -1085,7 +1148,7 @@ export function GameScene() {
     const pathCoords = selectedRoute.pathCoordinates;
     const totalSegments = pathCoords.length - 1;
 
-    const targetDurationSeconds = 60;
+    const targetDurationSeconds = 600;
     const segmentsPerSecond = totalSegments / targetDurationSeconds;
     //Aplica o multiplicador de velocidade ao progresso
     const segmentSpeed = segmentsPerSecond * speedMultiplierRef.current * deltaTime;
@@ -1160,6 +1223,9 @@ export function GameScene() {
     obstacleTimerRef.current = -8;
     collisionCooldownRef.current = 3.0;
 
+    console.log("✅ Evento principal concluído, liberando quizzes.");
+    setIsMainEventActive(false); // ✅ ADICIONE A LINHA AQUI
+
     setTimeout(() => {
       obstacleSystemLockedRef.current = false;
       console.log('🔓 Sistema de obstáculos destravado após evento');
@@ -1174,10 +1240,32 @@ export function GameScene() {
     }
   }, [gameEnded]);
 
+  useEffect(() => {
+    isQuizActiveRef.current = isQuizActive;
+  }, [isQuizActive]);
+  // 6. ADICIONE UM `useEffect` PARA GARANTIR A PRIORIDADE DOS EVENTOS PRINCIPAIS
+  useEffect(() => {
+    // COMPORTAMENTO CRÍTICO: Se um evento principal se torna ativo, o quiz deve ser fechado IMEDIATAMENTE
+    // NOTE: Será que não seria melhor esperar a resposta do quiz para aparecer o evento? (com delay de algusn segundos)
+    if (isMainEventActive && isQuizActive) {
+      console.warn("🚨 Evento principal tem prioridade! Fechando o quiz ativo.");
+      handleCloseQuiz();
+    }
+  }, [isMainEventActive, isQuizActive]);
+
   // ============= RENDER DO COMPONENTE =============
 
   return (
     <div style={{ position: "relative" }}>
+
+      {currentQuiz && (
+        <QuizModal
+          isOpen={isQuizActive}
+          question={currentQuiz}
+          onAnswerSubmit={handleAnswerSubmit}
+          onClose={handleCloseQuiz}
+        />
+      )}
 
       {/* Indicador de carregamento */}
       {!gameLoaded && !loadingError && (
