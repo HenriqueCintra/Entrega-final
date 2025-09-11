@@ -131,6 +131,7 @@ export interface RespostaQuizResult {
   correta: boolean;
   detail: string;
   saldo_atual?: number;
+  correta_id?: number;
 }
 
 export const GameService = {
