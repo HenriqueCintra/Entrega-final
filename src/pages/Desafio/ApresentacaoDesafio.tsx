@@ -144,10 +144,10 @@ export const ApresentacaoDesafioPage = () => {
       <div className="flex h-screen items-center justify-center bg-gradient-to-b from-purple-600 to-blue-600 text-center p-4">
         <div className="bg-white rounded-lg p-8 shadow-lg">
           <Loader2 className="animate-spin h-12 w-12 text-purple-600 mx-auto mb-4" />
-          <h1 className="[font-family:'Silkscreen',Helvetica] text-purple-600 text-xl mb-2">
+          <h1 className="[font-family:'Silkscreen',Helvetica] text-purple-600 text-2xl mb-2">
             Carregando Desafios...
           </h1>
-          <p className="[font-family:'Silkscreen',Helvetica] text-gray-600 text-sm">
+          <p className="[font-family:'Silkscreen',Helvetica] text-gray-600 text-base">
             Buscando dados do servidor
           </p>
         </div>
@@ -160,19 +160,19 @@ export const ApresentacaoDesafioPage = () => {
     return (
       <div className="flex h-screen items-center justify-center bg-gradient-to-b from-red-400 to-red-600 text-center p-4">
         <div className="bg-white rounded-lg p-8 shadow-lg">
-          <h1 className="[font-family:'Silkscreen',Helvetica] text-red-600 text-xl mb-4">
+          <h1 className="[font-family:'Silkscreen',Helvetica] text-red-600 text-2xl mb-4">
             {erro || "Nenhum desafio disponível."}
           </h1>
           <div className="space-y-2">
             <Button 
               onClick={() => window.location.reload()} 
-              className="bg-red-600 text-white mr-2"
+              className="bg-red-600 text-white mr-2 text-base px-4 py-2"
             >
               Tentar Novamente
             </Button>
             <Button 
               onClick={() => navigate('/game-selection')} 
-              className="bg-gray-600 text-white"
+              className="bg-gray-600 text-white text-base px-4 py-2"
             >
               Voltar para Seleção de Jogos
             </Button>
@@ -206,14 +206,14 @@ export const ApresentacaoDesafioPage = () => {
                 className="p-2 bg-[#e3922a] border-2 border-black rounded-md hover:bg-[#d4831f] transition-colors"
                 disabled={availableChallenges.length <= 1}
               >
-                <ChevronLeft size={20} className="text-white" />
+                <ChevronLeft size={24} className="text-white" />
               </Button>
               
               <div className="text-center flex-1">
-                <h1 className="text-[22px] [font-family:'Silkscreen',Helvetica] font-bold text-[#e3922a]">
+                <h1 className="text-[28px] [font-family:'Silkscreen',Helvetica] font-bold text-[#e3922a]">
                   {currentChallenge.name}
                 </h1>
-                <p className="text-[12px] [font-family:'Silkscreen',Helvetica] text-gray-600 mt-1">
+                <p className="text-[16px] [font-family:'Silkscreen',Helvetica] text-gray-600 mt-1">
                   {currentChallengeIndex + 1} de {availableChallenges.length}
                 </p>
               </div>
@@ -223,7 +223,7 @@ export const ApresentacaoDesafioPage = () => {
                 className="p-2 bg-[#e3922a] border-2 border-black rounded-md hover:bg-[#d4831f] transition-colors"
                 disabled={availableChallenges.length <= 1}
               >
-                <ChevronRight size={20} className="text-white" />
+                <ChevronRight size={24} className="text-white" />
               </Button>
             </div>
             
@@ -237,10 +237,10 @@ export const ApresentacaoDesafioPage = () => {
                 />
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 flex items-center justify-center">
                   <div className="text-center text-white">
-                    <h2 className="text-2xl [font-family:'Silkscreen',Helvetica] font-bold mb-2">
+                    <h2 className="text-3xl [font-family:'Silkscreen',Helvetica] font-bold mb-2">
                       JUAZEIRO → {currentChallenge.destination.split(',')[0].toUpperCase()}
                     </h2>
-                    <p className="text-sm [font-family:'Silkscreen',Helvetica]">
+                    <p className="text-lg [font-family:'Silkscreen',Helvetica]">
                       {currentChallenge.routes.length} rota{currentChallenge.routes.length > 1 ? 's' : ''} disponível{currentChallenge.routes.length > 1 ? 'is' : ''}
                     </p>
                   </div>
@@ -250,29 +250,29 @@ export const ApresentacaoDesafioPage = () => {
               {/* Seleção de Carga */}
               <div className="border-2 border-black rounded-lg p-4 bg-blue-50 mb-4">
                 <div className="flex items-center mb-3">
-                  <Package size={18} className="text-blue-600 mr-2" />
-                  <h3 className="[font-family:'Silkscreen',Helvetica] font-bold text-[14px] text-blue-600">
+                  <Package size={20} className="text-blue-600 mr-2" />
+                  <h3 className="[font-family:'Silkscreen',Helvetica] font-bold text-[18px] text-blue-600">
                     QUANTIDADE DE CARGA: {selectedCargoAmount}%
                   </h3>
                 </div>
 
                 {/* Botões de seleção rápida */}
-                <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="grid grid-cols-2 gap-3 mb-4">
                   {cargoOptions.map((option) => (
                     <Button
                       key={option.value}
                       onClick={() => handleCargoAmountChange(option.value)}
-                      className={`p-2 text-left border-2 border-black rounded-md transition-all text-xs ${
+                      className={`p-3 text-left border-2 border-black rounded-md transition-all text-sm ${
                         selectedCargoAmount === option.value
                           ? 'bg-blue-600 text-white'
                           : 'bg-white text-black hover:bg-blue-100'
                       }`}
                     >
                       <div>
-                        <div className="[font-family:'Silkscreen',Helvetica] font-bold text-[10px]">
+                        <div className="[font-family:'Silkscreen',Helvetica] font-bold text-[14px]">
                           {option.label}
                         </div>
-                        <div className="[font-family:'Silkscreen',Helvetica] text-[9px] opacity-80">
+                        <div className="[font-family:'Silkscreen',Helvetica] text-[12px] opacity-80">
                           {option.description}
                         </div>
                       </div>
@@ -281,16 +281,16 @@ export const ApresentacaoDesafioPage = () => {
                 </div>
 
                 {/* Controles personalizados */}
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-3 mb-4">
                   <Button
                     onClick={() => handleCargoAmountChange(selectedCargoAmount - 5)}
-                    className="p-1 bg-gray-300 border border-black rounded text-black hover:bg-gray-400"
+                    className="p-2 bg-gray-300 border border-black rounded text-black hover:bg-gray-400"
                     disabled={selectedCargoAmount <= 5}
                   >
-                    <Minus size={12} />
+                    <Minus size={16} />
                   </Button>
                   
-                  <div className="flex-1 bg-gray-200 rounded-full h-3 border border-black">
+                  <div className="flex-1 bg-gray-200 rounded-full h-4 border border-black">
                     <div 
                       className={`h-full rounded-full transition-all ${cargoImpact.color.includes('green') ? 'bg-green-500' : 
                         cargoImpact.color.includes('yellow') ? 'bg-yellow-500' : 
@@ -301,15 +301,15 @@ export const ApresentacaoDesafioPage = () => {
                   
                   <Button
                     onClick={() => handleCargoAmountChange(selectedCargoAmount + 5)}
-                    className="p-1 bg-gray-300 border border-black rounded text-black hover:bg-gray-400"
+                    className="p-2 bg-gray-300 border border-black rounded text-black hover:bg-gray-400"
                     disabled={selectedCargoAmount >= 100}
                   >
-                    <Plus size={12} />
+                    <Plus size={16} />
                   </Button>
                 </div>
 
                 {/* Input customizado */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mb-3">
                   {showCustomInput ? (
                     <div className="flex gap-2 flex-1">
                       <input
@@ -318,18 +318,18 @@ export const ApresentacaoDesafioPage = () => {
                         max="100"
                         value={customCargoInput}
                         onChange={(e) => setCustomCargoInput(e.target.value)}
-                        className="flex-1 p-1 border-2 border-black rounded text-center [font-family:'Silkscreen',Helvetica] text-xs"
+                        className="flex-1 p-2 border-2 border-black rounded text-center [font-family:'Silkscreen',Helvetica] text-base"
                         placeholder="1-100"
                       />
                       <Button
                         onClick={handleCustomCargoSubmit}
-                        className="px-2 py-1 bg-green-600 text-white border border-black rounded text-xs"
+                        className="px-3 py-2 bg-green-600 text-white border border-black rounded text-sm"
                       >
                         OK
                       </Button>
                       <Button
                         onClick={() => setShowCustomInput(false)}
-                        className="px-2 py-1 bg-gray-600 text-white border border-black rounded text-xs"
+                        className="px-3 py-2 bg-gray-600 text-white border border-black rounded text-sm"
                       >
                         ✕
                       </Button>
@@ -337,7 +337,7 @@ export const ApresentacaoDesafioPage = () => {
                   ) : (
                     <Button
                       onClick={() => setShowCustomInput(true)}
-                      className="w-full py-2 bg-gray-200 border-2 border-black rounded [font-family:'Silkscreen',Helvetica] text-black text-xs hover:bg-gray-300"
+                      className="w-full py-3 bg-gray-200 border-2 border-black rounded [font-family:'Silkscreen',Helvetica] text-black text-sm hover:bg-gray-300"
                     >
                       INSERIR VALOR PERSONALIZADO
                     </Button>
@@ -345,9 +345,9 @@ export const ApresentacaoDesafioPage = () => {
                 </div>
 
                 {/* Impacto da carga */}
-                <div className="mt-3 p-2 bg-white border border-black rounded">
-                  <h4 className="[font-family:'Silkscreen',Helvetica] font-bold text-[11px] mb-1">IMPACTO:</h4>
-                  <div className="grid grid-cols-3 gap-1 text-[10px] [font-family:'Silkscreen',Helvetica]">
+                <div className="mt-3 p-3 bg-white border border-black rounded">
+                  <h4 className="[font-family:'Silkscreen',Helvetica] font-bold text-[14px] mb-2">IMPACTO:</h4>
+                  <div className="grid grid-cols-3 gap-2 text-[13px] [font-family:'Silkscreen',Helvetica]">
                     <div>Combustível: <span className={cargoImpact.color}>{cargoImpact.fuel}</span></div>
                     <div>Velocidade: <span className={cargoImpact.color}>{cargoImpact.speed}</span></div>
                     <div>Lucro: <span className={cargoImpact.color}>{cargoImpact.profit}</span></div>
@@ -356,51 +356,51 @@ export const ApresentacaoDesafioPage = () => {
               </div>
 
               {/* Descrição */}
-              <div className="border-2 border-black rounded-lg p-3 bg-gray-50 mb-4">
-                <h3 className="[font-family:'Silkscreen',Helvetica] font-bold text-[14px] mb-2">DESCRIÇÃO:</h3>
-                <p className="[font-family:'Silkscreen',Helvetica] text-[12px]">{currentChallenge.description}</p>
+              <div className="border-2 border-black rounded-lg p-4 bg-gray-50 mb-4">
+                <h3 className="[font-family:'Silkscreen',Helvetica] font-bold text-[18px] mb-3">DESCRIÇÃO:</h3>
+                <p className="[font-family:'Silkscreen',Helvetica] text-[15px] leading-relaxed">{currentChallenge.description}</p>
               </div>
 
               {/* Detalhes */}
-              <div className="border-2 border-black rounded-lg p-3 bg-gray-50 mb-4">
-                <h3 className="[font-family:'Silkscreen',Helvetica] font-bold text-[14px] mb-2">DETALHES:</h3>
-                <div className="grid grid-cols-2 gap-2">
+              <div className="border-2 border-black rounded-lg p-4 bg-gray-50 mb-4">
+                <h3 className="[font-family:'Silkscreen',Helvetica] font-bold text-[18px] mb-3">DETALHES:</h3>
+                <div className="grid grid-cols-1 gap-3">
                   <div className="flex items-center">
-                    <Trophy size={16} className="text-[#e3922a] mr-2 flex-shrink-0" />
-                    <span className="[font-family:'Silkscreen',Helvetica] text-[11px]">DIFICULDADE: {currentChallenge.difficulty}</span>
+                    <Trophy size={18} className="text-[#e3922a] mr-3 flex-shrink-0" />
+                    <span className="[font-family:'Silkscreen',Helvetica] text-[14px]">DIFICULDADE: {currentChallenge.difficulty}</span>
                   </div>
                   <div className="flex items-center">
-                    <Clock size={16} className="text-[#e3922a] mr-2 flex-shrink-0" />
-                    <span className="[font-family:'Silkscreen',Helvetica] text-[11px]">TEMPO: {currentChallenge.estimatedDuration}</span>
+                    <Clock size={18} className="text-[#e3922a] mr-3 flex-shrink-0" />
+                    <span className="[font-family:'Silkscreen',Helvetica] text-[14px]">TEMPO: {currentChallenge.estimatedDuration}</span>
                   </div>
-                  <div className="flex items-center col-span-2">
-                    <Truck size={16} className="text-[#e3922a] mr-2 flex-shrink-0" />
-                    <span className="[font-family:'Silkscreen',Helvetica] text-[11px]">DESTINO: {currentChallenge.destination}</span>
+                  <div className="flex items-center">
+                    <Truck size={18} className="text-[#e3922a] mr-3 flex-shrink-0" />
+                    <span className="[font-family:'Silkscreen',Helvetica] text-[14px]">DESTINO: {currentChallenge.destination}</span>
                   </div>
                 </div>
               </div>
 
               {/* Objetivo */}
-              <div className="border-2 border-black rounded-lg p-3 bg-gray-50 mb-4">
-                <h3 className="[font-family:'Silkscreen',Helvetica] font-bold text-[14px] mb-2 text-green-600">OBJETIVO:</h3>
-                <p className="[font-family:'Silkscreen',Helvetica] text-[12px] font-bold text-green-600">
+              <div className="border-2 border-black rounded-lg p-4 bg-gray-50 mb-4">
+                <h3 className="[font-family:'Silkscreen',Helvetica] font-bold text-[18px] mb-3 text-green-600">OBJETIVO:</h3>
+                <p className="[font-family:'Silkscreen',Helvetica] text-[15px] font-bold text-green-600 leading-relaxed">
                   {currentChallenge.objective || `Transportar carga de Juazeiro para ${currentChallenge.destination} escolhendo a melhor rota considerando custos, tempo e segurança.`}
                 </p>
               </div>
 
               {/* Ferramentas (se disponível) */}
               {currentChallenge.tools && currentChallenge.tools.length > 0 && (
-                <div className="border-2 border-black rounded-lg p-3 bg-blue-50 mb-4">
-                  <h3 className="[font-family:'Silkscreen',Helvetica] font-bold text-[14px] mb-2 text-blue-600">FERRAMENTAS DISPONÍVEIS:</h3>
-                  <div className="space-y-2">
+                <div className="border-2 border-black rounded-lg p-4 bg-blue-50 mb-4">
+                  <h3 className="[font-family:'Silkscreen',Helvetica] font-bold text-[18px] mb-3 text-blue-600">FERRAMENTAS DISPONÍVEIS:</h3>
+                  <div className="space-y-3">
                     {currentChallenge.tools.map((tool, index) => (
                       <div key={index} className="flex items-start">
-                        <Car size={14} className="text-blue-600 mr-2 flex-shrink-0 mt-1" />
+                        <Car size={16} className="text-blue-600 mr-3 flex-shrink-0 mt-1" />
                         <div>
-                          <span className="[font-family:'Silkscreen',Helvetica] text-[11px] font-bold block text-blue-600">
+                          <span className="[font-family:'Silkscreen',Helvetica] text-[14px] font-bold block text-blue-600">
                             {tool.type}
                           </span>
-                          <span className="[font-family:'Silkscreen',Helvetica] text-[10px] text-gray-700">
+                          <span className="[font-family:'Silkscreen',Helvetica] text-[13px] text-gray-700">
                             {tool.description}
                           </span>
                         </div>
@@ -411,24 +411,24 @@ export const ApresentacaoDesafioPage = () => {
               )}
 
               {/* Rotas disponíveis */}
-              <div className="border-2 border-dashed border-[#e3922a] rounded-lg p-3 bg-yellow-50 mb-4">
-                <h3 className="[font-family:'Silkscreen',Helvetica] font-bold text-[14px] mb-2">ROTAS DISPONÍVEIS:</h3>
-                <div className="space-y-2">
+              <div className="border-2 border-dashed border-[#e3922a] rounded-lg p-4 bg-yellow-50 mb-4">
+                <h3 className="[font-family:'Silkscreen',Helvetica] font-bold text-[18px] mb-3">ROTAS DISPONÍVEIS:</h3>
+                <div className="space-y-3">
                   {currentChallenge.routes.slice(0, 3).map((route, index) => (
                     <div key={route.routeId} className="flex items-start">
-                      <Truck size={14} className="text-[#e3922a] mr-2 flex-shrink-0 mt-1" />
+                      <Truck size={16} className="text-[#e3922a] mr-3 flex-shrink-0 mt-1" />
                       <div>
-                        <span className="[font-family:'Silkscreen',Helvetica] text-[11px] font-bold block">
+                        <span className="[font-family:'Silkscreen',Helvetica] text-[14px] font-bold block">
                           Rota {route.routeId}: {route.distance}km
                         </span>
-                        <span className="[font-family:'Silkscreen',Helvetica] text-[10px] text-gray-700">
+                        <span className="[font-family:'Silkscreen',Helvetica] text-[13px] text-gray-700">
                           {route.estimatedTime} - {route.roadConditions} - {route.safety.robberyRisk} risco
                         </span>
                       </div>
                     </div>
                   ))}
                   {currentChallenge.routes.length > 3 && (
-                    <p className="[font-family:'Silkscreen',Helvetica] text-[10px] text-gray-600 text-center">
+                    <p className="[font-family:'Silkscreen',Helvetica] text-[13px] text-gray-600 text-center">
                       +{currentChallenge.routes.length - 3} rota{currentChallenge.routes.length - 3 > 1 ? 's' : ''} adicional{currentChallenge.routes.length - 3 > 1 ? 'is' : ''}
                     </p>
                   )}
@@ -440,16 +440,16 @@ export const ApresentacaoDesafioPage = () => {
               <Button 
                 onClick={handleAceitarDesafio}
                 disabled={carregando}
-                className="w-1/2 py-3 bg-[#29D8FF] border-2 border-black rounded-md [font-family:'Silkscreen',Helvetica] font-bold text-black text-[16px] hover:bg-[#20B4D2] transform transition-transform duration-300 hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
+                className="w-1/2 py-4 bg-[#29D8FF] border-2 border-black rounded-md [font-family:'Silkscreen',Helvetica] font-bold text-black text-[18px] hover:bg-[#20B4D2] transform transition-transform duration-300 hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
               >
                 {carregando ? (
                   <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-4 border-white border-t-black mr-2"></div>
+                    <div className="animate-spin rounded-full h-6 w-6 border-4 border-white border-t-black mr-3"></div>
                     CARREGANDO...
                   </>
                 ) : (
                   <>
-                    <Trophy className="mr-2" size={20} />
+                    <Trophy className="mr-3" size={24} />
                     ACEITAR DESAFIO ({selectedCargoAmount}%)
                   </>
                 )}
