@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
-import { ArrowLeft, Home, Trophy, Clock, Users, Truck, Car, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { ArrowLeft, Home, Trophy, Clock, Users, Truck, Car, ChevronLeft, ChevronRight, Loader2, Package, Minus, Plus } from 'lucide-react';
 import { ButtonHomeBack } from "@/components/ButtonHomeBack";
 import { AudioControl } from "@/components/AudioControl";
 import { fetchChallengesFromBackend, FrontendChallenge } from "../../services/challengeService";
@@ -16,7 +16,20 @@ export const ApresentacaoDesafioPage = () => {
   const [carregandoDesafios, setCarregandoDesafios] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
 
+  // Estados para seleção de carga
+  const [selectedCargoAmount, setSelectedCargoAmount] = useState(100); // Em percentual (100% = carga completa)
+  const [customCargoInput, setCustomCargoInput] = useState("100");
+  const [showCustomInput, setShowCustomInput] = useState(false);
+
   const currentChallenge = availableChallenges[currentChallengeIndex];
+
+  // Opções predefinidas de carga
+  const cargoOptions = [
+    { value: 25, label: "25% - Carga Leve", description: "Menor consumo, maior velocidade" },
+    { value: 50, label: "50% - Carga Média", description: "Equilibrio entre eficiência e lucro" },
+    { value: 75, label: "75% - Carga Pesada", description: "Maior lucro, menor eficiência" },
+    { value: 100, label: "100% - Carga Máxima", description: "Lucro máximo, maior desafio" }
+  ];
 
   // Carregar desafios do backend ao montar o componente
   useEffect(() => {
@@ -73,23 +86,49 @@ export const ApresentacaoDesafioPage = () => {
     );
   };
 
+  const handleCargoAmountChange = (amount: number) => {
+    setSelectedCargoAmount(Math.max(1, Math.min(100, amount)));
+    setCustomCargoInput(amount.toString());
+    setShowCustomInput(false);
+  };
+
+  const handleCustomCargoSubmit = () => {
+    const amount = parseInt(customCargoInput);
+    if (!isNaN(amount) && amount >= 1 && amount <= 100) {
+      setSelectedCargoAmount(amount);
+      setShowCustomInput(false);
+    } else {
+      alert("Por favor, insira um valor entre 1% e 100%");
+    }
+  };
+
+  const getCargoImpact = (cargoAmount: number) => {
+    if (cargoAmount <= 25) return { fuel: "Baixo", speed: "Alta", profit: "Baixo", color: "text-green-600" };
+    if (cargoAmount <= 50) return { fuel: "Médio", speed: "Média", profit: "Médio", color: "text-yellow-600" };
+    if (cargoAmount <= 75) return { fuel: "Alto", speed: "Baixa", profit: "Alto", color: "text-orange-600" };
+    return { fuel: "Muito Alto", speed: "Muito Baixa", profit: "Muito Alto", color: "text-red-600" };
+  };
+
   const handleAceitarDesafio = () => {
     if (!currentChallenge) return;
 
     console.log("🎯 DEBUG ApresentacaoDesafio - Desafio selecionado:", currentChallenge.id);
     console.log("🎯 DEBUG ApresentacaoDesafio - Backend ID:", currentChallenge.backendId);
+    console.log("🎯 DEBUG ApresentacaoDesafio - Quantidade de carga:", selectedCargoAmount);
     console.log("🎯 DEBUG ApresentacaoDesafio - Dados enviados:", {
       desafio: currentChallenge,
-      challengeId: currentChallenge.backendId || currentChallenge.id
+      challengeId: currentChallenge.backendId || currentChallenge.id,
+      cargoAmount: selectedCargoAmount
     });
 
     setCarregando(true);
     setTimeout(() => {
       setCarregando(false);
-      // Passa o desafio selecionado para a próxima tela
+      // Passa o desafio selecionado e a quantidade de carga para a próxima tela
       navigate("/select-vehicle", { state: { 
         desafio: currentChallenge,
-        challengeId: currentChallenge.backendId || currentChallenge.id 
+        challengeId: currentChallenge.backendId || currentChallenge.id,
+        cargoAmount: selectedCargoAmount
       } });
     }, 1500);
   };
@@ -142,6 +181,8 @@ export const ApresentacaoDesafioPage = () => {
       </div>
     );
   }
+
+  const cargoImpact = getCargoImpact(selectedCargoAmount);
 
   return (
     <div className="bg-white flex flex-row justify-center w-full">
@@ -196,12 +237,120 @@ export const ApresentacaoDesafioPage = () => {
                 />
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 flex items-center justify-center">
                   <div className="text-center text-white">
-                    <h2 className="text-2xl [font-family:'Silkscreen',Helvetica] font-bold mb-2   ">
+                    <h2 className="text-2xl [font-family:'Silkscreen',Helvetica] font-bold mb-2">
                       JUAZEIRO → {currentChallenge.destination.split(',')[0].toUpperCase()}
                     </h2>
                     <p className="text-sm [font-family:'Silkscreen',Helvetica]">
                       {currentChallenge.routes.length} rota{currentChallenge.routes.length > 1 ? 's' : ''} disponível{currentChallenge.routes.length > 1 ? 'is' : ''}
                     </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Seleção de Carga */}
+              <div className="border-2 border-black rounded-lg p-4 bg-blue-50 mb-4">
+                <div className="flex items-center mb-3">
+                  <Package size={18} className="text-blue-600 mr-2" />
+                  <h3 className="[font-family:'Silkscreen',Helvetica] font-bold text-[14px] text-blue-600">
+                    QUANTIDADE DE CARGA: {selectedCargoAmount}%
+                  </h3>
+                </div>
+
+                {/* Botões de seleção rápida */}
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  {cargoOptions.map((option) => (
+                    <Button
+                      key={option.value}
+                      onClick={() => handleCargoAmountChange(option.value)}
+                      className={`p-2 text-left border-2 border-black rounded-md transition-all text-xs ${
+                        selectedCargoAmount === option.value
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white text-black hover:bg-blue-100'
+                      }`}
+                    >
+                      <div>
+                        <div className="[font-family:'Silkscreen',Helvetica] font-bold text-[10px]">
+                          {option.label}
+                        </div>
+                        <div className="[font-family:'Silkscreen',Helvetica] text-[9px] opacity-80">
+                          {option.description}
+                        </div>
+                      </div>
+                    </Button>
+                  ))}
+                </div>
+
+                {/* Controles personalizados */}
+                <div className="flex items-center gap-2 mb-3">
+                  <Button
+                    onClick={() => handleCargoAmountChange(selectedCargoAmount - 5)}
+                    className="p-1 bg-gray-300 border border-black rounded text-black hover:bg-gray-400"
+                    disabled={selectedCargoAmount <= 5}
+                  >
+                    <Minus size={12} />
+                  </Button>
+                  
+                  <div className="flex-1 bg-gray-200 rounded-full h-3 border border-black">
+                    <div 
+                      className={`h-full rounded-full transition-all ${cargoImpact.color.includes('green') ? 'bg-green-500' : 
+                        cargoImpact.color.includes('yellow') ? 'bg-yellow-500' : 
+                        cargoImpact.color.includes('orange') ? 'bg-orange-500' : 'bg-red-500'}`}
+                      style={{ width: `${selectedCargoAmount}%` }}
+                    ></div>
+                  </div>
+                  
+                  <Button
+                    onClick={() => handleCargoAmountChange(selectedCargoAmount + 5)}
+                    className="p-1 bg-gray-300 border border-black rounded text-black hover:bg-gray-400"
+                    disabled={selectedCargoAmount >= 100}
+                  >
+                    <Plus size={12} />
+                  </Button>
+                </div>
+
+                {/* Input customizado */}
+                <div className="flex items-center gap-2">
+                  {showCustomInput ? (
+                    <div className="flex gap-2 flex-1">
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={customCargoInput}
+                        onChange={(e) => setCustomCargoInput(e.target.value)}
+                        className="flex-1 p-1 border-2 border-black rounded text-center [font-family:'Silkscreen',Helvetica] text-xs"
+                        placeholder="1-100"
+                      />
+                      <Button
+                        onClick={handleCustomCargoSubmit}
+                        className="px-2 py-1 bg-green-600 text-white border border-black rounded text-xs"
+                      >
+                        OK
+                      </Button>
+                      <Button
+                        onClick={() => setShowCustomInput(false)}
+                        className="px-2 py-1 bg-gray-600 text-white border border-black rounded text-xs"
+                      >
+                        ✕
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={() => setShowCustomInput(true)}
+                      className="w-full py-2 bg-gray-200 border-2 border-black rounded [font-family:'Silkscreen',Helvetica] text-black text-xs hover:bg-gray-300"
+                    >
+                      INSERIR VALOR PERSONALIZADO
+                    </Button>
+                  )}
+                </div>
+
+                {/* Impacto da carga */}
+                <div className="mt-3 p-2 bg-white border border-black rounded">
+                  <h4 className="[font-family:'Silkscreen',Helvetica] font-bold text-[11px] mb-1">IMPACTO:</h4>
+                  <div className="grid grid-cols-3 gap-1 text-[10px] [font-family:'Silkscreen',Helvetica]">
+                    <div>Combustível: <span className={cargoImpact.color}>{cargoImpact.fuel}</span></div>
+                    <div>Velocidade: <span className={cargoImpact.color}>{cargoImpact.speed}</span></div>
+                    <div>Lucro: <span className={cargoImpact.color}>{cargoImpact.profit}</span></div>
                   </div>
                 </div>
               </div>
@@ -301,7 +450,7 @@ export const ApresentacaoDesafioPage = () => {
                 ) : (
                   <>
                     <Trophy className="mr-2" size={20} />
-                    ACEITAR DESAFIO
+                    ACEITAR DESAFIO ({selectedCargoAmount}%)
                   </>
                 )}
               </Button>
