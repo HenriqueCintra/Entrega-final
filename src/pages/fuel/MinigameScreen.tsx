@@ -8,6 +8,10 @@ const FILL_RATE = 0.35; // Velocidade mais rápida e responsiva
 const TOLERANCE = 8.0; // Margem mais generosa para resultado "Perfeito"
 const GOOD_TOLERANCE = 15.0; // Margem mais generosa para "Bom"
 
+const formatCurrency = (value: number): string => {
+  return `R$ ${value.toFixed(2)}`;
+};
+
 interface RefuelInfo {
   fuelType: string;
   fraction: number;
@@ -28,6 +32,7 @@ export const MinigameScreen: React.FC = () => {
 
   const [currentLevel, setCurrentLevel] = useState(0);
   const [isPouring, setIsPouring] = useState(false);
+  const [hasOverflowed, setHasOverflowed] = useState(false);
   const [result, setResult] = useState<{
     message: string;
     detail: string;
@@ -45,21 +50,30 @@ export const MinigameScreen: React.FC = () => {
     if (isPouring) {
       intervalId = setInterval(() => {
         setCurrentLevel((prev) => {
-          if (prev >= 100) {
+          const newLevel = Math.min(prev + FILL_RATE, 100);
+          
+          // Detectar overflow durante o preenchimento
+          if (newLevel >= 100 && !hasOverflowed) {
+            setHasOverflowed(true);
             setIsPouring(false);
+            // Mostrar resultado de overflow imediatamente
+            setTimeout(() => {
+              checkResult(100);
+            }, 100);
             return 100;
           }
-          return Math.min(prev + FILL_RATE, 100);
+          
+          return newLevel;
         });
       }, 20); // 50 FPS - balance entre suavidade e responsividade
     }
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [isPouring]);
+  }, [isPouring, hasOverflowed]);
 
   const handleInteractionStart = () => {
-    if (!result) {
+    if (!result && !hasOverflowed) {
       setIsPouring(true);
     }
   };
@@ -79,8 +93,8 @@ export const MinigameScreen: React.FC = () => {
 
     const deviation = Math.abs(finalLevel - targetLevel);
 
-    if (finalLevel > targetLevel + GOOD_TOLERANCE) {
-      // Derramou
+    if (finalLevel >= 100 || finalLevel > targetLevel + GOOD_TOLERANCE) {
+      // Derramou ou ultrapassou o limite
       setPlayerBalance(playerBalance - refuelInfo.cost);
       setResult({
         message: "DERRAMOU!",
@@ -95,10 +109,6 @@ export const MinigameScreen: React.FC = () => {
       const litersAdded = refuelInfo.liters * successRatio;
 
       const newBalance = playerBalance - finalCost;
-      const newCurrentFuel = Math.min(
-        vehicle.currentFuel + litersAdded,
-        vehicle.maxCapacity
-      );
 
       setPlayerBalance(newBalance);
       // como não temos contexto global aqui, só navegamos levando estado atualizado
@@ -211,12 +221,14 @@ export const MinigameScreen: React.FC = () => {
                 {/* Current Fuel Level - Animação melhorada */}
                 <div
                   className={`absolute bottom-0 left-0 right-0 transition-all duration-100 z-10 shadow-inner rounded-b-lg ${
-                    Math.abs(currentLevel - targetLevel) <= TOLERANCE
+                    hasOverflowed || currentLevel >= 100
+                      ? "bg-gradient-to-t from-red-500 to-red-400"
+                      : Math.abs(currentLevel - targetLevel) <= TOLERANCE
                       ? "bg-gradient-to-t from-emerald-500 to-green-400 animate-pulse"
                       : Math.abs(currentLevel - targetLevel) <= GOOD_TOLERANCE
                       ? "bg-gradient-to-t from-amber-500 to-yellow-400"
                       : currentLevel > targetLevel + GOOD_TOLERANCE
-                      ? "bg-gradient-to-t from-red-500 to-red-400 animate-bounce"
+                      ? "bg-gradient-to-t from-red-500 to-red-400"
                       : refuelInfo.fuelType === "Diesel"
                       ? "bg-gradient-to-t from-orange-600 to-yellow-500"
                       : refuelInfo.fuelType === "Gasolina"
@@ -286,9 +298,13 @@ export const MinigameScreen: React.FC = () => {
               </div>
 
               {/* Feedback em tempo real */}
-              {isPouring && (
+              {(isPouring || hasOverflowed) && (
                 <div className="text-sm font-bold">
-                  {Math.abs(currentLevel - targetLevel) <= TOLERANCE ? (
+                  {hasOverflowed || currentLevel >= 100 ? (
+                    <div className="text-red-400 bg-red-500/20 rounded px-3 py-1">
+                      💥 DERRAMOU! COMBUSTÍVEL PERDIDO!
+                    </div>
+                  ) : Math.abs(currentLevel - targetLevel) <= TOLERANCE ? (
                     <div className="text-emerald-400 bg-emerald-500/20 rounded px-3 py-1 animate-pulse">
                       🎯 ZONA PERFEITA!
                     </div>
@@ -297,7 +313,7 @@ export const MinigameScreen: React.FC = () => {
                       👍 ZONA BOA!
                     </div>
                   ) : currentLevel > targetLevel + GOOD_TOLERANCE ? (
-                    <div className="text-red-400 bg-red-500/20 rounded px-3 py-1 animate-bounce">
+                    <div className="text-red-400 bg-red-500/20 rounded px-3 py-1">
                       ⚠️ MUITO ALTO!
                     </div>
                   ) : (
