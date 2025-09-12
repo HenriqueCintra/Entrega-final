@@ -109,11 +109,24 @@ export const FuelPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 font-['Press_Start_2P'] text-white flex flex-col">
+    <div className="min-h-screen [background:linear-gradient(180deg,rgba(32,2,89,1)_0%,rgba(121,70,213,1)_100%)] font-['Press_Start_2P'] text-white flex flex-col">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-800 to-indigo-800 border-b-4 border-cyan-400 p-6 flex justify-between items-center">
-        <h1 className="text-lg text-white font-bold tracking-wider">TELA DE ABASTECIMENTO</h1>
-        <div className="text-right text-sm text-white">
+      <div className="flex justify-between items-center p-4 relative z-10">
+        {}
+        <button
+          onClick={() => navigate('/routes')}
+          className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 border border-black rounded-md shadow-md font-['Silkscreen'] h-10"
+        >
+          ← Voltar
+        </button>
+        
+        {/* Título centralizado */}
+        <h1 className="text-lg text-white font-bold tracking-wider font-['Silkscreen'] absolute left-1/2 transform -translate-x-1/2">
+          TELA DE ABASTECIMENTO
+        </h1>
+        
+        {/* Saldo */}
+        <div className="text-right text-sm text-white font-['Silkscreen']">
           <div className="mb-1">
             R$ {playerBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </div>
@@ -124,80 +137,72 @@ export const FuelPage: React.FC = () => {
       {/* Main Content */}
       <div className="flex flex-1">
         {/* Left Panel */}
-        <div className="w-1/2 bg-gradient-to-br from-cyan-400 via-blue-400 to-indigo-400 border-r-4 border-slate-800 p-6 flex flex-col justify-start">
-          {/* Voltar */}
-          <button
-            onClick={() => navigate('/routes')}
-            className="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 border-2 border-slate-800 font-bold mb-4 text-sm self-start rounded shadow-lg"
-          >
-            ← VOLTAR
-          </button>
-
-          {/* Vehicle Name */}
-          <div className="bg-gradient-to-r from-yellow-400 to-orange-400 text-black px-6 py-3 border-4 border-slate-800 inline-block mb-6 font-bold text-lg self-start rounded shadow-lg">
+        <div className="w-1/2 bg-white bg-opacity-15 backdrop-blur-sm border-r-4 border-purple-300 border-opacity-30 p-6 flex flex-col justify-start">
+          {}
+          <div className="bg-gradient-to-r from-yellow-300 to-amber-400 text-purple-900 px-6 py-3 border-4 border-purple-800 inline-block mb-6 font-bold text-lg self-start rounded shadow-lg font-['Silkscreen']">
             {vehicle.name.toUpperCase()}
           </div>
 
-          {/* Vehicle Stats */}
-          <div className="bg-gradient-to-br from-slate-200 to-blue-200 border-4 border-slate-800 p-5 mb-5 text-sm rounded shadow-lg">
-            <div className="grid grid-cols-2 gap-5 mb-5 text-black">
+          {/* Vehicle Stats - fundo mais suave */}
+          <div className="bg-gradient-to-br from-purple-50 to-purple-100 border-4 border-purple-800 p-5 mb-5 text-sm rounded shadow-lg">
+            <div className="grid grid-cols-2 gap-5 mb-5 text-purple-900">
               <div className="text-center">
-                <div className="font-bold text-base mb-2">CONSUMO</div>
-                <div className="text-xl font-bold">{vehicle.consumption.asphalt} KM/L</div>
+                <div className="font-bold text-base mb-2 font-['Silkscreen']">CONSUMO</div>
+                <div className="text-xl font-bold font-['Silkscreen']">{vehicle.consumption.asphalt} KM/L</div>
               </div>
               <div className="text-center">
-                <div className="font-bold text-base mb-2">TANQUE</div>
-                <div className="text-xl font-bold">{vehicle.currentFuel}L / {vehicle.maxCapacity}L</div>
+                <div className="font-bold text-base mb-2 font-['Silkscreen']">TANQUE</div>
+                <div className="text-xl font-bold font-['Silkscreen']">{vehicle.currentFuel}L / {vehicle.maxCapacity}L</div>
               </div>
             </div>
 
             {/* Fuel Bar */}
-            <div className="text-black mb-3 font-bold text-sm text-center">NÍVEL DO TANQUE</div>
-            <div className="w-full bg-slate-300 border-4 border-slate-800 h-8 relative overflow-hidden rounded shadow-inner">
-              <div className="bg-gradient-to-r from-emerald-500 to-green-500 h-full transition-all duration-300 rounded-l" style={{ width: `${fuelPercentage}%` }} />
-              <div className="absolute inset-0 flex items-center justify-center text-black font-bold text-sm">{fuelPercentage.toFixed(1)}%</div>
+            <div className="text-purple-900 mb-3 font-bold text-sm text-center font-['Silkscreen']">NÍVEL DO TANQUE</div>
+            <div className="w-full bg-purple-200 border-4 border-purple-800 h-8 relative overflow-hidden rounded shadow-inner">
+              <div className="bg-gradient-to-r from-emerald-400 to-green-500 h-full transition-all duration-300 rounded-l" style={{ width: `${fuelPercentage}%` }} />
+              <div className="absolute inset-0 flex items-center justify-center text-purple-900 font-bold text-sm font-['Silkscreen']">{fuelPercentage.toFixed(1)}%</div>
             </div>
           </div>
 
           {/* Vehicle Image */}
           <div className="flex items-center justify-center mb-4">
-            <div className="w-96 h-64 bg-gradient-to-br from-slate-300 to-blue-300 border-4 border-slate-800 flex items-center justify-center p-2 rounded shadow-xl">
+            <div className="w-96 h-64 bg-gradient-to-br from-purple-50 to-white border-4 border-purple-800 flex items-center justify-center p-2 rounded shadow-xl">
               <img src={getVehicleImageUrl(vehicle.image)} alt="Veículo" className="w-full h-full object-contain" />
             </div>
           </div>
 
-          {/* Skip */}
+          {}
           <button
             onClick={handleSkip}
-            className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-black px-6 py-3 border-4 border-slate-800 font-bold text-sm rounded shadow-lg transition-all hover:scale-105"
+            className="bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-purple-900 px-6 py-3 border-4 border-purple-800 font-bold text-sm rounded shadow-lg transition-all hover:scale-105 font-['Silkscreen']"
           >
             PULAR ABASTECIMENTO
           </button>
         </div>
 
         {/* Right Panel */}
-        <div className="w-1/2 bg-gradient-to-br from-indigo-400 via-blue-400 to-cyan-400 p-6 flex flex-col justify-start">
-          {/* Posto Header */}
-          <div className="bg-gradient-to-r from-red-600 to-red-700 border-4 border-slate-800 p-3 text-center mb-4 rounded shadow-lg">
-            <h3 className="text-base font-bold text-white">POSTO DE COMBUSTÍVEL</h3>
+        <div className="w-1/2 bg-white bg-opacity-15 backdrop-blur-sm p-6 flex flex-col justify-start">
+          {}
+          <div className="bg-gradient-to-r from-purple-600 to-purple-700 border-4 border-purple-900 p-3 text-center mb-4 rounded shadow-lg">
+            <h3 className="text-base font-bold text-white font-['Silkscreen']">POSTO DE COMBUSTÍVEL</h3>
           </div>
 
           {/* Fuel Type */}
           <div className="mb-6">
-            <h4 className="text-black font-bold mb-3 text-xs bg-gradient-to-r from-orange-300 to-yellow-300 border-4 border-slate-800 p-2 inline-block rounded shadow-lg">ESCOLHA O COMBUSTÍVEL:</h4>
+            <h4 className="text-purple-900 font-bold mb-3 text-xs bg-gradient-to-r from-yellow-200 to-amber-300 border-4 border-purple-800 p-2 inline-block rounded shadow-lg font-['Silkscreen']">ESCOLHA O COMBUSTÍVEL:</h4>
             <div className="grid grid-cols-3 gap-2 mb-4">
               {['DIESEL', 'GASOLINA', 'ALCOOL'].map((fuel) => (
                 <button
                   key={fuel}
                   onClick={() => setSelectedFuel(fuel)}
-                  className={`px-4 py-3 border-4 border-slate-800 font-bold transition-all text-sm rounded shadow-lg hover:scale-105 ${
+                  className={`px-4 py-3 border-4 border-purple-800 font-bold transition-all text-sm rounded shadow-lg hover:scale-105 font-['Silkscreen'] ${
                     selectedFuel === fuel
                       ? fuel === 'DIESEL'
-                        ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white scale-105'
+                        ? 'bg-gradient-to-r from-emerald-400 to-green-500 text-white scale-105'
                         : fuel === 'GASOLINA'
-                        ? 'bg-gradient-to-r from-yellow-500 to-amber-500 text-black scale-105'
-                        : 'bg-gradient-to-r from-purple-500 to-violet-500 text-white scale-105'
-                      : 'bg-gradient-to-r from-slate-300 to-gray-300 text-black hover:from-slate-400 hover:to-gray-400'
+                        ? 'bg-gradient-to-r from-yellow-400 to-amber-500 text-purple-900 scale-105'
+                        : 'bg-gradient-to-r from-purple-400 to-violet-500 text-white scale-105'
+                      : 'bg-gradient-to-r from-purple-100 to-purple-200 text-purple-900 hover:from-purple-200 hover:to-purple-300'
                   }`}
                 >
                   {fuel}
@@ -206,8 +211,8 @@ export const FuelPage: React.FC = () => {
             </div>
 
             {/* Fuel Price */}
-            <div className="bg-gradient-to-r from-red-500 to-red-600 border-4 border-slate-800 p-3 text-center rounded shadow-lg">
-              <div className="text-white font-bold text-sm">
+            <div className="bg-gradient-to-r from-purple-500 to-purple-600 border-4 border-purple-900 p-3 text-center rounded shadow-lg">
+              <div className="text-white font-bold text-sm font-['Silkscreen']">
                 {selectedFuel}: R$ {FUEL_PRICES[selectedFuel].toFixed(2)} / LITRO
               </div>
             </div>
@@ -215,20 +220,20 @@ export const FuelPage: React.FC = () => {
 
           {/* Amount */}
           <div className="mb-6">
-            <h4 className="text-black font-bold mb-3 text-xs bg-gradient-to-r from-orange-300 to-yellow-300 border-4 border-slate-800 p-2 inline-block rounded shadow-lg">ESCOLHA A QUANTIDADE:</h4>
+            <h4 className="text-purple-900 font-bold mb-3 text-xs bg-gradient-to-r from-yellow-200 to-amber-300 border-4 border-purple-800 p-2 inline-block rounded shadow-lg font-['Silkscreen']">ESCOLHA A QUANTIDADE:</h4>
             <div className="grid grid-cols-3 gap-2 mb-4">
               {['1/4 TANQUE', '1/2 TANQUE', 'TANQUE CHEIO'].map((amount) => (
                 <button
                   key={amount}
                   onClick={() => setSelectedAmount(amount)}
-                  className={`px-3 py-3 border-4 border-slate-800 font-bold text-xs transition-all rounded shadow-lg hover:scale-105 ${
+                  className={`px-3 py-3 border-4 border-purple-800 font-bold text-xs transition-all rounded shadow-lg hover:scale-105 font-['Silkscreen'] ${
                     selectedAmount === amount
                       ? amount === '1/4 TANQUE'
-                        ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white scale-105'
+                        ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-purple-900 scale-105'
                         : amount === '1/2 TANQUE'
-                        ? 'bg-gradient-to-r from-yellow-500 to-amber-500 text-black scale-105'
-                        : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white scale-105'
-                      : 'bg-gradient-to-r from-slate-300 to-gray-300 text-black hover:from-slate-400 hover:to-gray-400'
+                        ? 'bg-gradient-to-r from-yellow-400 to-amber-500 text-purple-900 scale-105'
+                        : 'bg-gradient-to-r from-emerald-400 to-green-500 text-white scale-105'
+                      : 'bg-gradient-to-r from-purple-100 to-purple-200 text-purple-900 hover:from-purple-200 hover:to-purple-300'
                   }`}
                 >
                   {amount}
@@ -238,18 +243,18 @@ export const FuelPage: React.FC = () => {
           </div>
 
           {/* Total */}
-          <div className="bg-gradient-to-r from-red-600 to-red-700 border-4 border-slate-800 p-4 text-center mb-4 rounded shadow-xl">
-            <div className="text-lg font-bold text-white">TOTAL: R$ {totalCost.toFixed(2)}</div>
+          <div className="bg-gradient-to-r from-purple-600 to-purple-700 border-4 border-purple-900 p-4 text-center mb-4 rounded shadow-xl">
+            <div className="text-lg font-bold text-white font-['Silkscreen']">TOTAL: R$ {totalCost.toFixed(2)}</div>
           </div>
 
           {/* Refuel */}
           <button
             onClick={handleRefuel}
             disabled={totalCost > playerBalance}
-            className={`w-full py-4 border-4 border-slate-800 font-bold text-base transition-all rounded shadow-xl ${
+            className={`w-full py-4 border-4 border-purple-900 font-bold text-base transition-all rounded shadow-xl font-['Silkscreen'] ${
               totalCost > playerBalance
-                ? 'bg-gradient-to-r from-slate-400 to-gray-400 text-gray-600 cursor-not-allowed'
-                : 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white hover:scale-105'
+                ? 'bg-gradient-to-r from-purple-300 to-purple-400 text-purple-600 cursor-not-allowed'
+                : 'bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white hover:scale-105'
             }`}
           >
             ABASTECER AGORA
@@ -262,18 +267,18 @@ export const FuelPage: React.FC = () => {
       {/* Penalty Modal */}
       {showPenaltyModal && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-          <div className="bg-gradient-to-br from-red-600 to-red-700 border-4 border-slate-800 rounded-lg p-8 max-w-lg mx-4 text-center shadow-2xl">
+          <div className="bg-gradient-to-br from-red-600 to-red-700 border-4 border-red-900 rounded-lg p-8 max-w-lg mx-4 text-center shadow-2xl">
             <div className="flex justify-center mb-4">
               <img src="/alerta.png" alt="Alerta" className="w-16 h-16 animate-bounce" />
             </div>
-            <h2 className="text-2xl font-bold text-white mb-6 font-['Press_Start_2P']">COMBUSTÍVEL ERRADO!</h2>
-            <p className="text-white mb-6 font-['Press_Start_2P'] text-sm leading-relaxed">
+            <h2 className="text-2xl font-bold text-white mb-6 font-['Silkscreen']">COMBUSTÍVEL ERRADO!</h2>
+            <p className="text-white mb-6 font-['Silkscreen'] text-sm leading-relaxed">
               Multa de R$ {WRONG_FUEL_PENALTY.toFixed(2)} aplicada por tentar usar {selectedFuel} em um veículo a {vehicleFuelType}.
             </p>
-            <p className="text-yellow-300 mb-8 text-sm font-['Press_Start_2P']">Veículo compatível com: {vehicleFuelType}</p>
+            <p className="text-yellow-300 mb-8 text-sm font-['Silkscreen']">Veículo compatível com: {vehicleFuelType}</p>
             <button
               onClick={() => setShowPenaltyModal(false)}
-              className="bg-gradient-to-r from-white to-gray-100 text-red-600 font-bold py-3 px-6 border-4 border-slate-800 hover:from-gray-200 hover:to-gray-300 font-['Press_Start_2P'] text-sm rounded shadow-lg transition-all hover:scale-105"
+              className="bg-gradient-to-r from-white to-gray-100 text-red-600 font-bold py-3 px-6 border-4 border-red-900 hover:from-gray-200 hover:to-gray-300 font-['Silkscreen'] text-sm rounded shadow-lg transition-all hover:scale-105"
             >
               ENTENDI
             </button>
