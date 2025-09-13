@@ -1153,7 +1153,9 @@ export function GameScene() {
     const pathCoords = selectedRoute.pathCoordinates;
     const totalSegments = pathCoords.length - 1;
 
-    const targetDurationSeconds = 600;
+
+    const targetDurationSeconds = 1200;
+
     const segmentsPerSecond = totalSegments / targetDurationSeconds;
     //Aplica o multiplicador de velocidade ao progresso
     const segmentSpeed = segmentsPerSecond * speedMultiplierRef.current * deltaTime;
