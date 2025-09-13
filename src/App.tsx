@@ -5,6 +5,7 @@ import { VehicleSelectionPage } from './pages/escolherVeiculo';
 import { RoutesPage } from './pages/RoutesPage/RoutesPage';
 import { FuelPage } from './pages/fuel/FuelPage';
 import { MapComponent } from './pages/mapaRota/MapComponent';
+import { MinigameScreen } from './pages/fuel/MinigameScreen';
 import { GameScene } from './pages/Game-truck/game';
 import { LoginPage } from './pages/auth/LoginPage';
 import { ApresentacaoDesafioPage } from './pages/Desafio/ApresentacaoDesafio';
@@ -28,6 +29,7 @@ function App() {
           <Route path="/map" element={<MapComponent />} />
           <Route path="/mapa-rota" element={<MapComponent />} />
           <Route path="/game" element={<GameScene />} />
+          <Route path="/fuel-minigame" element={<MinigameScreen />} />
           {/* Redirecionar para a página inicial por padrão */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
