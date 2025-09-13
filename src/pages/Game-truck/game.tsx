@@ -19,6 +19,10 @@ import type {
 import { EventResultModal } from './EventResultModal';
 import { QuizModal } from "../../components/QuizModal"; // Componente do Quiz
 import { PerguntaQuiz, ResponderQuizPayload, RespostaQuizResult } from "../../api/gameService"; // Tipos e serviços
+import RadioToggle from '@/components/RadioToggle';
+import TruckRadio from '@/components/TruckRadio';
+import { AudioControl } from "../../components/AudioControl";
+import { AudioManager } from "../../components/AudioManager";
 
 // Interface para eventos vindos da API
 interface EventData {
@@ -85,6 +89,7 @@ export function GameScene() {
   const collisionCooldownRef = useRef(0);
   const obstacleSystemLockedRef = useRef(false);
   const handleResizeRef = useRef<(() => void) | null>(null);
+  const [isRadioOpen, setIsRadioOpen] = useState(false);
 
   //CONTROLE DE VELOCIDADE
   const [speedLevel, setSpeedLevel] = useState(1); // 1 = 1x, 2 = 1.5x, 3 = 2x
@@ -1366,7 +1371,36 @@ export function GameScene() {
             }}
           />
         </button>
+        <RadioToggle
+          onClick={() => setIsRadioOpen(!isRadioOpen)}
+          isRadioOpen={isRadioOpen}
+        />
+        <div style={{ 
+            position: 'fixed', 
+            top: '7.8rem',  
+            left: '1.7rem' 
+          }}>
+            <AudioControl popupAlign="left"/>
+          </div>
+            <AudioManager />
       </div>
+      {isRadioOpen && (
+        <div
+          style={{
+            position: "fixed",
+            top: "5vh",
+            left: "2vw",
+            zIndex: 1000,
+            outline: "2px solid #000"
+          }}
+        >
+          <TruckRadio
+            isOpen={isRadioOpen}
+            onClose={() => setIsRadioOpen(false)}
+          />
+        </div>
+      )}
+      
 
       {/* Barra de progresso */}
       <div style={{
