@@ -14,11 +14,12 @@ import { GameService } from "../../api/gameService";
 import { PixelProgressBar } from "../../components/PixelProgressBar/PixelProgressBar";
 import '../../components/PixelProgressBar/PixelProgressBar.css';
 import type {
-  GameObj
+  GameObj,
+  KaboomCtx
 } from "kaboom";
-import { createRain } from "@/components/rain";
+import { setupRainSystem } from "@/components/rainSystem";
 import { EventResultModal } from './EventResultModal';
-
+//import { setupRainSystem } from "@/components/rainSystem";
 // Interface para eventos vindos da API
 interface EventData {
   id: number;
@@ -130,6 +131,7 @@ export function GameScene() {
     originalZoom: 1.0,
   });
 
+  
   // Estados vindos dos parâmetros de navegação
   const [vehicle] = useState<Vehicle>(() => {
     console.log("Estado recebido no jogo:", location.state);
@@ -665,8 +667,11 @@ export function GameScene() {
         RIGHT,
         get,
         wait,
-        opacity
+        opacity,
+        onSceneLeave
       } = k;
+
+       k.loadSound("rain", "audio/rainSound.mp3");
 
       destroyRef.current = destroy;
 
@@ -700,10 +705,14 @@ export function GameScene() {
         loadSprite("carro_8", "/assets/carro_trafego_8.png");
         loadSprite("moto_1", "/assets/moto_trafego_1.png");
 
+       
+
+
         console.log("Todos os sprites carregados com sucesso");
       } catch (error) {
         console.error("Erro ao carregar sprites:", error);
       }
+
 
       scene("main", () => {
         const speed = 5000;
@@ -780,15 +789,8 @@ export function GameScene() {
         });
 
               // --- chuva ---
-        const rain = createRain(k, {
-          density: 500,     // gotas por segundo
-          speed: 1100,      // pixels/segundo
-          wind: -300,       // negativo = vento pra esquerda
-          width: 1,
-          length: 12,
-          opacity: 0.55,
-          z: 999,
-        });
+          // tudo da cena principal
+          setupRainSystem(k); // <- agora preso ao ciclo da cena
 
         onUpdate("traffic_car", (trafficCar) => {
           if (trafficCar.behavior === "ultrapassagem" && !trafficCar.isChangingLane && trafficCar.pos.x > (car.pos.x + car.width - 150)) {
@@ -994,6 +996,21 @@ export function GameScene() {
       }, 1000);
     }
   }, []);
+  
+useEffect(() => {
+  if (!gameLoaded) return;
+
+  const k = (window as any).k;
+  if (!k) return;
+
+  // Garante que só vai existir UMA chuva no jogo
+  const rainController = setupRainSystem(k);
+
+  return () => {
+    rainController.stopRain();
+  };
+}, [gameLoaded]);
+
 
   // Sistema de ticks periódicos
   useEffect(() => {

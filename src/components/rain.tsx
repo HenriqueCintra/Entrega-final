@@ -35,7 +35,7 @@ export function createRain(k: KaboomCtx, opts: RainOptions = {}) {
     carry = want - count;
 
     for (let i = 0; i < count; i++) {
-        const x = k.rand(0, k.width());
+        const x = k.rand(areaX[0], areaX[1]);
         const y = k.rand(-length * 5, 0); // até um pouco acima do topo
 
       // Cada gota é um retângulo fino com pequena rotação
