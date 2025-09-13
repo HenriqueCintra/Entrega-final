@@ -204,11 +204,11 @@ export const RoutesPage: React.FC = () => {
     return (
       <div className="min-h-screen bg-[#200259] font-['Silkscreen'] flex items-center justify-center">
         <div className="text-center">
-          <div className="text-[#E3922A] text-2xl mb-4">🚛 Carregando rotas...</div>
-          <div className="text-white">Buscando dados atualizados do servidor</div>
+          <div className="text-[#E3922A] text-3xl mb-4">🚛 Carregando rotas...</div>
+          <div className="text-white text-lg">Buscando dados atualizados do servidor</div>
           <button
             onClick={() => refetch()}
-            className="mt-4 bg-[#E3922A] text-black font-bold px-4 py-2 rounded-md hover:bg-[#FFC06F]"
+            className="mt-4 bg-[#E3922A] text-black font-bold px-6 py-3 rounded-md hover:bg-[#FFC06F] text-lg"
           >
             🔄 Tentar Novamente
           </button>
@@ -221,20 +221,20 @@ export const RoutesPage: React.FC = () => {
     return (
       <div className="min-h-screen bg-[#200259] font-['Silkscreen'] flex items-center justify-center">
         <div className="text-center">
-          <div className="text-red-500 text-2xl mb-4">❌ Erro ao carregar rotas</div>
-          <div className="text-white mb-4">
+          <div className="text-red-500 text-3xl mb-4">❌ Erro ao carregar rotas</div>
+          <div className="text-white mb-4 text-lg">
             {error instanceof Error ? error.message : 'Erro desconhecido'}
           </div>
-          <div className="flex gap-2 justify-center">
+          <div className="flex gap-3 justify-center">
             <button
               onClick={() => refetch()}
-              className="bg-[#E3922A] text-black font-bold px-6 py-3 rounded-md hover:bg-[#FFC06F]"
+              className="bg-[#E3922A] text-black font-bold px-8 py-4 rounded-md hover:bg-[#FFC06F] text-lg"
             >
               🔄 Recarregar Dados
             </button>
             <button
               onClick={() => navigate('/select-vehicle')}
-              className="bg-gray-600 text-white font-bold px-6 py-3 rounded-md hover:bg-gray-700"
+              className="bg-gray-600 text-white font-bold px-8 py-4 rounded-md hover:bg-gray-700 text-lg"
             >
               ← Voltar
             </button>
@@ -247,23 +247,23 @@ export const RoutesPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#200259] font-['Silkscreen']">
       {/* Header */}
-      <div className="bg-[#200259] border-b-2 border-[#E3922A] px-3 py-2">
+      <div className="bg-[#200259] border-b-2 border-[#E3922A] px-4 py-3">
         <div className="flex items-center justify-between mx-auto">
           <button
-            className="flex items-center gap-1 px-3 py-1.5 bg-[#E3922A] text-black font-bold text-sm rounded-md shadow-lg
+            className="flex items-center gap-2 px-4 py-2 bg-[#E3922A] text-black font-bold text-base rounded-md shadow-lg
                      hover:bg-[#FFC06F] transition-all duration-200 border-2 border-black"
             onClick={goBack}
           >
-            <ArrowLeft size={16} /> VOLTAR
+            <ArrowLeft size={20} /> VOLTAR
           </button>
 
-          <h1 className="text-lg lg:text-xl font-bold text-[#E3922A] text-center">
+          <h1 className="text-2xl lg:text-3xl font-bold text-[#E3922A] text-center">
             ESCOLHA SUA ROTA
           </h1>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <AudioControl />
-            <div className="bg-[#E3922A] text-black text-sm lg:text-base font-bold px-3 py-1.5 rounded-md shadow-lg border-2 border-black">
+            <div className="bg-[#E3922A] text-black text-lg lg:text-xl font-bold px-4 py-2 rounded-md shadow-lg border-2 border-black">
               R$ {availableMoney.toFixed(2)}
             </div>
           </div>
@@ -271,7 +271,7 @@ export const RoutesPage: React.FC = () => {
       </div>
 
       {/* Conteúdo principal */}
-      <div className="flex flex-col lg:flex-row gap-3 p-3 h-[calc(100vh-60px)] max-h-[calc(100vh-60px)] overflow-hidden">
+      <div className="flex flex-col lg:flex-row gap-4 p-4 h-[calc(100vh-70px)] max-h-[calc(100vh-70px)] overflow-hidden">
 
         {/* 🗺️ MAPA */}
         <div className="lg:w-2/3 h-full lg:h-full flex flex-col min-h-[300px] lg:min-h-0">
@@ -289,10 +289,10 @@ export const RoutesPage: React.FC = () => {
               </div>
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
-                <div className="text-center text-gray-600 font-['Silkscreen'] p-4">
-                  <div className="text-4xl mb-3">🗺️</div>
-                  <p className="text-lg font-bold mb-1 text-gray-700">Selecione uma rota</p>
-                  <p className="text-sm text-gray-500">para visualizar no mapa</p>
+                <div className="text-center text-gray-600 font-['Silkscreen'] p-6">
+                  <div className="text-6xl mb-4">🗺️</div>
+                  <p className="text-2xl font-bold mb-2 text-gray-700">Selecione uma rota</p>
+                  <p className="text-lg text-gray-500">para visualizar no mapa</p>
                 </div>
               </div>
             )}
@@ -301,20 +301,20 @@ export const RoutesPage: React.FC = () => {
 
         {/* Lista de Rotas */}
         <div className="lg:w-2/5 flex flex-col h-full lg:h-full min-h-[400px] lg:min-h-0">
-          <div className="bg-[#E3922A] text-black p-2 rounded-t-lg border-2 border-black mb-0 flex-shrink-0">
-            <h2 className="text-lg font-['Silkscreen'] font-bold text-center">
+          <div className="bg-[#E3922A] text-black p-3 rounded-t-lg border-2 border-black mb-0 flex-shrink-0">
+            <h2 className="text-xl font-['Silkscreen'] font-bold text-center">
               ROTAS DISPONÍVEIS ({allRoutes.length})
             </h2>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto bg-gray-100 border-x-2 border-black p-2 space-y-2">
+          <div className="flex-1 min-h-0 overflow-y-auto bg-gray-100 border-x-2 border-black p-3 space-y-3">
             {allRoutes.length === 0 ? (
-              <div className="text-center text-gray-500 py-8">
-                <div className="text-2xl mb-2">🚫</div>
-                <p>Nenhuma rota encontrada</p>
+              <div className="text-center text-gray-500 py-12">
+                <div className="text-4xl mb-3">🚫</div>
+                <p className="text-xl">Nenhuma rota encontrada</p>
                 <button
                   onClick={() => refetch()}
-                  className="mt-2 bg-[#E3922A] text-black font-bold px-4 py-2 rounded-md hover:bg-[#FFC06F] text-sm"
+                  className="mt-3 bg-[#E3922A] text-black font-bold px-6 py-3 rounded-md hover:bg-[#FFC06F] text-base"
                 >
                   🔄 Recarregar
                 </button>
@@ -323,57 +323,51 @@ export const RoutesPage: React.FC = () => {
               allRoutes.map((route) => (
                 <div
                   key={route.id}
-                  className={`p-2 rounded-lg cursor-pointer transition-all duration-200 border-2
+                  className={`p-3 rounded-lg cursor-pointer transition-all duration-200 border-2
                     ${selectedRoute?.id === route.id
                       ? 'bg-yellow-300 border-yellow-600 shadow-lg'
                       : 'bg-white border-gray-300 hover:bg-gray-50 hover:border-gray-400'}
                     `}
                   onClick={() => handleSelectRoute(route.id)}
                 >
-                  <h3 className="font-['Silkscreen'] font-bold text-sm text-black mb-2 border-b border-gray-300 pb-1">
+                  <h3 className="font-['Silkscreen'] font-bold text-base text-black mb-3 border-b border-gray-300 pb-2">
                     {route.nome}
                   </h3>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <div className="space-y-0.5">
-                      <p className="font-['Silkscreen'] text-black text-xs">
-                        <span>⏱️ TEMPO:</span> {route.estimatedTime}
+                  <div className="space-y-1">
+                    <p className="font-['Silkscreen'] text-black text-sm">
+                      <span>⏱️ TEMPO:</span> {route.estimatedTime}
+                    </p>
+                    <p className="font-['Silkscreen'] text-black text-sm">
+                      <span>📏 DISTÂNCIA:</span> {route.distance.toFixed(0)} km
+                    </p>
+                    {route.dirtRoad && (
+                      <p className="font-['Silkscreen'] text-black text-sm">
+                        <span>🛤️ TERRENO:</span> <span className="text-yellow-700 whitespace-nowrap">Estrada de Terra</span>
                       </p>
-                      <p className="font-['Silkscreen'] text-black text-xs">
-                        <span>📏 DISTÂNCIA:</span> {route.distance.toFixed(0)} km
+                    )}
+                    <p className="font-['Silkscreen'] text-black text-sm flex items-center">
+                      <span>🛡️ RISCO:</span>
+                      <span className={`${route.safety.robberyRisk === 'Baixo' ? 'text-green-700' : 'text-red-700'} ml-2`}>
+                        {route.safety.robberyRisk} {route.safety.robberyRisk === 'Baixo' ? '✅' : '⚠️'}
+                      </span>
+                    </p>
+                    {/* 🔍 INDICADOR DE MAPA */}
+                    {route.pathCoordinates && route.pathCoordinates.length > 0 ? (
+                      <p className="font-['Silkscreen'] text-green-600 text-sm">
+                        🗺️ Mapa disponível ({route.pathCoordinates.length} pontos)
                       </p>
-                    </div>
-
-                    <div className="space-y-0.5">
-                      <p className="font-['Silkscreen'] text-black text-xs flex items-center">
-                        <span>🛡️ RISCO:</span>
-                        <span className={`${route.safety.robberyRisk === 'Baixo' ? 'text-green-700' : 'text-red-700'} ml-1`}>
-                          {route.safety.robberyRisk} {route.safety.robberyRisk === 'Baixo' ? '✅' : '⚠️'}
-                        </span>
+                    ) : (
+                      <p className="font-['Silkscreen'] text-red-600 text-sm">
+                        ⚠️ Mapa indisponível
                       </p>
-                      {route.dirtRoad && (
-                        <p className="font-['Silkscreen'] text-black text-xs flex items-center">
-                          <span>🛤️ TERRENO:</span>
-                          <span className="text-yellow-700 ml-1">Estrada de Terra</span>
-                        </p>
-                      )}
-                      {/* 🔍 INDICADOR DE MAPA */}
-                      {route.pathCoordinates && route.pathCoordinates.length > 0 ? (
-                        <p className="font-['Silkscreen'] text-green-600 text-xs">
-                          🗺️ Mapa disponível ({route.pathCoordinates.length} pontos)
-                        </p>
-                      ) : (
-                        <p className="font-['Silkscreen'] text-red-600 text-xs">
-                          ⚠️ Mapa indisponível
-                        </p>
-                      )}
-                    </div>
+                    )}
                   </div>
 
                   {selectedRoute?.id === route.id && (
-                    <div className="mt-2 p-2 bg-blue-50 border-l-4 border-blue-400 rounded-r-md">
-                      <h4 className="font-bold text-blue-800 mb-1 text-xs">📋 DETALHES:</h4>
-                      <div className="grid grid-cols-2 gap-1 text-xs text-blue-700">
+                    <div className="mt-3 p-3 bg-blue-50 border-l-4 border-blue-400 rounded-r-md">
+                      <h4 className="font-bold text-blue-800 mb-2 text-sm">📋 DETALHES:</h4>
+                      <div className="grid grid-cols-2 gap-2 text-sm text-blue-700">
                         <p>🗺️ Mapa: {route.mapaId}</p>
                         <p>🆔 Rota: {route.id}</p>
                         {route.danger_zones_data.length > 0 && (
@@ -394,7 +388,7 @@ export const RoutesPage: React.FC = () => {
                         )}
                       </div>
                       {route.descricao && (
-                        <p className="text-xs text-gray-600 mt-1 italic">{route.descricao}</p>
+                        <p className="text-sm text-gray-600 mt-2 italic">{route.descricao}</p>
                       )}
                     </div>
                   )}
@@ -403,17 +397,17 @@ export const RoutesPage: React.FC = () => {
             )}
           </div>
 
-          <div className="bg-[#E3922A] border-2 border-black rounded-b-lg p-2 flex-shrink-0">
+          <div className="bg-[#E3922A] border-2 border-black rounded-b-lg p-3 flex-shrink-0">
             {selectedRoute ? (
               <button
                 onClick={handleContinue}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 text-sm rounded-md 
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 text-base rounded-md 
                          shadow-lg border-2 border-green-800 transition-all duration-200"
               >
                 🚛 CONTINUAR COM ESTA ROTA
               </button>
             ) : (
-              <div className="text-center text-black font-bold py-2 text-sm">
+              <div className="text-center text-black font-bold py-3 text-base">
                 👆 Selecione uma rota para continuar
               </div>
             )}

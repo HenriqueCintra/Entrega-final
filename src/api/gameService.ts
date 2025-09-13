@@ -111,7 +111,58 @@ interface TickResult extends PartidaResponse {
   };
 }
 
+export interface OpcaoQuiz {
+  id: number;
+  texto: string;
+}
+
+export interface PerguntaQuiz {
+  id: number;
+  texto: string;
+  dificuldade: string;
+  opcoes: OpcaoQuiz[];
+}
+
+export interface ResponderQuizPayload {
+  pergunta_id: number;
+  opcao_id: number;
+}
+
+export interface RespostaQuizResult {
+  correta: boolean;
+  detail: string;
+  saldo_atual?: number;
+  correta_id?: number;
+}
+
 export const GameService = {
+
+
+  async sortearQuiz(): Promise<PerguntaQuiz> {
+    console.log('🧠 Buscando nova pergunta do quiz...');
+    try {
+      // A view do backend para sortear usa GET, não POST
+      const response = await api.get<PerguntaQuiz>('/jogo1/quizzes/sortear/');
+      console.log('✅ Pergunta recebida:', response.data.texto);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erro ao sortear quiz:', error);
+      throw error;
+    }
+  },
+
+  async responderQuiz(payload: ResponderQuizPayload): Promise<RespostaQuizResult> {
+    console.log('🙋‍♂️ Enviando resposta do quiz:', payload);
+    try {
+      const response = await api.post<RespostaQuizResult>('/jogo1/quizzes/responder/', payload);
+      console.log('✅ Resposta do quiz processada:', response.data.detail);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erro ao responder quiz:', error);
+      throw error;
+    }
+  },
+
   async getMaps(): Promise<Desafio[]> {
     console.log('🗺️ Buscando mapas da API...');
     try {

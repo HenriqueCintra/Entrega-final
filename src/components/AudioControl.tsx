@@ -4,9 +4,11 @@ import { Music, Volume2, VolumeX, Play, Pause } from 'lucide-react';
 
 interface AudioControlProps {
   className?: string;
+  popupAlign?: 'left' | 'right';
 }
 
-export const AudioControl: React.FC<AudioControlProps> = ({ className = '' }) => {
+export const AudioControl: React.FC<AudioControlProps> = ({ className = '', 
+popupAlign = 'right' }) => {
   const { isPlaying, volume, toggleMusic, setVolume } = useAudio();
   const [isOpen, setIsOpen] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -50,7 +52,7 @@ export const AudioControl: React.FC<AudioControlProps> = ({ className = '' }) =>
 
         {/* Popup */}
         {isOpen && (
-          <div className="absolute top-16 right-0 z-50 bg-white rounded-2xl shadow-2xl p-6 w-72 border border-gray-200">
+          <div className={`absolute top-16 ${popupAlign === 'right' ? 'right-0' : 'left-0'} z-50 bg-white rounded-2xl shadow-2xl p-6 w-72 border border-gray-200`}>
             <h3 className="text-lg font-bold text-gray-800 mb-4">Configurações de Áudio</h3>
 
             {/* Volume da Música */}

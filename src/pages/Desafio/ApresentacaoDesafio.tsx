@@ -1,10 +1,19 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
-import { ArrowLeft, Home, Trophy, Clock, Users, Truck, Car, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { ArrowLeft, Home, Loader2 } from 'lucide-react';
 import { ButtonHomeBack } from "@/components/ButtonHomeBack";
 import { AudioControl } from "@/components/AudioControl";
 import { fetchChallengesFromBackend, FrontendChallenge } from "../../services/challengeService";
+import { ChallengeCard } from "../../components/ChallengeCard";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+  type CarouselApi,
+} from '@/components/ui/carousel';
 
 export const ApresentacaoDesafioPage = () => {
   const navigate = useNavigate();
@@ -15,8 +24,15 @@ export const ApresentacaoDesafioPage = () => {
   const [carregando, setCarregando] = useState(false);
   const [carregandoDesafios, setCarregandoDesafios] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  const [api, setApi] = useState<CarouselApi>();
+
+  // Estados para seleção de carga
+  const [selectedCargoAmount, setSelectedCargoAmount] = useState(100); // Em percentual (100% = carga completa)
+  const [customCargoInput, setCustomCargoInput] = useState("100");
+  const [showCustomInput, setShowCustomInput] = useState(false);
 
   const currentChallenge = availableChallenges[currentChallengeIndex];
+
 
   // Carregar desafios do backend ao montar o componente
   useEffect(() => {
@@ -61,16 +77,41 @@ export const ApresentacaoDesafioPage = () => {
     loadChallenges();
   }, []);
 
-  const handlePreviousChallenge = () => {
-    setCurrentChallengeIndex((prev) => 
-      prev === 0 ? availableChallenges.length - 1 : prev - 1
-    );
+  // Sincronizar o carrossel com o índice atual
+  useEffect(() => {
+    if (api) {
+      api.scrollTo(currentChallengeIndex);
+    }
+  }, [api, currentChallengeIndex]);
+
+  // Sincronizar o índice quando o carrossel mudar
+  useEffect(() => {
+    if (!api) return;
+
+    const onSelect = () => {
+      setCurrentChallengeIndex(api.selectedScrollSnap());
+    };
+
+    api.on("select", onSelect);
+    return () => {
+      api.off("select", onSelect);
+    };
+  }, [api]);
+
+  const handleCargoAmountChange = (amount: number) => {
+    setSelectedCargoAmount(Math.max(1, Math.min(100, amount)));
+    setCustomCargoInput(amount.toString());
+    setShowCustomInput(false);
   };
 
-  const handleNextChallenge = () => {
-    setCurrentChallengeIndex((prev) => 
-      prev === availableChallenges.length - 1 ? 0 : prev + 1
-    );
+  const handleCustomCargoSubmit = () => {
+    const amount = parseInt(customCargoInput);
+    if (!isNaN(amount) && amount >= 1 && amount <= 100) {
+      setSelectedCargoAmount(amount);
+      setShowCustomInput(false);
+    } else {
+      alert("Por favor, insira um valor entre 1% e 100%");
+    }
   };
 
   const handleAceitarDesafio = () => {
@@ -78,26 +119,25 @@ export const ApresentacaoDesafioPage = () => {
 
     console.log("🎯 DEBUG ApresentacaoDesafio - Desafio selecionado:", currentChallenge.id);
     console.log("🎯 DEBUG ApresentacaoDesafio - Backend ID:", currentChallenge.backendId);
+    console.log("🎯 DEBUG ApresentacaoDesafio - Quantidade de carga:", selectedCargoAmount);
     console.log("🎯 DEBUG ApresentacaoDesafio - Dados enviados:", {
       desafio: currentChallenge,
-      challengeId: currentChallenge.backendId || currentChallenge.id
+      challengeId: currentChallenge.backendId || currentChallenge.id,
+      cargoAmount: selectedCargoAmount
     });
 
     setCarregando(true);
     setTimeout(() => {
       setCarregando(false);
-      // Passa o desafio selecionado para a próxima tela
+      // Passa o desafio selecionado e a quantidade de carga para a próxima tela
       navigate("/select-vehicle", { state: { 
         desafio: currentChallenge,
-        challengeId: currentChallenge.backendId || currentChallenge.id 
+        challengeId: currentChallenge.backendId || currentChallenge.id,
+        cargoAmount: selectedCargoAmount
       } });
     }, 1500);
   };
 
-  const getChallengeImage = (challengeId: string) => {
-    // Usando a mesma imagem de fundo, mas poderia ser personalizada por desafio
-    return "/desafio.png";
-  };
 
   // Tela de carregamento
   if (carregandoDesafios) {
@@ -105,10 +145,10 @@ export const ApresentacaoDesafioPage = () => {
       <div className="flex h-screen items-center justify-center bg-gradient-to-b from-purple-600 to-blue-600 text-center p-4">
         <div className="bg-white rounded-lg p-8 shadow-lg">
           <Loader2 className="animate-spin h-12 w-12 text-purple-600 mx-auto mb-4" />
-          <h1 className="[font-family:'Silkscreen',Helvetica] text-purple-600 text-xl mb-2">
+          <h1 className="[font-family:'Silkscreen',Helvetica] text-purple-600 text-2xl mb-2">
             Carregando Desafios...
           </h1>
-          <p className="[font-family:'Silkscreen',Helvetica] text-gray-600 text-sm">
+          <p className="[font-family:'Silkscreen',Helvetica] text-gray-600 text-base">
             Buscando dados do servidor
           </p>
         </div>
@@ -121,19 +161,19 @@ export const ApresentacaoDesafioPage = () => {
     return (
       <div className="flex h-screen items-center justify-center bg-gradient-to-b from-red-400 to-red-600 text-center p-4">
         <div className="bg-white rounded-lg p-8 shadow-lg">
-          <h1 className="[font-family:'Silkscreen',Helvetica] text-red-600 text-xl mb-4">
+          <h1 className="[font-family:'Silkscreen',Helvetica] text-red-600 text-2xl mb-4">
             {erro || "Nenhum desafio disponível."}
           </h1>
           <div className="space-y-2">
             <Button 
               onClick={() => window.location.reload()} 
-              className="bg-red-600 text-white mr-2"
+              className="bg-red-600 text-white mr-2 text-base px-4 py-2"
             >
               Tentar Novamente
             </Button>
             <Button 
               onClick={() => navigate('/game-selection')} 
-              className="bg-gray-600 text-white"
+              className="bg-gray-600 text-white text-base px-4 py-2"
             >
               Voltar para Seleção de Jogos
             </Button>
@@ -142,6 +182,7 @@ export const ApresentacaoDesafioPage = () => {
       </div>
     );
   }
+
 
   return (
     <div className="bg-white flex flex-row justify-center w-full">
@@ -155,158 +196,57 @@ export const ApresentacaoDesafioPage = () => {
           <AudioControl />
         </div>
 
-        <div className="pt-16 pb-8 px-4 flex justify-center items-center min-h-screen z-10">
-          <div className="bg-white rounded-[18px] border-2 border-solid border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] w-full max-w-[1000px] max-h-[85vh] overflow-hidden flex flex-col">
-            
-            {/* Header com navegação do carrossel */}
-            <div className="p-4 border-b-2 border-black bg-gray-50 flex items-center justify-between">
-              <Button
-                onClick={handlePreviousChallenge}
-                className="p-2 bg-[#e3922a] border-2 border-black rounded-md hover:bg-[#d4831f] transition-colors"
-                disabled={availableChallenges.length <= 1}
-              >
-                <ChevronLeft size={20} className="text-white" />
-              </Button>
-              
-              <div className="text-center flex-1">
-                <h1 className="text-[22px] [font-family:'Silkscreen',Helvetica] font-bold text-[#e3922a]">
-                  {currentChallenge.name}
-                </h1>
-                <p className="text-[12px] [font-family:'Silkscreen',Helvetica] text-gray-600 mt-1">
-                  {currentChallengeIndex + 1} de {availableChallenges.length}
-                </p>
-              </div>
-              
-              <Button
-                onClick={handleNextChallenge}
-                className="p-2 bg-[#e3922a] border-2 border-black rounded-md hover:bg-[#d4831f] transition-colors"
-                disabled={availableChallenges.length <= 1}
-              >
-                <ChevronRight size={20} className="text-white" />
-              </Button>
-            </div>
-            
-            <div className="overflow-y-auto p-4 flex-1">
-              {/* Imagem do desafio */}
-              <div className="border-2 border-black rounded-lg overflow-hidden h-[200px] mb-4 relative">
-                <img 
-                  src={getChallengeImage(currentChallenge.id)} 
-                  alt={`Desafio ${currentChallenge.name}`} 
-                  className="w-full h-full object-cover" 
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 flex items-center justify-center">
-                  <div className="text-center text-white">
-                    <h2 className="text-2xl [font-family:'Silkscreen',Helvetica] font-bold mb-2   ">
-                      JUAZEIRO → {currentChallenge.destination.split(',')[0].toUpperCase()}
-                    </h2>
-                    <p className="text-sm [font-family:'Silkscreen',Helvetica]">
-                      {currentChallenge.routes.length} rota{currentChallenge.routes.length > 1 ? 's' : ''} disponível{currentChallenge.routes.length > 1 ? 'is' : ''}
-                    </p>
-                  </div>
-                </div>
-              </div>
+        <div className="pt-8   pb-8 px-4 flex flex-col justify-center items-center min-h-screen z-10">
+          {/* Carrossel de desafios */}
+          <div className="relative w-full max-w-[1200px] px-4 sm:px-16">
+            <Carousel
+              setApi={setApi}
+              className="w-full"
+              opts={{
+                align: "center",
+                loop: true,
+              }}
+            >
+              <CarouselContent className="ml-2 justify-center items-center sm:-ml-4 py-6 px-4 mb-4">
+                {availableChallenges.map((challenge) => (
+                  <CarouselItem key={challenge.id} className="basis-full pl-2 sm:pl-4">
+                    <ChallengeCard
+                      challenge={challenge}
+                      selectedCargoAmount={selectedCargoAmount}
+                      onCargoAmountChange={handleCargoAmountChange}
+                      onCustomCargoSubmit={handleCustomCargoSubmit}
+                      customCargoInput={customCargoInput}
+                      setCustomCargoInput={setCustomCargoInput}
+                      showCustomInput={showCustomInput}
+                      setShowCustomInput={setShowCustomInput}
+                      onAcceptChallenge={handleAceitarDesafio}
+                      isLoading={carregando}
+                    />
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
 
-              {/* Descrição */}
-              <div className="border-2 border-black rounded-lg p-3 bg-gray-50 mb-4">
-                <h3 className="[font-family:'Silkscreen',Helvetica] font-bold text-[14px] mb-2">DESCRIÇÃO:</h3>
-                <p className="[font-family:'Silkscreen',Helvetica] text-[12px]">{currentChallenge.description}</p>
-              </div>
-
-              {/* Detalhes */}
-              <div className="border-2 border-black rounded-lg p-3 bg-gray-50 mb-4">
-                <h3 className="[font-family:'Silkscreen',Helvetica] font-bold text-[14px] mb-2">DETALHES:</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex items-center">
-                    <Trophy size={16} className="text-[#e3922a] mr-2 flex-shrink-0" />
-                    <span className="[font-family:'Silkscreen',Helvetica] text-[11px]">DIFICULDADE: {currentChallenge.difficulty}</span>
-                  </div>
-                  <div className="flex items-center">
-                    <Clock size={16} className="text-[#e3922a] mr-2 flex-shrink-0" />
-                    <span className="[font-family:'Silkscreen',Helvetica] text-[11px]">TEMPO: {currentChallenge.estimatedDuration}</span>
-                  </div>
-                  <div className="flex items-center col-span-2">
-                    <Truck size={16} className="text-[#e3922a] mr-2 flex-shrink-0" />
-                    <span className="[font-family:'Silkscreen',Helvetica] text-[11px]">DESTINO: {currentChallenge.destination}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Objetivo */}
-              <div className="border-2 border-black rounded-lg p-3 bg-gray-50 mb-4">
-                <h3 className="[font-family:'Silkscreen',Helvetica] font-bold text-[14px] mb-2 text-green-600">OBJETIVO:</h3>
-                <p className="[font-family:'Silkscreen',Helvetica] text-[12px] font-bold text-green-600">
-                  {currentChallenge.objective || `Transportar carga de Juazeiro para ${currentChallenge.destination} escolhendo a melhor rota considerando custos, tempo e segurança.`}
-                </p>
-              </div>
-
-              {/* Ferramentas (se disponível) */}
-              {currentChallenge.tools && currentChallenge.tools.length > 0 && (
-                <div className="border-2 border-black rounded-lg p-3 bg-blue-50 mb-4">
-                  <h3 className="[font-family:'Silkscreen',Helvetica] font-bold text-[14px] mb-2 text-blue-600">FERRAMENTAS DISPONÍVEIS:</h3>
-                  <div className="space-y-2">
-                    {currentChallenge.tools.map((tool, index) => (
-                      <div key={index} className="flex items-start">
-                        <Car size={14} className="text-blue-600 mr-2 flex-shrink-0 mt-1" />
-                        <div>
-                          <span className="[font-family:'Silkscreen',Helvetica] text-[11px] font-bold block text-blue-600">
-                            {tool.type}
-                          </span>
-                          <span className="[font-family:'Silkscreen',Helvetica] text-[10px] text-gray-700">
-                            {tool.description}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Rotas disponíveis */}
-              <div className="border-2 border-dashed border-[#e3922a] rounded-lg p-3 bg-yellow-50 mb-4">
-                <h3 className="[font-family:'Silkscreen',Helvetica] font-bold text-[14px] mb-2">ROTAS DISPONÍVEIS:</h3>
-                <div className="space-y-2">
-                  {currentChallenge.routes.slice(0, 3).map((route, index) => (
-                    <div key={route.routeId} className="flex items-start">
-                      <Truck size={14} className="text-[#e3922a] mr-2 flex-shrink-0 mt-1" />
-                      <div>
-                        <span className="[font-family:'Silkscreen',Helvetica] text-[11px] font-bold block">
-                          Rota {route.routeId}: {route.distance}km
-                        </span>
-                        <span className="[font-family:'Silkscreen',Helvetica] text-[10px] text-gray-700">
-                          {route.estimatedTime} - {route.roadConditions} - {route.safety.robberyRisk} risco
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                  {currentChallenge.routes.length > 3 && (
-                    <p className="[font-family:'Silkscreen',Helvetica] text-[10px] text-gray-600 text-center">
-                      +{currentChallenge.routes.length - 3} rota{currentChallenge.routes.length - 3 > 1 ? 's' : ''} adicional{currentChallenge.routes.length - 3 > 1 ? 'is' : ''}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-            
-            <div className="p-4 border-t-2 flex justify-center border-black bg-gray-50">
-              <Button 
-                onClick={handleAceitarDesafio}
-                disabled={carregando}
-                className="w-1/2 py-3 bg-[#29D8FF] border-2 border-black rounded-md [font-family:'Silkscreen',Helvetica] font-bold text-black text-[16px] hover:bg-[#20B4D2] transform transition-transform duration-300 hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center"
-              >
-                {carregando ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-4 border-white border-t-black mr-2"></div>
-                    CARREGANDO...
-                  </>
-                ) : (
-                  <>
-                    <Trophy className="mr-2" size={20} />
-                    ACEITAR DESAFIO
-                  </>
-                )}
-              </Button>
-            </div>
+              <CarouselPrevious className="hidden md:flex opacity-100 -left-16 h-14 w-14 bg-[#e3922a] hover:bg-[#d4831f] transition-all duration-300 ease-in-out hover:scale-110 text-white border-2 border-black rounded-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" />
+              <CarouselNext className="hidden transition-all duration-300 ease-in-out hover:scale-110 md:flex opacity-100 -right-16 h-14 w-14 bg-[#e3922a] hover:bg-[#d4831f] text-white border-2 border-black rounded-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" />
+            </Carousel>
           </div>
+
+          {/* Indicadores na parte de baixo */}
+          {/* {availableChallenges.length > 1 && (
+            <div className="flex justify-center space-x-2 mt-6">
+              {availableChallenges.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentChallengeIndex(index)}
+                  className={`w-3 h-3 rounded-full transition-all ${
+                    currentChallengeIndex === index
+                      ? 'bg-[#e3922a] scale-125'
+                      : 'bg-gray-400 hover:bg-gray-500'
+                  }`}
+                />
+              ))}
+            </div>
+          )} */}
         </div>
       </div>
     </div>

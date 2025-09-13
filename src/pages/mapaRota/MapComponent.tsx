@@ -364,6 +364,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   const salvadorCoordinates = REFERENCE_COORDINATES.SALVADOR;
   const recifeCoordinates = REFERENCE_COORDINATES.RECIFE;
   const fortalezaCoordinates = REFERENCE_COORDINATES.FORTALEZA;
+  const [isRadioOpen, setIsRadioOpen] = useState(false);
   
   // Obter o desafio selecionado
   const challengeId = location.state?.challengeId || 'salvador';
@@ -654,9 +655,8 @@ useEffect(() => {
               PAUSAR
             </button>
           </div>
-
-          
         )}
+        
         <MapContainer
           center={juazeiroCoordinates}
           zoom={7}
