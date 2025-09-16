@@ -4,9 +4,12 @@ import React from 'react';
 
 interface Consequence {
   tipo?: string;
-  recurso: string;
-  valor: number;
+  recurso?: string; // Agora opcional para efeitos especiais
+  valor?: number;   // Agora opcional para efeitos especiais
   op?: 'add' | 'remove';
+  acao?: string;    // Para efeitos de cadeia
+  resultado?: string; // Para efeitos de fim de jogo
+  motivo?: string;    // Para efeitos de fim de jogo
 }
 
 interface EventResultModalProps {
@@ -18,6 +21,9 @@ interface EventResultModalProps {
 }
 
 const formatResourceName = (resource: string) => {
+  // Verificação de segurança
+  if (!resource) return '';
+
   const names: { [key: string]: string } = {
     tempo_real: 'Tempo de Viagem',
     saldo: 'Saldo Financeiro',
@@ -31,6 +37,9 @@ const formatResourceName = (resource: string) => {
 };
 
 const getResourceIcon = (resource: string) => {
+  // Verificação de segurança
+  if (!resource) return '⚙️';
+
   const icons: { [key: string]: string } = {
     tempo_real: '⏱️',
     saldo: '💰',
@@ -41,6 +50,96 @@ const getResourceIcon = (resource: string) => {
     distancia_percorrida: '➡️',
   };
   return icons[resource] || '⚙️';
+};
+
+const renderSpecialEffect = (effect: Consequence, index: number) => {
+  // Efeito de cadeia de eventos
+  if (effect.tipo === 'cadeia' && effect.acao === 'iniciar') {
+    return (
+      <li key={index} style={{
+        backgroundColor: '#e8f4fd', padding: '10px', borderRadius: '8px',
+        marginBottom: '8px', display: 'flex', alignItems: 'center',
+        border: '2px solid #0077cc'
+      }}>
+        <span style={{ fontSize: '24px', marginRight: '15px' }}>
+          🔗
+        </span>
+        <div style={{ flexGrow: 1, fontWeight: 'bold', color: '#0077cc' }}>
+          Cadeia de Eventos Iniciada
+        </div>
+        <span style={{ fontWeight: 'bold', color: '#0077cc', fontSize: '16px' }}>
+          ATIVA
+        </span>
+      </li>
+    );
+  }
+
+  // Efeito de fim de jogo
+  if (effect.tipo === 'fim_de_jogo') {
+    return (
+      <li key={index} style={{
+        backgroundColor: '#fdeaea', padding: '10px', borderRadius: '8px',
+        marginBottom: '8px', display: 'flex', alignItems: 'center',
+        border: '2px solid #cc3300'
+      }}>
+        <span style={{ fontSize: '24px', marginRight: '15px' }}>
+          🚨
+        </span>
+        <div style={{ flexGrow: 1, fontWeight: 'bold', color: '#cc3300' }}>
+          Fim de Jogo: {effect.motivo || 'Partida encerrada'}
+        </div>
+      </li>
+    );
+  }
+
+  return null;
+};
+
+const renderResourceEffect = (effect: Consequence, index: number) => {
+  // Só renderiza se tiver recurso e valor
+  if (!effect.recurso || effect.valor === undefined) {
+    return null;
+  }
+
+  const isNegative =
+    (effect.recurso === 'tempo_real' && effect.valor > 0) ||
+    (effect.recurso === 'saldo' && effect.valor < 0) ||
+    (effect.recurso === 'quantidade_carga' && effect.valor < 0) ||
+    (effect.recurso === 'condicao_veiculo' && effect.valor < 0) ||
+    (effect.recurso === 'estresse_motorista' && effect.valor > 0) ||
+    (effect.op === 'remove');
+
+  const valueColor = isNegative ? '#cc3300' : '#009933';
+
+  let formattedValue = '';
+  if (effect.tipo === 'recurso_percentual') {
+    formattedValue = `-${(effect.valor * 100).toFixed(0)}%`;
+  } else if (effect.recurso === 'saldo') {
+    formattedValue = `R$ ${effect.valor.toFixed(2)}`;
+  } else if (effect.recurso === 'tempo_real') {
+    formattedValue = `${effect.valor} min`;
+  } else if (effect.recurso === 'distancia_percorrida') {
+    formattedValue = `${effect.valor} km`;
+  } else {
+    formattedValue = String(effect.valor);
+  }
+
+  return (
+    <li key={index} style={{
+      backgroundColor: '#f8f9fa', padding: '10px', borderRadius: '8px',
+      marginBottom: '8px', display: 'flex', alignItems: 'center'
+    }}>
+      <span style={{ fontSize: '24px', marginRight: '15px' }}>
+        {getResourceIcon(effect.recurso)}
+      </span>
+      <div style={{ flexGrow: 1, fontWeight: 'bold' }}>
+        {formatResourceName(effect.recurso)}
+      </div>
+      <span style={{ fontWeight: 'bold', color: valueColor, fontSize: '16px' }}>
+        {effect.valor > 0 && effect.tipo !== 'recurso_percentual' ? '+' : ''}{formattedValue}
+      </span>
+    </li>
+  );
 };
 
 export const EventResultModal: React.FC<EventResultModalProps> = ({
@@ -81,46 +180,15 @@ export const EventResultModal: React.FC<EventResultModalProps> = ({
             </h3>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, textAlign: 'left' }}>
               {consequences.map((effect, index) => {
-                const isNegative =
-                  (effect.recurso === 'tempo_real' && effect.valor > 0) ||
-                  (effect.recurso === 'saldo' && effect.valor < 0) ||
-                  (effect.recurso === 'quantidade_carga' && effect.valor < 0) ||
-                  (effect.recurso === 'condicao_veiculo' && effect.valor < 0) ||
-                  (effect.recurso === 'estresse_motorista' && effect.valor > 0) ||
-                  (effect.op === 'remove');
-
-                const valueColor = isNegative ? '#cc3300' : '#009933';
-
-                let formattedValue = '';
-                if (effect.tipo === 'recurso_percentual') {
-                  formattedValue = `-${(effect.valor * 100).toFixed(0)}%`;
-                } else if (effect.recurso === 'saldo') {
-                  formattedValue = `R$ ${effect.valor.toFixed(2)}`;
-                } else if (effect.recurso === 'tempo_real') {
-                  formattedValue = `${effect.valor} min`;
-                } else if (effect.recurso === 'distancia_percorrida') {
-                  formattedValue = `${effect.valor} km`;
-                } else {
-                  formattedValue = String(effect.valor);
+                // Renderiza efeitos especiais primeiro
+                const specialEffect = renderSpecialEffect(effect, index);
+                if (specialEffect) {
+                  return specialEffect;
                 }
 
-                return (
-                  <li key={index} style={{
-                    backgroundColor: '#f8f9fa', padding: '10px', borderRadius: '8px',
-                    marginBottom: '8px', display: 'flex', alignItems: 'center'
-                  }}>
-                    <span style={{ fontSize: '24px', marginRight: '15px' }}>
-                      {getResourceIcon(effect.recurso)}
-                    </span>
-                    <div style={{ flexGrow: 1, fontWeight: 'bold' }}>
-                      {formatResourceName(effect.recurso)}
-                    </div>
-                    <span style={{ fontWeight: 'bold', color: valueColor, fontSize: '16px' }}>
-                      {effect.valor > 0 && effect.tipo !== 'recurso_percentual' ? '+' : ''}{formattedValue}
-                    </span>
-                  </li>
-                );
-              })}
+                // Depois renderiza efeitos de recursos normais
+                return renderResourceEffect(effect, index);
+              }).filter(Boolean)} {/* Remove elementos null */}
             </ul>
           </div>
         )}

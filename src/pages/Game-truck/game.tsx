@@ -268,7 +268,7 @@ export function GameScene() {
     }
   });
 
-// Função que chama a API para sortear um quiz
+  // Função que chama a API para sortear um quiz
   const handleTriggerQuiz = async () => {
     try {
       const quizQuestion = await GameService.sortearQuiz();
@@ -560,14 +560,14 @@ export function GameScene() {
       }
     }
   };
-  
+
   //Função para aumentar a velocidade
   const handleSpeedUp = () => {
     if (gamePaused.current || showPopup) return; // Não muda velocidade se pausado ou em evento
 
     setSpeedLevel(prevLevel => {
       const nextLevel = prevLevel >= MAX_SPEED_LEVEL ? 1 : prevLevel + 1;
-      
+
       let newMultiplier = 1;
       if (nextLevel === 2) newMultiplier = 1.5;
       if (nextLevel === 3) newMultiplier = 2.0;
@@ -1154,7 +1154,7 @@ export function GameScene() {
     const totalSegments = pathCoords.length - 1;
 
 
-    const targetDurationSeconds = 1200;
+    const targetDurationSeconds = 60;
 
     const segmentsPerSecond = totalSegments / targetDurationSeconds;
     //Aplica o multiplicador de velocidade ao progresso
@@ -1377,14 +1377,14 @@ export function GameScene() {
           onClick={() => setIsRadioOpen(!isRadioOpen)}
           isRadioOpen={isRadioOpen}
         />
-        <div style={{ 
-            position: 'fixed', 
-            top: '7.8rem',  
-            left: '1.7rem' 
-          }}>
-            <AudioControl popupAlign="left"/>
-          </div>
-            <AudioManager />
+        <div style={{
+          position: 'fixed',
+          top: '7.8rem',
+          left: '1.7rem'
+        }}>
+          <AudioControl popupAlign="left" />
+        </div>
+        <AudioManager />
       </div>
       {isRadioOpen && (
         <div
@@ -1402,7 +1402,7 @@ export function GameScene() {
           />
         </div>
       )}
-      
+
 
       {/* Barra de progresso */}
       <div style={{
