@@ -11,6 +11,7 @@ import { ButtonHomeBack } from '@/components/ButtonHomeBack';
 import { AudioControl } from '@/components/AudioControl';
 import { GameService } from '@/api/gameService';
 import { Map as Desafio } from '@/types'; // O tipo Map representa um Desafio
+import { useAuth } from '@/contexts/AuthContext'; 
 
 // 1. DADOS ESTÁTICOS DOS JOGOS (mockado como você pediu)
 const gamesData = [
@@ -45,12 +46,25 @@ const gamesData = [
 
 const GameSelectionPage = () => {
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth(); // 2. USAR O HOOK useAuth
 
   // 2. A API continua buscando os DESAFIOS disponíveis nos bastidores.
   const { data: desafios, isLoading, isError } = useQuery<Desafio[]>({
     queryKey: ['mapas'],
     queryFn: GameService.getMaps,
   });
+
+  // ESTE useEffect PARA VERIFICAR A EQUIPE
+  useEffect(() => {
+    // Roda o efeito apenas quando o carregamento do usuário terminar
+    if (!authLoading) {
+      // Se o usuário não tem uma equipe
+      if (!user?.equipe) {
+        alert("Você precisa fazer parte de uma equipe para jogar!"); // Alerta amigável
+        navigate('/choose-team'); // Redireciona para a escolha de equipe
+      }
+    }
+  }, [user, authLoading, navigate]); // Dependências do efeito
 
   // 3. Lógica de clique corrigida.
   const handleGameClick = (gameId: string) => {
@@ -70,6 +84,17 @@ const GameSelectionPage = () => {
       alert(`O jogo "${game?.title}" ainda está em desenvolvimento!`);
     }
   };
+
+// ADICIONAR UM ESTADO DE CARREGAMENTO ENQUANTO VERIFICA O USUÁRIO
+  // Isso evita que a tela pisque rapidamente antes do redirecionamento
+  if (authLoading || !user?.equipe) {
+    return (
+        <div className="min-h-screen bg-gradient-to-b from-purple-900 to-indigo-800 flex flex-col items-center justify-center">
+            <Loader className="animate-spin text-white mb-4" size={48} />
+            <p className="text-white [font-family:'Silkscreen',Helvetica]">Verificando sua equipe...</p>
+        </div>
+    );
+  }
 
   return (
     <div
