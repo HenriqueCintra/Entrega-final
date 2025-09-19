@@ -1,6 +1,6 @@
 // arquivo: src/pages/GameSelection/GameSelectionPage.tsx
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useNavigate } from "react-router-dom";
 import { useQuery } from '@tanstack/react-query';
 import GameCard from './components/GameCard';
@@ -13,7 +13,6 @@ import { GameService } from '@/api/gameService';
 import { Map as Desafio } from '@/types'; // O tipo Map representa um Desafio
 import { useAuth } from '@/contexts/AuthContext'; 
 
-// 1. DADOS ESTÁTICOS DOS JOGOS (mockado como você pediu)
 const gamesData = [
   {
     id: 'entrega_eficiente', // ID para controle interno
@@ -46,48 +45,44 @@ const gamesData = [
 
 const GameSelectionPage = () => {
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth(); // 2. USAR O HOOK useAuth
+  const { user, loading: authLoading } = useAuth();
+  const hasRedirected = useRef(false); // 2. CRIAR A "BANDEIRA" DE CONTROLE
 
-  // 2. A API continua buscando os DESAFIOS disponíveis nos bastidores.
   const { data: desafios, isLoading, isError } = useQuery<Desafio[]>({
     queryKey: ['mapas'],
     queryFn: GameService.getMaps,
+    enabled: !authLoading && !!user?.equipe,
   });
 
-  // ESTE useEffect PARA VERIFICAR A EQUIPE
   useEffect(() => {
-    // Roda o efeito apenas quando o carregamento do usuário terminar
     if (!authLoading) {
-      // Se o usuário não tem uma equipe
-      if (!user?.equipe) {
-        alert("Você precisa fazer parte de uma equipe para jogar!"); // Alerta amigável
-        navigate('/choose-team'); // Redireciona para a escolha de equipe
+      if (!user) {
+        navigate('/login');
+      } 
+      // 3. ADICIONAR A VERIFICAÇÃO DA BANDEIRA
+      else if (!user.equipe && !hasRedirected.current) {
+        hasRedirected.current = true; // Marca que o redirecionamento foi iniciado
+        alert("Você precisa fazer parte de uma equipe para jogar!");
+        navigate('/choose-team');
       }
     }
-  }, [user, authLoading, navigate]); // Dependências do efeito
+  }, [user, authLoading, navigate]);
 
-  // 3. Lógica de clique corrigida.
   const handleGameClick = (gameId: string) => {
-    // Verifica se o jogo clicado é o 'entrega_eficiente'
     if (gameId === 'entrega_eficiente') {
-      // Pega o primeiro (e único) desafio que veio da API
       if (desafios && desafios.length > 0) {
         const primeiroDesafio = desafios[0];
-        // Navega para o tutorial passando o ID do DESAFIO vindo do backend
         navigate('/tutorial', { state: { mapaId: primeiroDesafio.id } });
       } else if (!isLoading) {
          alert("Nenhum desafio encontrado para este jogo. Verifique o backend.");
       }
     } else {
-      // Para outros jogos, o comportamento é o mesmo
       const game = gamesData.find(g => g.id === gameId);
       alert(`O jogo "${game?.title}" ainda está em desenvolvimento!`);
     }
   };
 
-// ADICIONAR UM ESTADO DE CARREGAMENTO ENQUANTO VERIFICA O USUÁRIO
-  // Isso evita que a tela pisque rapidamente antes do redirecionamento
-  if (authLoading || !user?.equipe) {
+  if (authLoading) {
     return (
         <div className="min-h-screen bg-gradient-to-b from-purple-900 to-indigo-800 flex flex-col items-center justify-center">
             <Loader className="animate-spin text-white mb-4" size={48} />
@@ -96,6 +91,10 @@ const GameSelectionPage = () => {
     );
   }
 
+  if (!user?.equipe) {
+    return null;
+  }
+  
   return (
     <div
       className="min-h-screen bg-gradient-to-b from-purple-900 to-indigo-800 flex flex-col items-center justify-between py-12 px-4"
@@ -123,8 +122,7 @@ const GameSelectionPage = () => {
                 <AlertTriangle className="mr-2" /> Erro ao carregar desafios.
             </div>
         )}
-
-        {/* 4. A renderização volta a usar 'gamesData' (a lista estática) para exibir os cards. */}
+        
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full">
           {gamesData.map((game) => (
             <GameCard
@@ -141,7 +139,6 @@ const GameSelectionPage = () => {
           ))}
         </div>
       </div>
-
       <Footer />
     </div>
   );
