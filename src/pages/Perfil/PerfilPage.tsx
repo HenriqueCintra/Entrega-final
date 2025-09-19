@@ -37,11 +37,14 @@ export const PerfilPage = () => {
     victories: 12
   });
 
-  // === REMOVIDA TODA A LÓGICA DE SELEÇÃO DE AVATAR ===
-  // === APENAS EXIBIÇÃO DO AVATAR QUE VEM DO USER ===
 
   const handlePlayNow = () => {
-    navigate("/desafio");
+    if (user?.equipe) {
+      navigate("/desafio");
+    } else {
+      alert("Você precisa estar em uma equipe para iniciar um novo jogo.");
+      navigate("/choose-team");
+    }
   };
 
   const handleContinueGame = () => {
@@ -75,7 +78,12 @@ export const PerfilPage = () => {
     } else {
       const startNewGame = window.confirm('Não há jogo salvo. Deseja iniciar um novo jogo?');
       if (startNewGame) {
-        navigate("/desafio");
+        if (user?.equipe) {
+          navigate("/desafio");
+        } else {
+          alert("Você precisa estar em uma equipe para iniciar um novo jogo.");
+          navigate("/choose-team");
+        }
       }
     }
   };
