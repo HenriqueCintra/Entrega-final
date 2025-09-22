@@ -899,10 +899,8 @@ export function GameScene() {
           const distanceInKm = (progressDelta / 100) * routeDistance;
 
           if (distanceInKm > 0) {
-            // ✅ CONSUMO DE COMBUSTÍVEL AGORA É CONTROLADO PELO BACKEND VIA TICK
-            // A atualização da UI do combustível acontece via partidaTickMutation.onSuccess
-            const newGasolinePercent = (currentFuel / vehicle.maxCapacity) * 100;
-            setGasoline(newGasolinePercent);
+            // ✅ Consumo de combustível controlado pelo backend via tick.
+            // A UI de combustível é sincronizada apenas via useEffect(currentFuel).
           }
 
           // ✅ EVENTOS AGORA SÃO TRATADOS AUTOMATICAMENTE NO TICK
@@ -1039,6 +1037,12 @@ export function GameScene() {
     console.log("Inicializando gasoline com:", fuelPercent, "%");
     return fuelPercent;
   });
+
+  // Sincroniza a barra de combustível com o valor atual vindo do backend/front
+  useEffect(() => {
+    const newGasolinePercent = (currentFuel / vehicle.maxCapacity) * 100;
+    setGasoline(newGasolinePercent);
+  }, [currentFuel, vehicle.maxCapacity]);
 
   // Validação de dados essenciais
   useEffect(() => {
