@@ -24,6 +24,8 @@ export const FuelPage: React.FC = () => {
   const [playerBalance, setPlayerBalance] = useState<number>(initialMoney);
   const vehicle = receivedVehicle as typeof receivedVehicle;
   const selectedRoute = location.state?.selectedRoute;
+  const cargoAmount = location.state?.cargoAmount;
+  const selectedChallenge = location.state?.selectedChallenge;
 
   const [selectedFuel, setSelectedFuel] = useState<string>('DIESEL');
   const [selectedAmount, setSelectedAmount] = useState<string>('1/4 TANQUE');
@@ -87,11 +89,11 @@ export const FuelPage: React.FC = () => {
       liters: vehicle ? vehicle.maxCapacity * fraction : 0,
     };
 
-    navigate('/fuel-minigame', { state: { refuelInfo, selectedVehicle: vehicle, availableMoney: playerBalance, selectedRoute } });
+    navigate('/fuel-minigame', { state: { refuelInfo, selectedVehicle: vehicle, availableMoney: playerBalance, selectedRoute, cargoAmount, selectedChallenge } });
   };
 
   const handleSkip = () => {
-    navigate('/game', { state: { selectedVehicle: vehicle, availableMoney: playerBalance, selectedRoute } });
+    navigate('/game', { state: { selectedVehicle: vehicle, availableMoney: playerBalance, selectedRoute, cargoAmount, selectedChallenge } });
   };
 
   if (!vehicle) return null;

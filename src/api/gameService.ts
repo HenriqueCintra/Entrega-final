@@ -288,7 +288,8 @@ export const GameService = {
     rota: number; 
     veiculo: number; 
     saldo_inicial?: number; 
-    combustivel_inicial?: number 
+    combustivel_inicial?: number;
+    quantidade_carga_inicial?: number;
   }): Promise<PartidaResponse> {
     console.log('🚀 Criando nova partida com dados:', gameData);
     if (!gameData.mapa || !gameData.rota || !gameData.veiculo) {

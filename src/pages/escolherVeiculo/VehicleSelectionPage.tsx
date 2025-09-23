@@ -121,6 +121,7 @@ export const VehicleSelectionPage = () => {
   // Recebe o desafio selecionado da página anterior
   const selectedChallenge = location.state?.desafio;
   const challengeId = location.state?.challengeId;
+  const cargoAmount = location.state?.cargoAmount; // Adicionado para carregar a carga
 
   // Estados para guardar os veículos da API, o estado de loading e possíveis erros.
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -255,7 +256,8 @@ export const VehicleSelectionPage = () => {
           selectedVehicle: selectedVehicle,
           availableMoney: availableMoney - selectedVehicle.cost,
           selectedChallenge: challengeData || selectedChallenge,
-          challengeId: challengeId
+          challengeId: challengeId,
+          cargoAmount: cargoAmount
         }
       });
     }
