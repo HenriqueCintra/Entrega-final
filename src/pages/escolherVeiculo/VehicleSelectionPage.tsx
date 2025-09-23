@@ -127,15 +127,10 @@ export const VehicleSelectionPage = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [cargoWeight, setCargoWeight] = useState<number | null>(null);
+  const [requiredCapacity, setRequiredCapacity] = useState<number | null>(null);
 
   // Estados para os dados do desafio
-  const [challengeData, setChallengeData] = useState<{
-    nome: string;
-    descricao: string;
-    objetivo?: string;
-    dificuldade?: string;
-  } | null>(null);
+  const [challengeData, setChallengeData] = useState<any | null>(null);
 
   // Debug: verificar se os dados estão sendo recebidos
   console.log("🚗 DEBUG VehicleSelection - challengeId recebido:", challengeId);
@@ -200,10 +195,14 @@ export const VehicleSelectionPage = () => {
           }
         }
         
-        // Esta é a parte crucial que estava faltando:
-        if (finalChallengeData?.peso_carga_kg) {
-            setCargoWeight(finalChallengeData.peso_carga_kg);
-            console.log(`⚖️ Peso da carga definido: ${finalChallengeData.peso_carga_kg}kg`);
+        // LÓGICA CORRIGIDA PARA CALCULAR O PESO NECESSÁRIO
+        if (finalChallengeData?.peso_carga_kg && cargoAmount) {
+            const calculatedWeight = Math.round(finalChallengeData.peso_carga_kg * (cargoAmount / 100));
+            setRequiredCapacity(calculatedWeight);
+            console.log(`⚖️ Peso da carga REAL definido: ${calculatedWeight}kg (${cargoAmount}% de ${finalChallengeData.peso_carga_kg}kg)`);
+        } else if (finalChallengeData?.peso_carga_kg) {
+            setRequiredCapacity(finalChallengeData.peso_carga_kg);
+            console.log(`⚖️ Usando peso da carga TOTAL como fallback: ${finalChallengeData.peso_carga_kg}kg`);
         } else {
             console.warn("⚠️ Não foi possível determinar o peso da carga do desafio.");
         }
@@ -221,7 +220,7 @@ export const VehicleSelectionPage = () => {
     };
 
     fetchData();
-  }, [challengeId]);
+  }, [challengeId, cargoAmount]);
 
   useEffect(() => {
     if (!api || selectedIndex === null) return;
@@ -244,9 +243,9 @@ export const VehicleSelectionPage = () => {
     if (selectedIndex === null) return;
     const selectedVehicle = vehicles[selectedIndex];
 
-    const isEnabled = cargoWeight ? selectedVehicle.capacity >= cargoWeight : true;
+    const isEnabled = requiredCapacity ? selectedVehicle.capacity >= requiredCapacity : true;
     if (!isEnabled) {
-      alert("Este veículo não suporta o peso da carga!");
+      alert("Este veículo não suporta o peso da carga selecionada!");
       return;
     }
 
@@ -370,7 +369,7 @@ export const VehicleSelectionPage = () => {
             >
               <CarouselContent className="-ml-2 sm:-ml-4 py-6">
                 {vehicles.map((vehicle, index) => {
-                  const isEnabled = cargoWeight ? vehicle.capacity >= cargoWeight : true;
+                  const isEnabled = requiredCapacity ? vehicle.capacity >= requiredCapacity : true;
                   
                   return (
                     <CarouselItem key={vehicle.id} className="basis-full sm:basis-auto md:basis-1/2 lg:basis-1/3 pl-2 sm:pl-4">
@@ -378,9 +377,8 @@ export const VehicleSelectionPage = () => {
                         vehicle={vehicle}
                         isSelected={selectedIndex === index}
                         onSelect={() => handleVehicleSelect(index)}
-                        // PROPS FALTANTES: Passar a informação para o card
                         isEnabled={isEnabled}
-                        requiredCapacity={cargoWeight}
+                        requiredCapacity={requiredCapacity}
                       />
                     </CarouselItem>
                   );
