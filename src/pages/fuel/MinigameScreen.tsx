@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-// Removido GameContext inexistente; usaremos somente dados vindos via state
 
 const FILL_RATE = 0.35; // Velocidade mais rápida e responsiva
 const TOLERANCE = 8.0; // Margem mais generosa para resultado "Perfeito"
@@ -27,6 +26,9 @@ export const MinigameScreen: React.FC = () => {
   const selectedRoute = locationState?.selectedRoute;
   const [playerBalance, setPlayerBalance] = useState<number>(locationState?.availableMoney ?? 0);
 
+  // ✅ DETECTA SE VEIO DO JOGO EM ANDAMENTO
+  const fromGame = state?.fromGame;
+
   const refuelInfo = state?.refuelInfo as RefuelInfo | undefined;
   const targetLevel = refuelInfo ? refuelInfo.fraction * 100 : 0;
 
@@ -41,9 +43,28 @@ export const MinigameScreen: React.FC = () => {
   useEffect(() => {
     if (!refuelInfo || !vehicle) {
       alert("Erro: Dados de abastecimento ou do veículo não encontrados.");
-      navigate("/fuel", { state: { selectedVehicle: vehicle, availableMoney: playerBalance, selectedRoute } });
+
+      if (fromGame) {
+        // ✅ SE VEIO DO JOGO, VOLTA DIRETO PARA O JOGO
+        navigate("/game", {
+          state: {
+            resumeAfterRefuel: true,
+            updatedVehicle: vehicle,
+            updatedMoney: playerBalance
+          }
+        });
+      } else {
+        // Comportamento original
+        navigate("/fuel", {
+          state: {
+            selectedVehicle: vehicle,
+            availableMoney: playerBalance,
+            selectedRoute
+          }
+        });
+      }
     }
-  }, [refuelInfo, vehicle, navigate]);
+  }, [refuelInfo, vehicle, navigate, fromGame]);
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
@@ -51,7 +72,7 @@ export const MinigameScreen: React.FC = () => {
       intervalId = setInterval(() => {
         setCurrentLevel((prev) => {
           const newLevel = Math.min(prev + FILL_RATE, 100);
-          
+
           // Detectar overflow durante o preenchimento
           if (newLevel >= 100 && !hasOverflowed) {
             setHasOverflowed(true);
@@ -62,7 +83,7 @@ export const MinigameScreen: React.FC = () => {
             }, 100);
             return 100;
           }
-          
+
           return newLevel;
         });
       }, 20); // 50 FPS - balance entre suavidade e responsividade
@@ -92,53 +113,79 @@ export const MinigameScreen: React.FC = () => {
     if (!refuelInfo || !vehicle) return;
 
     const deviation = Math.abs(finalLevel - targetLevel);
+    let finalCost = 0;
+    let litersAdded = 0;
+    let newBalance = playerBalance;
 
     if (finalLevel >= 100 || finalLevel > targetLevel + GOOD_TOLERANCE) {
       // Derramou ou ultrapassou o limite
-      setPlayerBalance(playerBalance - refuelInfo.cost);
+      finalCost = refuelInfo.cost;
+      litersAdded = 0; // Não adiciona combustível se derramou
+      newBalance = playerBalance - finalCost;
+      setPlayerBalance(newBalance);
       setResult({
         message: "DERRAMOU!",
-        detail: `Combustível perdido! Custo: ${formatCurrency(
-          refuelInfo.cost
-        )}`,
+        detail: `Combustível perdido! Custo: ${formatCurrency(finalCost)}`,
       });
     } else {
       // Abastecimento bem-sucedido
       const successRatio = Math.min(finalLevel / targetLevel, 1);
-      const finalCost = refuelInfo.cost * successRatio;
-      const litersAdded = refuelInfo.liters * successRatio;
-
-      const newBalance = playerBalance - finalCost;
+      finalCost = refuelInfo.cost * successRatio;
+      litersAdded = refuelInfo.liters * successRatio;
+      newBalance = playerBalance - finalCost;
 
       setPlayerBalance(newBalance);
-      // como não temos contexto global aqui, só navegamos levando estado atualizado
-      // vehicle.currentFuel será atualizado indiretamente ao continuar
 
       if (deviation <= TOLERANCE) {
         setResult({
           message: "PERFEITO!",
-          detail: `R$ ${finalCost.toFixed(2)}`,
+          detail: `${formatCurrency(finalCost)}`,
         });
       } else if (deviation <= GOOD_TOLERANCE) {
         setResult({
           message: "BOM!",
-          detail: `R$ ${finalCost.toFixed(2)}`,
+          detail: `${formatCurrency(finalCost)}`,
         });
       } else {
         setResult({
           message: "OK!",
-          detail: `R$ ${finalCost.toFixed(2)}`,
+          detail: `${formatCurrency(finalCost)}`,
         });
       }
     }
+
+    // ✅ ATUALIZA O VEÍCULO COM O COMBUSTÍVEL ADICIONADO
+    const updatedVehicle = {
+      ...vehicle,
+      currentFuel: Math.min(vehicle.currentFuel + litersAdded, vehicle.maxCapacity)
+    };
+
+    // ✅ DETERMINA PARA ONDE NAVEGAR BASEADO NA ORIGEM
+    setTimeout(() => {
+      handleContinue(updatedVehicle, newBalance);
+    }, 2000); // Mostra o resultado por 2 segundos antes de continuar
   };
 
-  const handleContinue = () => {
-    // Continua para o jogo carregando o estado atualizado localmente
-    const updatedVehicle = vehicle
-      ? { ...vehicle, currentFuel: Math.min(vehicle.currentFuel + (refuelInfo?.liters || 0), vehicle.maxCapacity) }
-      : vehicle;
-    navigate("/game", { state: { selectedVehicle: updatedVehicle, availableMoney: playerBalance, selectedRoute } });
+  const handleContinue = (updatedVehicle: any, newBalance: number) => {
+    if (fromGame) {
+      // ✅ SE VEIO DO JOGO, NAVEGA DE VOLTA COM O MARCADOR DE RETOMADA
+      navigate('/game', {
+        state: {
+          resumeAfterRefuel: true, // ✅ MARCADOR CRUCIAL
+          updatedVehicle: updatedVehicle,
+          updatedMoney: newBalance
+        }
+      });
+    } else {
+      // COMPORTAMENTO ORIGINAL DE INÍCIO DE JOGO
+      navigate("/game", {
+        state: {
+          selectedVehicle: updatedVehicle,
+          availableMoney: newBalance,
+          selectedRoute: selectedRoute
+        }
+      });
+    }
   };
 
   if (!refuelInfo || !vehicle) return null;
@@ -160,6 +207,12 @@ export const MinigameScreen: React.FC = () => {
                 ABASTECIMENTO
               </h1>
               <p className="text-xs text-gray-300">SEGURE E SOLTE NA META</p>
+              {/* ✅ INDICADOR SE VEIO DO JOGO */}
+              {fromGame && (
+                <p className="text-xs text-yellow-400 mt-2">
+                  🚛 PARADA NA ESTRADA
+                </p>
+              )}
             </div>
 
             {/* Fuel Nozzle with Animation */}
@@ -168,11 +221,10 @@ export const MinigameScreen: React.FC = () => {
                 <img
                   src="/noozle.png"
                   alt="Bico de abastecimento"
-                  className={`w-20 h-20 transition-all duration-200 ${
-                    isPouring
-                      ? "animate-bounce scale-110 brightness-125"
-                      : "scale-100 brightness-100"
-                  }`}
+                  className={`w-20 h-20 transition-all duration-200 ${isPouring
+                    ? "animate-bounce scale-110 brightness-125"
+                    : "scale-100 brightness-100"
+                    }`}
                   style={{
                     filter: isPouring
                       ? "drop-shadow(0 0 8px rgba(34, 197, 94, 0.6))"
@@ -220,23 +272,22 @@ export const MinigameScreen: React.FC = () => {
 
                 {/* Current Fuel Level - Animação melhorada */}
                 <div
-                  className={`absolute bottom-0 left-0 right-0 transition-all duration-100 z-10 shadow-inner rounded-b-lg ${
-                    hasOverflowed || currentLevel >= 100
-                      ? "bg-gradient-to-t from-red-500 to-red-400"
-                      : Math.abs(currentLevel - targetLevel) <= TOLERANCE
+                  className={`absolute bottom-0 left-0 right-0 transition-all duration-100 z-10 shadow-inner rounded-b-lg ${hasOverflowed || currentLevel >= 100
+                    ? "bg-gradient-to-t from-red-500 to-red-400"
+                    : Math.abs(currentLevel - targetLevel) <= TOLERANCE
                       ? "bg-gradient-to-t from-emerald-500 to-green-400 animate-pulse"
                       : Math.abs(currentLevel - targetLevel) <= GOOD_TOLERANCE
-                      ? "bg-gradient-to-t from-amber-500 to-yellow-400"
-                      : currentLevel > targetLevel + GOOD_TOLERANCE
-                      ? "bg-gradient-to-t from-red-500 to-red-400"
-                      : refuelInfo.fuelType === "Diesel"
-                      ? "bg-gradient-to-t from-orange-600 to-yellow-500"
-                      : refuelInfo.fuelType === "Gasolina"
-                      ? "bg-gradient-to-t from-yellow-500 to-amber-400"
-                      : refuelInfo.fuelType === "Alcool"
-                      ? "bg-gradient-to-t from-purple-600 to-indigo-500"
-                      : "bg-gradient-to-t from-gray-600 to-gray-400"
-                  }`}
+                        ? "bg-gradient-to-t from-amber-500 to-yellow-400"
+                        : currentLevel > targetLevel + GOOD_TOLERANCE
+                          ? "bg-gradient-to-t from-red-500 to-red-400"
+                          : refuelInfo.fuelType === "Diesel"
+                            ? "bg-gradient-to-t from-orange-600 to-yellow-500"
+                            : refuelInfo.fuelType === "Gasolina"
+                              ? "bg-gradient-to-t from-yellow-500 to-amber-400"
+                              : refuelInfo.fuelType === "Alcool"
+                                ? "bg-gradient-to-t from-purple-600 to-indigo-500"
+                                : "bg-gradient-to-t from-gray-600 to-gray-400"
+                    }`}
                   style={{
                     height: `${currentLevel}%`,
                     boxShadow:
@@ -326,7 +377,7 @@ export const MinigameScreen: React.FC = () => {
             </div>
           </div>
         ) : (
-          /* Result Screen - Simplified */
+          /* Result Screen - Com indicador de destino */
           <div className="text-center">
             <div className="bg-gradient-to-br from-slate-700 to-gray-800 border-4 border-slate-600 p-8 max-w-sm rounded-lg shadow-2xl">
               {/* Noozle Image */}
@@ -341,15 +392,14 @@ export const MinigameScreen: React.FC = () => {
               {/* Result Message */}
               <div className="mb-6">
                 <div
-                  className={`inline-block px-6 py-3 font-bold text-2xl rounded-lg shadow-lg ${
-                    result.message === "PERFEITO!"
-                      ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white"
-                      : result.message === "BOM!"
+                  className={`inline-block px-6 py-3 font-bold text-2xl rounded-lg shadow-lg ${result.message === "PERFEITO!"
+                    ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white"
+                    : result.message === "BOM!"
                       ? "bg-gradient-to-r from-amber-500 to-yellow-500 text-black"
                       : result.message === "OK!"
-                      ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white"
-                      : "bg-gradient-to-r from-red-500 to-red-600 text-white"
-                  }`}
+                        ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white"
+                        : "bg-gradient-to-r from-red-500 to-red-600 text-white"
+                    }`}
                 >
                   {result.message}
                 </div>
@@ -360,12 +410,22 @@ export const MinigameScreen: React.FC = () => {
                 {result.detail}
               </p>
 
+              {/* ✅ STATUS INDICATOR */}
+              {fromGame && (
+                <p className="text-sm text-yellow-400 mb-4">
+                  🚛 Retornando à viagem...
+                </p>
+              )}
+
               {/* Continue Button */}
               <button
-                onClick={handleContinue}
+                onClick={() => handleContinue(
+                  { ...vehicle, currentFuel: Math.min(vehicle.currentFuel + (refuelInfo?.liters || 0), vehicle.maxCapacity) },
+                  playerBalance
+                )}
                 className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-bold py-3 px-8 border-2 border-slate-400 text-sm rounded-lg shadow-lg transition-all hover:scale-105"
               >
-                CONTINUAR
+                {fromGame ? "VOLTAR À ESTRADA" : "CONTINUAR"}
               </button>
             </div>
           </div>

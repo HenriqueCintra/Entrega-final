@@ -17,8 +17,8 @@ import type {
   GameObj
 } from "kaboom";
 import { EventResultModal } from './EventResultModal';
-import { QuizModal } from "../../components/QuizModal"; // Componente do Quiz
-import { PerguntaQuiz, ResponderQuizPayload, RespostaQuizResult } from "../../api/gameService"; // Tipos e serviços
+import { QuizModal } from "../../components/QuizModal";
+import { PerguntaQuiz, ResponderQuizPayload, RespostaQuizResult } from "../../api/gameService";
 import RadioToggle from '@/components/RadioToggle';
 import TruckRadio from '@/components/TruckRadio';
 import { AudioControl } from "../../components/AudioControl";
@@ -32,7 +32,7 @@ interface EventData {
     id: number;
     nome: string;
     descricao: string;
-    tipo: 'positivo' | 'negativo';
+    tipo: 'positivo' | 'negativo' | 'neutro'; // ✅ ADICIONADO 'neutro' para eventos de abastecimento
     categoria: string;
     opcoes: Array<{
       id: number;
@@ -43,6 +43,7 @@ interface EventData {
   momento: string;
   ordem: number;
   opcao_escolhida: null;
+  posto_info?: any; // ✅ NOVO CAMPO: Para eventos de abastecimento
 }
 
 export function GameScene() {
@@ -56,6 +57,10 @@ export function GameScene() {
   // REFs DE CONTROLE DE EVENTOS
   const activeGameIdRef = useRef<number | null>(null);
   const isFinishing = useRef(false);
+
+  // ✅ MANTEMOS OS ESTADOS PARA O BOTÃO DE ABASTECIMENTO
+  const [autoStopAtNextStation, setAutoStopAtNextStation] = useState(false);
+  const triggeredGasStations = useRef<number[]>([]); // ✅ MANTIDO PARA POSSÍVEL DEBUG
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -79,6 +84,8 @@ export function GameScene() {
   const gameInitialized = useRef(false);
   const progressRef = useRef(0);
   const [progress, setProgress] = useState(0);
+
+  // ✅ CORREÇÃO CRÍTICA: distanceTravelled.current é agora a ÚNICA fonte da verdade
   const distanceTravelled = useRef(0);
 
   const [currentPathIndex, setCurrentPathIndex] = useState(0);
@@ -208,13 +215,20 @@ export function GameScene() {
     }
   });
 
-  // MUTAÇÃO DE TICK ATUALIZADA - AGORA LIDA COM EVENTOS
+  // ✅✅✅ MUTAÇÃO DE TICK ATUALIZADA COM SUPORTE A ABASTECIMENTO ✅✅✅
   const partidaTickMutation = useMutation({
-    mutationFn: (data: { distancia_percorrida: number }) => GameService.partidaTick(data),
+    // ✅ NOVA ASSINATURA: Agora aceita quer_abastecer
+    mutationFn: (data: { distancia_percorrida: number; quer_abastecer: boolean }) => GameService.partidaTick(data),
     onSuccess: (tickResult) => {
       // Sincroniza dados financeiros e combustível
       setMoney(tickResult.saldo);
       setCurrentFuel(tickResult.combustivel_atual);
+
+      // ✅ ATUALIZA PROGRESSO SE O BACKEND CALCULOU (ou mantém a lógica local)
+      if (tickResult.progresso !== undefined) {
+        setProgress(tickResult.progresso);
+        progressRef.current = tickResult.progresso;
+      }
 
       // ✅ VERIFICAÇÃO DE GAME OVER APÓS TICK DO BACKEND
       console.log("🔍 Verificando Game Over no tick - Combustível:", tickResult.combustivel_atual, "Saldo:", tickResult.saldo);
@@ -243,17 +257,30 @@ export function GameScene() {
         return;
       }
 
-      // Verifica se há evento pendente retornado pelo tick
+      // ✅ VERIFICA SE HÁ EVENTO PENDENTE RETORNADO PELO TICK
       if (tickResult.evento_pendente && !activeEvent && !showPopup) {
-        console.log('🎲 Evento pendente detectado no tick:', tickResult.evento_pendente.evento.nome);
+        const eventoPendente = tickResult.evento_pendente;
+        console.log(`🎲 Evento pendente detectado no tick: "${eventoPendente.evento.nome}" (categoria: ${eventoPendente.evento.categoria})`);
+
+        // ✅ VERIFICA SE É UM EVENTO DE ABASTECIMENTO
+        if (eventoPendente.evento.categoria === 'abastecimento') {
+          console.log('⛽ Evento de ABASTECIMENTO detectado! Desligando toggle...');
+          setAutoStopAtNextStation(false); // ✅ DESLIGA O TOGGLE AUTOMATICAMENTE
+        } else {
+          console.log("🚨 Evento principal ativado, quizzes serão suprimidos.");
+          setIsMainEventActive(true); // INFORMA QUE UM EVENTO PRINCIPAL ESTÁ ATIVO
+        }
+
         // Adapta o formato do evento para o EventData esperado
         const eventData: EventData = {
-          ...tickResult.evento_pendente,
-          partida: tickResult.id // Adiciona o ID da partida
+          id: eventoPendente.id,
+          partida: activeGameIdRef.current || 0,
+          evento: eventoPendente.evento,
+          momento: eventoPendente.momento,
+          ordem: eventoPendente.ordem,
+          opcao_escolhida: eventoPendente.opcao_escolhida,
+          posto_info: eventoPendente.posto_info // ✅ PASSA OS DADOS DO POSTO
         };
-
-        console.log("🚨 Evento principal ativado, quizzes serão suprimidos.");
-        setIsMainEventActive(true); // INFORMA QUE UM EVENTO PRINCIPAL ESTÁ ATIVO
 
         setActiveEvent(eventData);
         setShowPopup(true);
@@ -303,7 +330,52 @@ export function GameScene() {
     setCurrentQuiz(null);
   };
 
+  // ✅ FUNÇÃO DE ABASTECIMENTO MANTIDA
+  const generateDynamicPrices = (basePrices: Record<string, number>) => {
+    const variation = 1 + (Math.random() - 0.5) * 0.3; // Variação de +/- 15%
+    const newPrices: Record<string, number> = {};
+    for (const fuel in basePrices) {
+      newPrices[fuel] = parseFloat((basePrices[fuel] * variation).toFixed(2));
+    }
+    return newPrices;
+  };
 
+  const handleInitiateRefuel = (gasStation: any) => {
+    if (gamePaused.current) return;
+
+    console.log(`⛽ Parada automática acionada para: ${gasStation.locationName || 'Posto'}`);
+    gamePaused.current = true;
+    setIsPaused(true);
+
+    const basePrices = { DIESEL: 6.89, GASOLINA: 7.29, ALCOOL: 5.99 };
+    const dynamicPrices = generateDynamicPrices(basePrices);
+    console.log("Preços dinâmicos para este posto:", dynamicPrices);
+
+    // ✅ SALVA O ESTADO ATUAL NO LOCALSTORAGE PARA RESTAURAÇÃO
+    const inProgressState = {
+      activeGameId: activeGameIdRef.current,
+      vehicle,
+      money,
+      selectedRoute,
+      currentFuel,
+      progress: (distanceTravelled.current / totalDistance) * 100, // ✅ USA A FONTE DA VERDADE
+      gameTime,
+      triggeredGasStations: triggeredGasStations.current,
+      distanceTravelled: distanceTravelled.current, // ✅ SALVA A DISTÂNCIA REAL
+    };
+    localStorage.setItem('inProgressRefuelState', JSON.stringify(inProgressState));
+
+    navigate('/fuel', {
+      state: {
+        fromGame: true, // ✅ MARCADOR CRUCIAL
+        selectedVehicle: vehicle,
+        availableMoney: money,
+        selectedRoute: selectedRoute,
+        stationPrices: dynamicPrices, // ✅ PREÇOS DINÂMICOS
+        gasStationName: gasStation.locationName || 'Posto de Combustível', // ✅ NOME DO POSTO
+      },
+    });
+  };
 
   // MUTAÇÃO PARA RESPONDER EVENTO - MANTÉM sincronização de tempo apenas aqui
   const respondToEventMutation = useMutation({
@@ -326,23 +398,17 @@ export function GameScene() {
 
       // ✅ CORREÇÃO: Sincronizar distância se houve mudança (bônus de distância)
       if (updatedPartida.distancia_percorrida !== undefined && totalDistance > 0) {
-        const novoProgresso = Math.min(100, (updatedPartida.distancia_percorrida / totalDistance) * 100);
-
-        const progressoAnterior = progressRef.current;
-        progressRef.current = novoProgresso;
-        setProgress(novoProgresso);
+        // ✅ ATUALIZA A FONTE DA VERDADE DIRETAMENTE
         distanceTravelled.current = updatedPartida.distancia_percorrida;
 
+        const novoProgresso = Math.min(100, (updatedPartida.distancia_percorrida / totalDistance) * 100);
+        progressRef.current = novoProgresso;
+        setProgress(novoProgresso);
+
         console.log(`📍 PROGRESSO ATUALIZADO APÓS EVENTO:`);
-        console.log(`   Anterior: ${progressoAnterior.toFixed(2)}%`);
         console.log(`   Novo: ${novoProgresso.toFixed(2)}%`);
         console.log(`   Distância: ${updatedPartida.distancia_percorrida}km/${totalDistance}km`);
-
-        if (novoProgresso - progressoAnterior > 1) {
-          console.log(`🚀 BÔNUS DE DISTÂNCIA APLICADO: +${(novoProgresso - progressoAnterior).toFixed(2)}% de progresso!`);
-        }
       }
-
 
       // Mostrar modal de resultado ao invés de alert
       setResultModalContent({
@@ -596,12 +662,13 @@ export function GameScene() {
       money,
       selectedRoute,
       currentFuel,
-      progress,
+      progress: (distanceTravelled.current / totalDistance) * 100, // ✅ USA A FONTE DA VERDADE
       currentPathIndex,
       pathProgress: pathProgressRef.current,
       gameTime,
       timestamp: Date.now(),
-      activeGameId: activeGameIdRef.current
+      activeGameId: activeGameIdRef.current,
+      distanceTravelled: distanceTravelled.current, // ✅ SALVA A DISTÂNCIA REAL
     };
     localStorage.setItem('savedGameProgress', JSON.stringify(gameProgress));
     navigate('/perfil');
@@ -614,37 +681,72 @@ export function GameScene() {
       money,
       selectedRoute,
       currentFuel,
-      progress,
+      progress: (distanceTravelled.current / totalDistance) * 100, // ✅ USA A FONTE DA VERDADE
       currentPathIndex,
       pathProgress: pathProgressRef.current,
       gameTime,
       timestamp: Date.now(),
-      activeGameId: activeGameIdRef.current
+      activeGameId: activeGameIdRef.current,
+      distanceTravelled: distanceTravelled.current, // ✅ SALVA A DISTÂNCIA REAL
     };
     localStorage.setItem('savedGameProgress', JSON.stringify(gameProgress));
     togglePause();
   };
 
+  // ✅✅✅ FUNÇÃO DE RESPOSTA A EVENTOS CORRIGIDA ✅✅✅
   const handleOptionClick = (optionId: number) => {
     if (isResponding) return;
 
-    console.log("🎯 Processando escolha do evento - Opção ID:", optionId);
+    if (!activeEvent) {
+      console.error("Nenhum evento ativo para responder");
+      return;
+    }
+
+    // ✅ VERIFICAÇÃO ESPECIAL PARA EVENTOS DE ABASTECIMENTO
+    if (activeEvent.evento.categoria === 'abastecimento') {
+      console.log(`⛽ Processando resposta de abastecimento - Opção: ${optionId}`);
+
+      // Fecha o modal imediatamente
+      setShowPopup(false);
+      setActiveEvent(null);
+      gamePaused.current = false;
+      processingEvent.current = false;
+
+      if (optionId === -1) {
+        // Opção "Sim, abastecer"
+        console.log("✅ Jogador escolheu abastecer, redirecionando para tela de combustível...");
+        handleInitiateRefuel(activeEvent.posto_info || {});
+      } else {
+        // Opção "Não, seguir viagem"
+        console.log("❌ Jogador escolheu não abastecer, continuando viagem...");
+        // Nada mais a fazer, o jogo continua normalmente
+      }
+      return;
+    }
+
+    // ✅ PARA EVENTOS NORMAIS (NÃO DE ABASTECIMENTO)
+    console.log("🎯 Processando escolha do evento normal - Opção ID:", optionId);
     setIsResponding(true);
-    const distanciaAtual = (progressRef.current / 100) * totalDistance;
-    respondToEventMutation.mutate({ optionId, distancia: distanciaAtual });
+
+    // ✅ SEMPRE USAR A FONTE DA VERDADE PARA A DISTÂNCIA
+    respondToEventMutation.mutate({ optionId, distancia: distanceTravelled.current });
   };
 
   // ============= INICIALIZAÇÃO DO JOGO =============
 
-  const initializeGame = (savedProgress?: any) => {
-    if (!vehicle || !vehicle.name) {
+  const initializeGame = (
+    initialVehicle: Vehicle,
+    initialMoney: number,
+    restoredState?: any // ✅ PARÂMETRO PARA ESTADO RESTAURADO
+  ) => {
+    if (!initialVehicle || !initialVehicle.name) {
       console.error("Dados do veículo não encontrados");
       return;
     }
 
     if (!canvasRef.current) {
       console.error("Canvas não encontrado, tentando novamente...");
-      setTimeout(() => initializeGame(savedProgress), 100);
+      setTimeout(() => initializeGame(initialVehicle, initialMoney, restoredState), 100);
       return;
     }
 
@@ -652,7 +754,7 @@ export function GameScene() {
 
     if (!document.contains(canvasRef.current)) {
       console.error("Canvas não está no DOM, aguardando...");
-      setTimeout(() => initializeGame(savedProgress), 100);
+      setTimeout(() => initializeGame(initialVehicle, initialMoney, restoredState), 100);
       return;
     }
 
@@ -660,8 +762,34 @@ export function GameScene() {
       (window as any).__kaboom_initiated__ = false;
     }
 
-    console.log("Inicializando jogo com veículo:", vehicle.name, "Imagem:", vehicle.image);
+    console.log("Inicializando jogo com veículo:", initialVehicle.name, "Imagem:", initialVehicle.image);
     console.log("Combustível atual no início:", currentFuel);
+
+    // ✅ USE VALORES RESTAURADOS SE EXISTIREM
+    if (restoredState) {
+      // ✅ RESTAURA A FONTE DA VERDADE DIRETAMENTE
+      distanceTravelled.current = restoredState.distanceTravelled || 0;
+      progressRef.current = (distanceTravelled.current / totalDistance) * 100;
+      setGameTime(restoredState.gameTime || 0);
+      triggeredGasStations.current = restoredState.triggeredGasStations || [];
+      activeGameIdRef.current = restoredState.activeGameId;
+
+      setProgress(progressRef.current);
+      setMoney(initialMoney);
+      setCurrentFuel(initialVehicle.currentFuel);
+
+      console.log("🔄 Estado restaurado:", {
+        distanceTravelled: distanceTravelled.current,
+        progress: progressRef.current,
+        gameTime: restoredState.gameTime,
+        triggeredStations: triggeredGasStations.current.length
+      });
+    } else {
+      // ✅ INICIALIZA A FONTE DA VERDADE
+      distanceTravelled.current = 0;
+      progressRef.current = 0;
+      setProgress(0);
+    }
 
     handleResizeRef.current = () => {
       if (canvasRef.current) {
@@ -729,8 +857,8 @@ export function GameScene() {
         loadSprite("background_cidade", "/assets/background-cidade.png");
         loadSprite("background_terra", "/assets/background-terra.png");
 
-        const vehicleImageUrl = getVehicleImageUrl(vehicle.spriteSheet || vehicle.image);
-        console.log("Imagem original do veículo:", vehicle.image);
+        const vehicleImageUrl = getVehicleImageUrl(initialVehicle.spriteSheet || initialVehicle.image);
+        console.log("Imagem original do veículo:", initialVehicle.image);
         console.log("URL convertida para kaboom:", vehicleImageUrl);
 
         loadSprite("car", vehicleImageUrl, {
@@ -847,11 +975,13 @@ export function GameScene() {
           }
         });
 
+        // ✅✅✅ LÓGICA CENTRALIZADA E SIMPLIFICADA (SEM DETECÇÃO DE POSTOS) ✅✅✅
         onUpdate(() => {
           // ✅ MANTÉM: Proteção de pausa da versão atual
-          if (gamePaused.current) {
+          if (gamePaused.current || gameEnded) {
             return;
           }
+
           const deltaTime = dt();
 
           // --- LÓGICA DO TIMER DO QUIZ ---
@@ -879,32 +1009,29 @@ export function GameScene() {
             collisionCooldownRef.current = Math.max(0, collisionCooldownRef.current - deltaTime);
           }
 
-          //Aplica o multiplicador de velocidade
+          // ✅ LÓGICA VISUAL: CÁLCULO DA DISTÂNCIA PARA ANIMAÇÃO
+          const baseSpeedKmS = 0.025; // ~90 km/h em km/s
+          const gameSpeedFactor = 24; // Aceleração do tempo de jogo
+          const distanceThisFrame = baseSpeedKmS * speedMultiplierRef.current * deltaTime * gameSpeedFactor;
+
+          // ✅ ATUALIZA A ÚNICA FONTE DA VERDADE VISUALMENTE
+          distanceTravelled.current += distanceThisFrame;
+
+          // ✅ PROGRESS É APENAS UM REFLEXO DA DISTÂNCIA (PODE SER SOBRESCRITO PELO BACKEND)
+          const newProgress = Math.min(100, (distanceTravelled.current / totalDistance) * 100);
+          if (Math.abs(newProgress - progress) > 0.05) {
+            progressRef.current = newProgress;
+            setProgress(newProgress);
+          }
+
+          // ✅ REMOVIDO: Toda a lógica de detecção de postos daqui
+          // O backend agora decide quando mostrar eventos de abastecimento
+
+          //Aplica o multiplicador de velocidade ao movimento visual
           const moveAmount = -speed * speedMultiplierRef.current * deltaTime;
 
           // ✅ ADIÇÃO: Chamada para o sistema de background modular
           updateBackgroundSystem(k, deltaTime, moveAmount);
-
-          // ✅ MANTÉM: Toda a lógica da versão atual
-          const progressPercent = calculatePathProgress(deltaTime);
-          const previousProgress = progressRef.current;
-          progressRef.current = progressPercent;
-
-          if (Math.abs(progressPercent - progress) > 0.05) {
-            setProgress(progressPercent);
-          }
-
-          const routeDistance = totalDistance || 500;
-          const progressDelta = progressPercent - previousProgress;
-          const distanceInKm = (progressDelta / 100) * routeDistance;
-
-          if (distanceInKm > 0) {
-            // ✅ Consumo de combustível controlado pelo backend via tick.
-            // A UI de combustível é sincronizada apenas via useEffect(currentFuel).
-          }
-
-          // ✅ EVENTOS AGORA SÃO TRATADOS AUTOMATICAMENTE NO TICK
-          // Não precisamos mais verificar eventos separadamente
         });
       });
 
@@ -913,9 +1040,6 @@ export function GameScene() {
       setCurrentPathIndex(0);
       currentPathIndexRef.current = 0;
       pathProgressRef.current = 0;
-      progressRef.current = 0;
-      setProgress(0);
-      distanceTravelled.current = 0;
 
       obstacleTimerRef.current = 0;
       gamePaused.current = false;
@@ -942,6 +1066,30 @@ export function GameScene() {
 
     console.log("🚀 Lógica de inicialização única está rodando...");
 
+    // ✅ DETECÇÃO DE RETOMADA APÓS ABASTECIMENTO
+    const { resumeAfterRefuel, updatedVehicle, updatedMoney } = location.state || {};
+
+    if (resumeAfterRefuel) {
+      console.log("🔄 Retomando jogo após abastecimento...");
+      const savedStateJSON = localStorage.getItem('inProgressRefuelState');
+
+      if (savedStateJSON) {
+        try {
+          const savedState = JSON.parse(savedStateJSON);
+
+          // Limpa o estado salvo para evitar reutilização
+          localStorage.removeItem('inProgressRefuelState');
+
+          // PASSA O ESTADO RESTAURADO PARA A FUNÇÃO DE INICIALIZAÇÃO
+          initializeGame(updatedVehicle, updatedMoney, savedState);
+          return;
+
+        } catch (error) {
+          console.error("Erro ao restaurar estado. Iniciando novo jogo como fallback.", error);
+        }
+      }
+    }
+
     const { selectedVehicle, selectedRoute: route, savedProgress } = location.state || {};
 
     if (!selectedVehicle || !route?.id || !route?.mapaId) {
@@ -956,7 +1104,7 @@ export function GameScene() {
       setActiveGameId(savedProgress.activeGameId);
       activeGameIdRef.current = savedProgress.activeGameId;
 
-      initializeGame(savedProgress);
+      initializeGame(savedProgress.vehicle, savedProgress.money, savedProgress);
       return;
     }
 
@@ -967,7 +1115,7 @@ export function GameScene() {
       saldo_inicial: money, // Passa o saldo da tela de abastecimento
       combustivel_inicial: vehicle.currentFuel // Passa o combustível da tela de abastecimento
     }).then(() => {
-      initializeGame(savedProgress);
+      initializeGame(vehicle, money); // Inicializa sem estado restaurado
     }).catch(error => {
       console.error("❌ Falha crítica na criação da partida, não inicializando Kaboom", error);
     });
@@ -1013,6 +1161,13 @@ export function GameScene() {
       setCurrentPathIndex(savedProgress.currentPathIndex);
       setGameTime(Math.max(0, savedProgress.gameTime || 0));
 
+      // ✅ RESTAURA A FONTE DA VERDADE SE DISPONÍVEL
+      if (savedProgress.distanceTravelled !== undefined) {
+        distanceTravelled.current = savedProgress.distanceTravelled;
+      } else {
+        distanceTravelled.current = (savedProgress.progress / 100) * totalDistance;
+      }
+
       progressRef.current = savedProgress.progress;
       currentPathIndexRef.current = savedProgress.currentPathIndex;
       pathProgressRef.current = savedProgress.pathProgress;
@@ -1020,6 +1175,7 @@ export function GameScene() {
       console.log("✨ Iniciando um novo jogo...");
       setCurrentFuel(vehicle?.currentFuel || 0);
       setGameTime(0);
+      distanceTravelled.current = 0;
     }
 
     if (selectedRoute) {
@@ -1055,19 +1211,22 @@ export function GameScene() {
     }
   }, []);
 
-  // Sistema de ticks periódicos
+  // ✅✅✅ SISTEMA DE TICKS PERIÓDICOS ATUALIZADO ✅✅✅
   useEffect(() => {
     tickTimerRef.current = setInterval(() => {
       if (!gamePaused.current && !gameEnded && gameLoaded && activeGameIdRef.current) {
-        const distanciaAtual = (progressRef.current / 100) * totalDistance;
-        partidaTickMutation.mutate({ distancia_percorrida: distanciaAtual });
+        // ✅ ENVIA A DISTÂNCIA E A INTENÇÃO DE ABASTECIMENTO
+        partidaTickMutation.mutate({
+          distancia_percorrida: distanceTravelled.current,
+          quer_abastecer: autoStopAtNextStation // ✅ PASSA A INTENÇÃO DO JOGADOR
+        });
       }
     }, 2000);
 
     return () => {
       if (tickTimerRef.current) clearInterval(tickTimerRef.current);
     };
-  }, [gameEnded, gameLoaded, totalDistance]);
+  }, [gameEnded, gameLoaded, totalDistance, autoStopAtNextStation]); // ✅ ADICIONA autoStopAtNextStation ÀS DEPENDÊNCIAS
 
   // ✅ SISTEMA DE TEMPO CORRIGIDO - ACELERA SEMPRE NO FRONTEND
   useEffect(() => {
@@ -1148,44 +1307,6 @@ export function GameScene() {
     setShowMapModal(!showMapModal);
   };
 
-  const calculatePathProgress = (deltaTime: number) => {
-    if (!selectedRoute?.pathCoordinates || selectedRoute.pathCoordinates.length < 2) {
-      console.log("Usando fallback - sem pathCoordinates");
-      return calculateFallbackProgress(deltaTime);
-    }
-
-    const pathCoords = selectedRoute.pathCoordinates;
-    const totalSegments = pathCoords.length - 1;
-
-
-    const targetDurationSeconds = 1200;
-
-    const segmentsPerSecond = totalSegments / targetDurationSeconds;
-    //Aplica o multiplicador de velocidade ao progresso
-    const segmentSpeed = segmentsPerSecond * speedMultiplierRef.current * deltaTime;
-
-    pathProgressRef.current += segmentSpeed;
-
-    if (pathProgressRef.current >= 1.0 && currentPathIndexRef.current < totalSegments - 1) {
-      currentPathIndexRef.current += 1;
-      setCurrentPathIndex(currentPathIndexRef.current);
-      pathProgressRef.current = 0;
-    }
-
-    const totalProgress = (currentPathIndexRef.current + pathProgressRef.current) / totalSegments;
-    const progressPercent = Math.min(100, Math.max(0, totalProgress * 100));
-
-    return progressPercent;
-  };
-
-  const calculateFallbackProgress = (deltaTime: number) => {
-    const routeDistance = totalDistance || 500;
-    //Aplica o multiplicador de velocidade ao progresso
-    distanceTravelled.current += deltaTime * gameSpeedMultiplier.current * 0.2 * speedMultiplierRef.current;
-    const progressKm = (distanceTravelled.current * routeDistance) / 5000;
-    return Math.min(100, Math.max(0, (progressKm / routeDistance) * 100));
-  };
-
   const getVehicleImageUrl = (vehicleImage: string) => {
     console.log("Convertendo imagem do veículo:", vehicleImage);
 
@@ -1254,10 +1375,10 @@ export function GameScene() {
   useEffect(() => {
     isQuizActiveRef.current = isQuizActive;
   }, [isQuizActive]);
+
   // 6. ADICIONE UM `useEffect` PARA GARANTIR A PRIORIDADE DOS EVENTOS PRINCIPAIS
   useEffect(() => {
     // COMPORTAMENTO CRÍTICO: Se um evento principal se torna ativo, o quiz deve ser fechado IMEDIATAMENTE
-    // NOTE: Será que não seria melhor esperar a resposta do quiz para aparecer o evento? (com delay de algusn segundos)
     if (isMainEventActive && isQuizActive) {
       console.warn("🚨 Evento principal tem prioridade! Fechando o quiz ativo.");
       handleCloseQuiz();
@@ -1407,7 +1528,6 @@ export function GameScene() {
         </div>
       )}
 
-
       {/* Barra de progresso */}
       <div style={{
         position: "fixed",
@@ -1525,14 +1645,68 @@ export function GameScene() {
               🎮 Partida #{activeGameId}
             </div>
           )}
+
+          {/* ✅ ADICIONAR DEBUG DA DISTÂNCIA PERCORRIDA */}
+          {process.env.NODE_ENV === 'development' && (
+            <div style={{ fontSize: "10px", color: "#666", marginTop: "5px", borderTop: "1px solid #eee", paddingTop: "5px" }}>
+              📍 Debug: {distanceTravelled.current.toFixed(2)}km
+            </div>
+          )}
         </div>
       </div>
 
-      {/* ✅ MODIFICAÇÃO: PAINEL DE CONTROLE REMOVIDO, FICANDO APENAS O BOTÃO */}
+      {/* ✅ BOTÃO DE ABASTECIMENTO ESTRATÉGICO MANTIDO */}
+      {gameLoaded && !isPaused && !showPopup && (
+        <div style={{
+          position: 'fixed',
+          bottom: '3vh',
+          left: '3vw',
+          zIndex: 1001,
+        }}>
+          <button
+            onClick={() => setAutoStopAtNextStation(!autoStopAtNextStation)}
+            style={{
+              padding: '10px 15px',
+              fontFamily: "'Silkscreen', monospace",
+              fontSize: '14px',
+              border: '2px solid black',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              backgroundColor: autoStopAtNextStation ? '#28a745' : '#f0f0f0',
+              color: autoStopAtNextStation ? 'white' : 'black',
+              boxShadow: '3px 3px 0px black',
+              transition: 'all 0.1s ease-in-out',
+            }}
+            onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(2px)'; e.currentTarget.style.boxShadow = '1px 1px 0px black'; }}
+            onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '3px 3px 0px black'; }}
+          >
+            ⛽ Parar no Próximo Posto: {autoStopAtNextStation ? 'LIGADO' : 'DESLIGADO'}
+          </button>
+
+          {/* ✅ DEBUG PARA DESENVOLVIMENTO */}
+          {process.env.NODE_ENV === 'development' && autoStopAtNextStation && selectedRoute?.fuelStop && (
+            <div style={{
+              marginTop: '5px',
+              fontSize: '10px',
+              backgroundColor: 'rgba(0,0,0,0.7)',
+              color: 'white',
+              padding: '5px',
+              borderRadius: '5px',
+              maxWidth: '200px'
+            }}>
+              Status: {autoStopAtNextStation ? 'BUSCANDO POSTOS...' : 'DESLIGADO'}
+              <br />
+              Backend detectará postos próximos automaticamente.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Botão de controle de velocidade */}
       {gameLoaded && !showPopup && !isPaused && (
         <div style={{
           position: 'fixed',
-          bottom: '4vh', // Ajuste na posição para compensar a falta do painel
+          bottom: '4vh',
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 1001,
@@ -1602,7 +1776,7 @@ export function GameScene() {
         }}
       />
 
-      {/* Modal de evento */}
+      {/* ✅ MODAL DE EVENTO ATUALIZADO PARA SUPORTAR ABASTECIMENTO */}
       {showPopup && activeEvent && !gameEnded && (
         <div
           style={{
@@ -1622,9 +1796,11 @@ export function GameScene() {
             fontFamily: "'Silkscreen', monospace"
           }}
         >
+          {/* ✅ BADGE PERSONALIZADO PARA EVENTOS DE ABASTECIMENTO */}
           <div style={{
-            backgroundColor: activeEvent.evento.categoria === 'perigo' ? '#ff4444' :
-              activeEvent.evento.categoria === 'terreno' ? '#ff8800' : '#0077cc',
+            backgroundColor: activeEvent.evento.categoria === 'abastecimento' ? '#28a745' :
+              activeEvent.evento.categoria === 'perigo' ? '#ff4444' :
+                activeEvent.evento.categoria === 'terreno' ? '#ff8800' : '#0077cc',
             color: 'white',
             padding: '5px 10px',
             borderRadius: '20px',
@@ -1633,8 +1809,9 @@ export function GameScene() {
             marginBottom: '10px',
             display: 'inline-block'
           }}>
-            {activeEvent.evento.categoria === 'perigo' ? '⚠️ ZONA DE PERIGO' :
-              activeEvent.evento.categoria === 'terreno' ? '🌄 ESTRADA DE TERRA' : '🛣️ EVENTO GERAL'}
+            {activeEvent.evento.categoria === 'abastecimento' ? '⛽ POSTO DE COMBUSTÍVEL' :
+              activeEvent.evento.categoria === 'perigo' ? '⚠️ ZONA DE PERIGO' :
+                activeEvent.evento.categoria === 'terreno' ? '🌄 ESTRADA DE TERRA' : '🛣️ EVENTO GERAL'}
           </div>
 
           <div className="font-[Silkscreen]" style={{ marginBottom: "10px" }}>
@@ -1672,7 +1849,10 @@ export function GameScene() {
                   padding: "15px 20px",
                   borderRadius: "10px",
                   border: "2px solid #fff",
-                  backgroundColor: index % 2 === 0 ? "#0077cc" : "#e63946",
+                  backgroundColor:
+                    activeEvent.evento.categoria === 'abastecimento'
+                      ? (opcao.id === -1 ? "#28a745" : "#6c757d") // Verde para "Sim", Cinza para "Não"
+                      : (index % 2 === 0 ? "#0077cc" : "#e63946"), // Cores originais para outros eventos
                   color: "white",
                   fontSize: "14px",
                   cursor: isResponding ? "not-allowed" : "pointer",
@@ -1685,14 +1865,22 @@ export function GameScene() {
                 }}
                 onMouseOver={(e) => {
                   if (!isResponding) {
-                    e.currentTarget.style.backgroundColor = index % 2 === 0 ? "#005fa3" : "#c92a2a";
+                    if (activeEvent.evento.categoria === 'abastecimento') {
+                      e.currentTarget.style.backgroundColor = opcao.id === -1 ? "#218838" : "#5a6268";
+                    } else {
+                      e.currentTarget.style.backgroundColor = index % 2 === 0 ? "#005fa3" : "#c92a2a";
+                    }
                     e.currentTarget.style.transform = "scale(1.02)";
                     e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.3)";
                   }
                 }}
                 onMouseOut={(e) => {
                   if (!isResponding) {
-                    e.currentTarget.style.backgroundColor = index % 2 === 0 ? "#0077cc" : "#e63946";
+                    if (activeEvent.evento.categoria === 'abastecimento') {
+                      e.currentTarget.style.backgroundColor = opcao.id === -1 ? "#28a745" : "#6c757d";
+                    } else {
+                      e.currentTarget.style.backgroundColor = index % 2 === 0 ? "#0077cc" : "#e63946";
+                    }
                     e.currentTarget.style.transform = "scale(1)";
                     e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.2)";
                   }
@@ -1911,7 +2099,7 @@ export function GameScene() {
                   border: 'none',
                   borderRadius: '50%',
                   height: '45px',
-                  width: '45px', // Corrigido para ser um círculo perfeito
+                  width: '45px',
                   fontSize: '20px',
                   fontWeight: 'bold',
                   cursor: 'pointer',
