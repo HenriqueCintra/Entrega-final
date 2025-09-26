@@ -2,8 +2,6 @@ import api from './config';
 import { Map as Desafio } from '../types';
 import { TeamData, RankingApiResponse } from '../types/ranking';
 
-
-
 interface PartidaResponse {
   id: number;
   saldo: number;
@@ -21,6 +19,7 @@ interface PartidaResponse {
   eficiencia?: number;
   saldo_inicial?: number;
   quantidade_carga_inicial?: number;
+  progresso?: number; // ✅ ADICIONADO: Para progresso calculado pelo backend
   eventos_ocorridos?: Array<{
     id: number;
     evento: {
@@ -68,7 +67,6 @@ interface RouteResponse {
   dirt_segments_data: any[];
 }
 
-// ✅ INTERFACE ATUALIZADA para corresponder ao modelo 'Mapa' do backend
 interface MapResponse {
   id: number;
   nome: string;
@@ -83,12 +81,13 @@ interface MapResponse {
   rotas: RouteResponse[];
 }
 
-// === NOVA INTERFACE PARA O TICK ===
+// ✅ INTERFACE ATUALIZADA PARA O TICK COM INTENÇÃO DE ABASTECIMENTO
 interface TickData {
   distancia_percorrida: number;
+  quer_abastecer?: boolean; // ✅ NOVO CAMPO: Intenção do jogador
 }
 
-// === INTERFACE PARA RESULTADO DO TICK COM EVENTOS ===
+// ✅ INTERFACE PARA RESULTADO DO TICK COM EVENTOS ESPECIAIS DE ABASTECIMENTO
 interface TickResult extends PartidaResponse {
   evento_pendente?: {
     id: number;
@@ -96,7 +95,7 @@ interface TickResult extends PartidaResponse {
       id: number;
       nome: string;
       descricao: string;
-      tipo: 'positivo' | 'negativo';
+      tipo: 'positivo' | 'negativo' | 'neutro';
       categoria: string;
       opcoes: Array<{
         id: number;
@@ -107,6 +106,7 @@ interface TickResult extends PartidaResponse {
     momento: string;
     ordem: number;
     opcao_escolhida: null;
+    posto_info?: any; // ✅ NOVO CAMPO: Dados específicos do posto para eventos de abastecimento
   };
 }
 
@@ -136,11 +136,9 @@ export interface RespostaQuizResult {
 
 export const GameService = {
 
-
   async sortearQuiz(): Promise<PerguntaQuiz> {
     console.log('🧠 Buscando nova pergunta do quiz...');
     try {
-      // A view do backend para sortear usa GET, não POST
       const response = await api.get<PerguntaQuiz>('/jogo1/quizzes/sortear/');
       console.log('✅ Pergunta recebida:', response.data.texto);
       return response.data;
@@ -174,7 +172,6 @@ export const GameService = {
     }
   },
 
-  // ✅ FUNÇÃO ADICIONADA
   async getMapById(id: number): Promise<MapResponse> {
     console.log(`🗺️ Buscando desafio específico com ID: ${id}...`);
     try {
@@ -253,9 +250,6 @@ export const GameService = {
     }
   },
 
-
-
-  // === FUNÇÃO MODIFICADA: Agora envia também a distância ===
   async respondToEvent(optionId: number, distancia_percorrida: number): Promise<RespondResponse> {
     console.log(`✋ Respondendo evento com opção ${optionId} na distância ${distancia_percorrida.toFixed(2)}km`);
     try {
@@ -283,13 +277,12 @@ export const GameService = {
     }
   },
 
-  async createGame(gameData: { 
-    mapa: number; 
-    rota: number; 
-    veiculo: number; 
-    saldo_inicial?: number; 
-    combustivel_inicial?: number;
-    quantidade_carga_inicial?: number;
+  async createGame(gameData: {
+    mapa: number;
+    rota: number;
+    veiculo: number;
+    saldo_inicial?: number;
+    combustivel_inicial?: number
   }): Promise<PartidaResponse> {
     console.log('🚀 Criando nova partida com dados:', gameData);
     if (!gameData.mapa || !gameData.rota || !gameData.veiculo) {
@@ -321,27 +314,68 @@ export const GameService = {
     }
   },
 
-  // === FUNÇÃO DE TICK ATUALIZADA (CORAÇÃO DO SISTEMA) ===
+  // ✅✅✅ FUNÇÃO DE TICK ATUALIZADA COM SUPORTE A ABASTECIMENTO ✅✅✅
   async partidaTick(data: TickData): Promise<TickResult> {
-    console.log('⏱️ Enviando tick para o servidor:', data.distancia_percorrida.toFixed(2), 'km');
+    const logQueuer = data.quer_abastecer ? ' (🔍 PROCURANDO POSTO)' : '';
+    console.log(`⏱️ Enviando tick: ${data.distancia_percorrida.toFixed(2)}km${logQueuer}`);
+
     try {
       const response = await api.post<PartidaResponse>('/jogo1/partidas/tick/', data);
       console.log('✅ Tick processado - Tempo oficial:', response.data.tempo_jogo?.toFixed(2), 'min');
-      
-      // Verifica se existe evento pendente (opcao_escolhida = null)
-      const eventoPendente = response.data.eventos_ocorridos?.find(evento => evento.opcao_escolhida === null);
-      
-      if (eventoPendente) {
-        console.log('🎲 Evento pendente detectado:', eventoPendente.evento.nome, '(categoria:', eventoPendente.evento.categoria + ')');
+
+      // ✅ VERIFICA SE O BACKEND RETORNOU UM EVENTO_PENDENTE
+      if (response.data.eventos_ocorridos) {
+        const eventoPendente = response.data.eventos_ocorridos.find(evento => evento.opcao_escolhida === null);
+
+        if (eventoPendente) {
+          const categoria = eventoPendente.evento.categoria;
+          const isAbastecimento = categoria === 'abastecimento';
+
+          console.log(`🎲 Evento pendente detectado: "${eventoPendente.evento.nome}" (${categoria})`);
+
+          if (isAbastecimento) {
+            console.log('⛽ Evento de ABASTECIMENTO detectado - Frontend deve mostrar modal de posto');
+          } else {
+            console.log('🎭 Evento NORMAL detectado - Frontend deve mostrar modal de evento');
+          }
+
+          return {
+            ...response.data,
+            evento_pendente: eventoPendente
+          };
+        }
+      }
+
+      // ✅ VERIFICA SE HÁ EVENTO_PENDENTE DIRETO NA RESPOSTA (PARA EVENTOS DE ABASTECIMENTO)
+      if ((response as any).data.evento_pendente) {
+        const eventoPendente = (response as any).data.evento_pendente;
+        console.log(`⛽ Evento de abastecimento retornado diretamente: "${eventoPendente.evento.nome}"`);
+
         return {
           ...response.data,
           evento_pendente: eventoPendente
         };
       }
-      
+
+      // Sem eventos pendentes
+      console.log('✅ Tick processado sem eventos pendentes');
       return response.data;
+
     } catch (error) {
       console.error('❌ Erro no tick:', error);
+      throw error;
+    }
+  },
+
+  // ✅✅✅ NOVA FUNÇÃO DE ABASTECIMENTO ✅✅✅
+  async processarAbastecimento(data: { litros: number; custo: number }): Promise<PartidaResponse> {
+    console.log('⛽ Processando abastecimento:', data);
+    try {
+      const response = await api.post<PartidaResponse>('/jogo1/partidas/abastecer/', data);
+      console.log('✅ Abastecimento processado pelo backend:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erro ao processar abastecimento:', error);
       throw error;
     }
   },
