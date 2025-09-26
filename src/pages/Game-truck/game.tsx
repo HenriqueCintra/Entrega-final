@@ -358,10 +358,15 @@ export function GameScene() {
       money,
       selectedRoute,
       currentFuel,
-      progress: (distanceTravelled.current / totalDistance) * 100, // ✅ USA A FONTE DA VERDADE
+      progress: (distanceTravelled.current / totalDistance) * 100,
       gameTime,
-      triggeredGasStations: triggeredGasStations.current,
-      distanceTravelled: distanceTravelled.current, // ✅ SALVA A DISTÂNCIA REAL
+      distanceTravelled: distanceTravelled.current,
+      totalDistance, // ✅ NOVO: Salva a distância total da rota.
+      gameLoaded: true, // ✅ NOVO: Um marcador para ajudar na lógica de retomada.
+      // ✅ ADICIONAR MAIS ESTADOS CRÍTICOS
+      currentPathIndex,
+      pathProgress: pathProgressRef.current,
+      triggeredGasStations: triggeredGasStations.current, // Movido para manter a consistência.
     };
     localStorage.setItem('inProgressRefuelState', JSON.stringify(inProgressState));
 
@@ -1077,10 +1082,20 @@ export function GameScene() {
         try {
           const savedState = JSON.parse(savedStateJSON);
 
+          // ✅ CORREÇÃO: Restaurar TODOS os estados críticos ANTES de inicializar o jogo.
+          // O dinheiro e combustível vêm da tela de abastecimento (location.state).
+          setMoney(updatedMoney);
+          setCurrentFuel(updatedVehicle.currentFuel);
+
+          // O resto dos dados vem do que salvamos no localStorage.
+          setGameTime(savedState.gameTime || 0);
+          setProgress(savedState.progress || 0);
+          setTotalDistance(savedState.selectedRoute?.actualDistance || savedState.selectedRoute?.distance || 500);
+
           // Limpa o estado salvo para evitar reutilização
           localStorage.removeItem('inProgressRefuelState');
 
-          // PASSA O ESTADO RESTAURADO PARA A FUNÇÃO DE INICIALIZAÇÃO
+          // PASSA O ESTADO RESTAURADO COMPLETO PARA A FUNÇÃO DE INICIALIZAÇÃO
           initializeGame(updatedVehicle, updatedMoney, savedState);
           return;
 
@@ -1645,120 +1660,97 @@ export function GameScene() {
               🎮 Partida #{activeGameId}
             </div>
           )}
-
-          {/* ✅ ADICIONAR DEBUG DA DISTÂNCIA PERCORRIDA */}
-          {process.env.NODE_ENV === 'development' && (
-            <div style={{ fontSize: "10px", color: "#666", marginTop: "5px", borderTop: "1px solid #eee", paddingTop: "5px" }}>
-              📍 Debug: {distanceTravelled.current.toFixed(2)}km
-            </div>
-          )}
         </div>
       </div>
 
-      {/* ✅ BOTÃO DE ABASTECIMENTO ESTRATÉGICO MANTIDO */}
+      {/* ✅ BOTÃO DE ABASTECIMENTO E VELOCIDADE */}
       {gameLoaded && !isPaused && !showPopup && (
-        <div style={{
-          position: 'fixed',
-          bottom: '3vh',
-          left: '3vw',
-          zIndex: 1001,
-        }}>
-          <button
-            onClick={() => setAutoStopAtNextStation(!autoStopAtNextStation)}
-            style={{
-              padding: '10px 15px',
-              fontFamily: "'Silkscreen', monospace",
-              fontSize: '14px',
-              border: '2px solid black',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              backgroundColor: autoStopAtNextStation ? '#28a745' : '#f0f0f0',
-              color: autoStopAtNextStation ? 'white' : 'black',
-              boxShadow: '3px 3px 0px black',
-              transition: 'all 0.1s ease-in-out',
-            }}
-            onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(2px)'; e.currentTarget.style.boxShadow = '1px 1px 0px black'; }}
-            onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '3px 3px 0px black'; }}
-          >
-            ⛽ Parar no Próximo Posto: {autoStopAtNextStation ? 'LIGADO' : 'DESLIGADO'}
-          </button>
+        <>
+          {/* Botão de Parar no Posto */}
+          <div style={{
+            position: 'fixed',
+            bottom: '3vh',
+            left: '3vw',
+            zIndex: 1001,
+          }}>
+            <button
+              onClick={() => setAutoStopAtNextStation(!autoStopAtNextStation)}
+              style={{
+                padding: '10px 15px',
+                fontFamily: "'Silkscreen', monospace",
+                fontSize: '14px',
+                border: '2px solid black',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                backgroundColor: autoStopAtNextStation ? '#28a745' : '#f0f0f0',
+                color: autoStopAtNextStation ? 'white' : 'black',
+                boxShadow: '3px 3px 0px black',
+                transition: 'all 0.1s ease-in-out',
+              }}
+              onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(2px)'; e.currentTarget.style.boxShadow = '1px 1px 0px black'; }}
+              onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '3px 3px 0px black'; }}
+            >
+              ⛽ Parar no Próximo Posto: {autoStopAtNextStation ? 'LIGADO' : 'DESLIGADO'}
+            </button>
+          </div>
 
-          {/* ✅ DEBUG PARA DESENVOLVIMENTO */}
-          {process.env.NODE_ENV === 'development' && autoStopAtNextStation && selectedRoute?.fuelStop && (
-            <div style={{
-              marginTop: '5px',
-              fontSize: '10px',
-              backgroundColor: 'rgba(0,0,0,0.7)',
-              color: 'white',
-              padding: '5px',
-              borderRadius: '5px',
-              maxWidth: '200px'
-            }}>
-              Status: {autoStopAtNextStation ? 'BUSCANDO POSTOS...' : 'DESLIGADO'}
-              <br />
-              Backend detectará postos próximos automaticamente.
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Botão de controle de velocidade */}
-      {gameLoaded && !showPopup && !isPaused && (
-        <div style={{
-          position: 'fixed',
-          bottom: '4vh',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 1001,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-          <button
-            onClick={handleSpeedUp}
-            style={{
-              background: 'linear-gradient(180deg, #6fd250 0%, #3a9c1e 100%)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '12px',
-              padding: '10px 25px',
-              fontFamily: "'Press Start 2P', cursive",
-              fontSize: '18px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              boxShadow: 'inset 0px -6px 0px rgba(0,0,0,0.3), 0px 4px 0px 0px #2a6f18',
-              transition: 'all 0.1s ease-out',
-              textShadow: '2px 2px 0px rgba(0,0,0,0.4)',
-              letterSpacing: '1px',
-              position: 'relative',
-              outline: 'none',
-            }}
-            onMouseDown={(e) => {
-              e.currentTarget.style.transform = 'translateY(2px)';
-              e.currentTarget.style.boxShadow = 'inset 0px -2px 0px rgba(0,0,0,0.3), 0px 2px 0px 0px #2a6f18';
-            }}
-            onMouseUp={(e) => {
-              e.currentTarget.style.transform = 'translateY(0px)';
-              e.currentTarget.style.boxShadow = 'inset 0px -6px 0px rgba(0,0,0,0.3), 0px 4px 0px 0px #2a6f18';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0px)';
-              e.currentTarget.style.boxShadow = 'inset 0px -6px 0px rgba(0,0,0,0.3), 0px 4px 0px 0px #2a6f18';
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.background = 'linear-gradient(180deg, #87e96b 0%, #4cb82d 100%)';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.background = 'linear-gradient(180deg, #6fd250 0%, #3a9c1e 100%)';
-            }}
-            title="Alterar Velocidade"
-          >
-            <span style={{ fontSize: '28px', lineHeight: '1', transform: 'translateY(-2px)' }}>▶️</span>
-            <span>{speedMultiplierRef.current.toFixed(1)}x</span>
-          </button>
-        </div>
+          {/* Botão de controle de velocidade */}
+          <div style={{
+            position: 'fixed',
+            bottom: '4vh',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 1001,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            <button
+              onClick={handleSpeedUp}
+              style={{
+                background: 'linear-gradient(180deg, #6fd250 0%, #3a9c1e 100%)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '10px 25px',
+                fontFamily: "'Press Start 2P', cursive",
+                fontSize: '18px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                boxShadow: 'inset 0px -6px 0px rgba(0,0,0,0.3), 0px 4px 0px 0px #2a6f18',
+                transition: 'all 0.1s ease-out',
+                textShadow: '2px 2px 0px rgba(0,0,0,0.4)',
+                letterSpacing: '1px',
+                position: 'relative',
+                outline: 'none',
+              }}
+              onMouseDown={(e) => {
+                e.currentTarget.style.transform = 'translateY(2px)';
+                e.currentTarget.style.boxShadow = 'inset 0px -2px 0px rgba(0,0,0,0.3), 0px 2px 0px 0px #2a6f18';
+              }}
+              onMouseUp={(e) => {
+                e.currentTarget.style.transform = 'translateY(0px)';
+                e.currentTarget.style.boxShadow = 'inset 0px -6px 0px rgba(0,0,0,0.3), 0px 4px 0px 0px #2a6f18';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0px)';
+                e.currentTarget.style.boxShadow = 'inset 0px -6px 0px rgba(0,0,0,0.3), 0px 4px 0px 0px #2a6f18';
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(180deg, #87e96b 0%, #4cb82d 100%)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(180deg, #6fd250 0%, #3a9c1e 100%)';
+              }}
+              title="Alterar Velocidade"
+            >
+              <span style={{ fontSize: '28px', lineHeight: '1', transform: 'translateY(-2px)' }}>▶️</span>
+              <span>{speedMultiplierRef.current.toFixed(1)}x</span>
+            </button>
+          </div>
+        </>
       )}
 
       <canvas
@@ -1776,92 +1768,47 @@ export function GameScene() {
         }}
       />
 
-      {/* ✅ MODAL DE EVENTO ATUALIZADO PARA SUPORTAR ABASTECIMENTO */}
+      {/* MODAL DE EVENTO */}
       {showPopup && activeEvent && !gameEnded && (
         <div
           style={{
-            position: "fixed",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            backgroundColor: "#f9f9f9",
-            padding: "30px",
-            borderRadius: "15px",
-            boxShadow: "0 8px 25px rgba(0,0,0,0.2)",
-            textAlign: "center",
-            minWidth: "400px",
-            maxWidth: "600px",
-            zIndex: 2000,
-            border: "3px solid #333",
-            fontFamily: "'Silkscreen', monospace"
+            position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+            backgroundColor: "#f9f9f9", padding: "30px", borderRadius: "15px",
+            boxShadow: "0 8px 25px rgba(0,0,0,0.2)", textAlign: "center", minWidth: "400px",
+            maxWidth: "600px", zIndex: 2000, border: "3px solid #333", fontFamily: "'Silkscreen', monospace"
           }}
         >
-          {/* ✅ BADGE PERSONALIZADO PARA EVENTOS DE ABASTECIMENTO */}
           <div style={{
             backgroundColor: activeEvent.evento.categoria === 'abastecimento' ? '#28a745' :
               activeEvent.evento.categoria === 'perigo' ? '#ff4444' :
                 activeEvent.evento.categoria === 'terreno' ? '#ff8800' : '#0077cc',
-            color: 'white',
-            padding: '5px 10px',
-            borderRadius: '20px',
-            fontSize: '12px',
-            fontWeight: 'bold',
-            marginBottom: '10px',
-            display: 'inline-block'
+            color: 'white', padding: '5px 10px', borderRadius: '20px', fontSize: '12px',
+            fontWeight: 'bold', marginBottom: '10px', display: 'inline-block'
           }}>
             {activeEvent.evento.categoria === 'abastecimento' ? '⛽ POSTO DE COMBUSTÍVEL' :
               activeEvent.evento.categoria === 'perigo' ? '⚠️ ZONA DE PERIGO' :
                 activeEvent.evento.categoria === 'terreno' ? '🌄 ESTRADA DE TERRA' : '🛣️ EVENTO GERAL'}
           </div>
-
           <div className="font-[Silkscreen]" style={{ marginBottom: "10px" }}>
-            <p style={{
-              fontSize: "28px",
-              color: "#333",
-              marginBottom: "5px",
-              fontWeight: "bold"
-            }}>
+            <p style={{ fontSize: "28px", color: "#333", marginBottom: "5px", fontWeight: "bold" }}>
               {activeEvent.evento.nome}
             </p>
-            <p style={{
-              fontSize: "16px",
-              color: "#555"
-            }}>
+            <p style={{ fontSize: "16px", color: "#555" }}>
               {activeEvent.evento.descricao}
             </p>
           </div>
-
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              gap: "20px",
-              flexWrap: "wrap",
-              marginTop: "20px"
-            }}
-          >
+          <div style={{ display: "flex", justifyContent: "center", gap: "20px", flexWrap: "wrap", marginTop: "20px" }}>
             {activeEvent.evento.opcoes.map((opcao, index) => (
               <button
-                key={opcao.id}
-                onClick={() => handleOptionClick(opcao.id)}
-                disabled={isResponding}
+                key={opcao.id} onClick={() => handleOptionClick(opcao.id)} disabled={isResponding}
                 style={{
-                  padding: "15px 20px",
-                  borderRadius: "10px",
-                  border: "2px solid #fff",
-                  backgroundColor:
-                    activeEvent.evento.categoria === 'abastecimento'
-                      ? (opcao.id === -1 ? "#28a745" : "#6c757d") // Verde para "Sim", Cinza para "Não"
-                      : (index % 2 === 0 ? "#0077cc" : "#e63946"), // Cores originais para outros eventos
-                  color: "white",
-                  fontSize: "14px",
-                  cursor: isResponding ? "not-allowed" : "pointer",
-                  transition: "all 0.3s ease",
-                  minWidth: "200px",
-                  textAlign: "center",
-                  lineHeight: "1.4",
-                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-                  opacity: isResponding ? 0.6 : 1
+                  padding: "15px 20px", borderRadius: "10px", border: "2px solid #fff",
+                  backgroundColor: activeEvent.evento.categoria === 'abastecimento'
+                    ? (opcao.id === -1 ? "#28a745" : "#6c757d")
+                    : (index % 2 === 0 ? "#0077cc" : "#e63946"),
+                  color: "white", fontSize: "14px", cursor: isResponding ? "not-allowed" : "pointer",
+                  transition: "all 0.3s ease", minWidth: "200px", textAlign: "center",
+                  lineHeight: "1.4", boxShadow: "0 2px 4px rgba(0,0,0,0.2)", opacity: isResponding ? 0.6 : 1
                 }}
                 onMouseOver={(e) => {
                   if (!isResponding) {
@@ -1886,22 +1833,12 @@ export function GameScene() {
                   }
                 }}
               >
-                {isResponding && respondToEventMutation.isPending ? (
-                  "⏳ Processando..."
-                ) : (
-                  opcao.descricao
-                )}
+                {isResponding && respondToEventMutation.isPending ? ("⏳ Processando...") : (opcao.descricao)}
               </button>
             ))}
           </div>
-
           {isResponding && (
-            <div style={{
-              marginTop: "15px",
-              fontSize: "14px",
-              color: "#666",
-              fontStyle: "italic"
-            }}>
+            <div style={{ marginTop: "15px", fontSize: "14px", color: "#666", fontStyle: "italic" }}>
               📄 Enviando sua escolha para o servidor...
             </div>
           )}
@@ -1913,37 +1850,19 @@ export function GameScene() {
         <div
           className="endMessage"
           style={{
-            position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            backgroundColor: 'rgba(255, 255, 255, 0.98)',
-            border: '3px solid #000',
-            borderRadius: '15px',
-            padding: '30px',
-            textAlign: 'center',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-            zIndex: 2000,
-            maxWidth: '500px',
-            width: '90%'
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+            backgroundColor: 'rgba(255, 255, 255, 0.98)', border: '3px solid #000',
+            borderRadius: '15px', padding: '30px', textAlign: 'center',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.3)', zIndex: 2000, maxWidth: '500px', width: '90%'
           }}
         >
-          <h2 style={{
-            color: finalGameResults.resultado === 'vitoria' ? "#00cc66" : "#cc3300",
-            marginBottom: "20px",
-            fontFamily: "'Silkscreen', monospace"
-          }}>
+          <h2 style={{ color: finalGameResults.resultado === 'vitoria' ? "#00cc66" : "#cc3300", marginBottom: "20px", fontFamily: "'Silkscreen', monospace" }}>
             {finalGameResults.resultado === 'vitoria' ? '🏁 Viagem Concluída! 🏁' : '❌ Fim de Jogo ❌'}
           </h2>
-
           <p style={{ fontSize: "16px", marginBottom: "25px", fontWeight: "bold" }}>
             {finalGameResults.motivo_finalizacao}
           </p>
-
-          <div style={{
-            backgroundColor: "#f8f9fa", padding: "20px", borderRadius: "10px",
-            marginBottom: "25px", textAlign: "left", border: "2px solid #e9ecef"
-          }}>
+          <div style={{ backgroundColor: "#f8f9fa", padding: "20px", borderRadius: "10px", marginBottom: "25px", textAlign: "left", border: "2px solid #e9ecef" }}>
             <h3 style={{ margin: "0 0 15px 0", color: "#333", textAlign: "center", fontFamily: "'Silkscreen', monospace" }}>
               📊 Resultados Finais
             </h3>
@@ -1957,50 +1876,14 @@ export function GameScene() {
               <strong>⏱️ Tempo Total:</strong> {formatTime(finalGameResults.tempo_real * 60)}
             </div>
           </div>
-
           <div style={{ display: "flex", gap: "15px", justifyContent: "center", flexWrap: "wrap" }}>
-            <button
-              onClick={() => navigate('/ranking')}
-              style={{
-                padding: "12px 24px",
-                backgroundColor: "#28a745",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                cursor: "pointer",
-                fontSize: "14px",
-                fontWeight: "bold"
-              }}
-            >
+            <button onClick={() => navigate('/ranking')} style={{ padding: "12px 24px", backgroundColor: "#28a745", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "14px", fontWeight: "bold" }}>
               🏆 Ver Ranking
             </button>
-            <button
-              onClick={() => navigate('/game-selection')}
-              style={{
-                padding: "12px 24px",
-                backgroundColor: "#0077cc",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                cursor: "pointer",
-                fontSize: "14px",
-                fontWeight: "bold"
-              }}
-            >
+            <button onClick={() => navigate('/game-selection')} style={{ padding: "12px 24px", backgroundColor: "#0077cc", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "14px", fontWeight: "bold" }}>
               🚚 Nova Viagem
             </button>
-            <button
-              onClick={() => navigate('/perfil')}
-              style={{
-                padding: "12px 24px",
-                backgroundColor: "#6c757d",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                cursor: "pointer",
-                fontSize: "14px"
-              }}
-            >
+            <button onClick={() => navigate('/perfil')} style={{ padding: "12px 24px", backgroundColor: "#6c757d", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "14px" }}>
               👤 Perfil
             </button>
           </div>
@@ -2010,24 +1893,11 @@ export function GameScene() {
       {/* Overlay de carregamento durante finalização */}
       {syncGameMutation.isPending && (
         <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1999
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', zIndex: 1999
         }}>
-          <div style={{
-            backgroundColor: 'white',
-            padding: '20px',
-            borderRadius: '10px',
-            textAlign: 'center',
-            border: '2px solid #000'
-          }}>
+          <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '10px', textAlign: 'center', border: '2px solid #000' }}>
             <div style={{ marginBottom: '10px', fontSize: '24px' }}>⏳</div>
             <p style={{ margin: 0, fontSize: '16px' }}>Finalizando partida...</p>
           </div>
@@ -2038,84 +1908,27 @@ export function GameScene() {
       {showMapModal && selectedRoute && (
         <div
           style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100vw",
-            height: "100vh",
-            backgroundColor: "rgba(0, 0, 0, 0.8)",
-            zIndex: 3000,
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            padding: "20px"
+            position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
+            backgroundColor: "rgba(0, 0, 0, 0.8)", zIndex: 3000, display: "flex",
+            justifyContent: "center", alignItems: "center", padding: "20px"
           }}
           onClick={handleMapModalToggle}
         >
           <div
             style={{
-              width: "95%",
-              height: "95%",
-              backgroundColor: "white",
-              borderRadius: "10px",
-              overflow: "hidden",
-              position: "relative",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.5)"
+              width: "95%", height: "95%", backgroundColor: "white", borderRadius: "10px",
+              overflow: "hidden", position: "relative", boxShadow: "0 10px 30px rgba(0,0,0,0.5)"
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                padding: '15px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                boxSizing: 'border-box',
-                zIndex: 9999,
-              }}
-            >
-              <div
-                style={{
-                  backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                  color: 'white',
-                  padding: '10px 15px',
-                  borderRadius: '5px',
-                  fontFamily: '"Silkscreen", monospace',
-                  fontSize: '16px',
-                  fontWeight: 'bold',
-                }}
-              >
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box', zIndex: 9999, }}>
+              <div style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)', color: 'white', padding: '10px 15px', borderRadius: '5px', fontFamily: '"Silkscreen", monospace', fontSize: '16px', fontWeight: 'bold', }}>
                 🗺️ {selectedRoute.name}
               </div>
-              <button
-                onClick={handleMapModalToggle}
-                style={{
-                  backgroundColor: '#e63946',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '50%',
-                  height: '45px',
-                  width: '45px',
-                  fontSize: '20px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
-                  flexShrink: 0,
-                  marginLeft: '15px',
-                }}
-                title="Fechar mapa"
-              >
+              <button onClick={handleMapModalToggle} style={{ backgroundColor: '#e63946', color: 'white', border: 'none', borderRadius: '50%', height: '45px', width: '45px', fontSize: '20px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 10px rgba(0,0,0,0.3)', flexShrink: 0, marginLeft: '15px', }} title="Fechar mapa">
                 ×
               </button>
             </div>
-
             <div style={{ width: "100%", height: "100%" }}>
               <MapComponent
                 preSelectedRoute={selectedRoute}
