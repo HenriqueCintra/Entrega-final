@@ -50,6 +50,7 @@ export const RoutesPage: React.FC = () => {
   const availableMoney = location.state?.availableMoney || 5500;
   const selectedChallenge = location.state?.selectedChallenge;
   const backendChallengeId = location.state?.challengeId;
+  const cargoAmount = location.state?.cargoAmount;
   
   // Função para mapear ID numérico do backend para ChallengeId string
   const mapBackendIdToChallengeId = (backendId: number | string): ChallengeId => {
@@ -189,7 +190,8 @@ export const RoutesPage: React.FC = () => {
             pathCoordinates: selectedRoute.pathCoordinates
           },
           selectedChallenge,
-          challengeId
+          challengeId,
+          cargoAmount
         }
       });
     }

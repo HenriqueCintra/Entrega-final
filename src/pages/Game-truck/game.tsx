@@ -1098,7 +1098,7 @@ export function GameScene() {
 
     console.log("🚀 Lógica de inicialização única está rodando...");
 
-    const { selectedVehicle, selectedRoute: route, savedProgress } = location.state || {};
+    const { selectedVehicle, selectedRoute: route, savedProgress, cargoAmount, selectedChallenge } = location.state || {};
 
     if (!selectedVehicle || !route?.id || !route?.mapaId) {
       console.error("❌ Dados insuficientes para criar partida. Redirecionando...");
@@ -1106,6 +1106,16 @@ export function GameScene() {
       navigate('/routes');
       return;
     }
+
+    // --- CÁLCULO DA CARGA INICIAL ---
+    let quantidade_carga_inicial = undefined;
+    if (cargoAmount && selectedChallenge?.peso_carga_kg) {
+      quantidade_carga_inicial = Math.round(selectedChallenge.peso_carga_kg * (cargoAmount / 100));
+      console.log(`📦 Carga inicial calculada: ${quantidade_carga_inicial}kg (${cargoAmount}% de ${selectedChallenge.peso_carga_kg}kg)`);
+    } else {
+      console.warn(`⚠️ Não foi possível calcular a carga inicial. Usando valor padrão do backend. Carga: ${cargoAmount}, Peso Total: ${selectedChallenge?.peso_carga_kg}`);
+    }
+    // --------------------------------
 
     if (savedProgress && savedProgress.activeGameId) {
       console.log("🟢 Restaurando partida existente com ID:", savedProgress.activeGameId);
@@ -1121,7 +1131,8 @@ export function GameScene() {
       rota: route.id,
       veiculo: parseInt(selectedVehicle.id, 10) || 1,
       saldo_inicial: money, // Passa o saldo da tela de abastecimento
-      combustivel_inicial: vehicle.currentFuel // Passa o combustível da tela de abastecimento
+      combustivel_inicial: vehicle.currentFuel, // Passa o combustível da tela de abastecimento
+      quantidade_carga_inicial: quantidade_carga_inicial
     }).then(() => {
       initializeGame(vehicle, money); // Inicializa sem estado restaurado
     }).catch(error => {

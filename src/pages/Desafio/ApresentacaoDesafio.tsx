@@ -41,11 +41,7 @@ export const ApresentacaoDesafioPage = () => {
         setCarregandoDesafios(true);
         setErro(null);
         
-        console.log("🔍 Iniciando carregamento de desafios...");
-        
         const challenges = await fetchChallengesFromBackend();
-        
-        console.log("🔍 Challenges recebidos:", challenges);
         
         if (challenges.length === 0) {
           setErro("Nenhum desafio encontrado no backend. Verifique se as seeds foram executadas.");
@@ -53,10 +49,7 @@ export const ApresentacaoDesafioPage = () => {
         }
         
         setAvailableChallenges(challenges);
-        console.log("🎯 Desafios carregados com sucesso:", challenges);
       } catch (error) {
-        console.error("❌ Erro ao carregar desafios:", error);
-        
         const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
         
         // Se for erro de autenticação, redirecionar para login
@@ -116,15 +109,6 @@ export const ApresentacaoDesafioPage = () => {
 
   const handleAceitarDesafio = () => {
     if (!currentChallenge) return;
-
-    console.log("🎯 DEBUG ApresentacaoDesafio - Desafio selecionado:", currentChallenge.id);
-    console.log("🎯 DEBUG ApresentacaoDesafio - Backend ID:", currentChallenge.backendId);
-    console.log("🎯 DEBUG ApresentacaoDesafio - Quantidade de carga:", selectedCargoAmount);
-    console.log("🎯 DEBUG ApresentacaoDesafio - Dados enviados:", {
-      desafio: currentChallenge,
-      challengeId: currentChallenge.backendId || currentChallenge.id,
-      cargoAmount: selectedCargoAmount
-    });
 
     setCarregando(true);
     setTimeout(() => {
@@ -198,18 +182,20 @@ export const ApresentacaoDesafioPage = () => {
 
         <div className="pt-8   pb-8 px-4 flex flex-col justify-center items-center min-h-screen z-10">
           {/* Carrossel de desafios */}
-          <div className="relative w-full max-w-[1200px] px-4 sm:px-16">
+          <div className="relative w-full max-w-[1000px] mx-auto px-8 md:px-16">
             <Carousel
               setApi={setApi}
               className="w-full"
               opts={{
                 align: "center",
                 loop: true,
+                containScroll: "trimSnaps",
+                slidesToScroll: 1,
               }}
             >
-              <CarouselContent className="ml-2 justify-center items-center sm:-ml-4 py-6 px-4 mb-4">
+              <CarouselContent className="-ml-2 md:-ml-4 py-6 px-2 mb-4">
                 {availableChallenges.map((challenge) => (
-                  <CarouselItem key={challenge.id} className="basis-full pl-2 sm:pl-4">
+                  <CarouselItem key={challenge.id} className="pl-2 md:pl-4 basis-full">
                     <ChallengeCard
                       challenge={challenge}
                       selectedCargoAmount={selectedCargoAmount}
@@ -226,8 +212,8 @@ export const ApresentacaoDesafioPage = () => {
                 ))}
               </CarouselContent>
 
-              <CarouselPrevious className="hidden md:flex opacity-100 -left-16 h-14 w-14 bg-[#e3922a] hover:bg-[#d4831f] transition-all duration-300 ease-in-out hover:scale-110 text-white border-2 border-black rounded-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" />
-              <CarouselNext className="hidden transition-all duration-300 ease-in-out hover:scale-110 md:flex opacity-100 -right-16 h-14 w-14 bg-[#e3922a] hover:bg-[#d4831f] text-white border-2 border-black rounded-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" />
+              <CarouselPrevious className="hidden md:flex opacity-100 -left-12 h-12 w-12 bg-[#e3922a] hover:bg-[#d4831f] transition-all duration-300 ease-in-out hover:scale-110 text-white border-2 border-black rounded-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" />
+              <CarouselNext className="hidden transition-all duration-300 ease-in-out hover:scale-110 md:flex opacity-100 -right-12 h-12 w-12 bg-[#e3922a] hover:bg-[#d4831f] text-white border-2 border-black rounded-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" />
             </Carousel>
           </div>
 
