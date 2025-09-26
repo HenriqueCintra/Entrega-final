@@ -367,6 +367,19 @@ export const GameService = {
     }
   },
 
+  // ✅✅✅ NOVA FUNÇÃO DE ABASTECIMENTO ✅✅✅
+  async processarAbastecimento(data: { litros: number; custo: number }): Promise<PartidaResponse> {
+    console.log('⛽ Processando abastecimento:', data);
+    try {
+      const response = await api.post<PartidaResponse>('/jogo1/partidas/abastecer/', data);
+      console.log('✅ Abastecimento processado pelo backend:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erro ao processar abastecimento:', error);
+      throw error;
+    }
+  },
+
   async pauseGame(): Promise<{ detail: string }> {
     console.log('⏸️ Pausando jogo...');
     try {

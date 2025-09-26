@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-const FILL_RATE = 0.35; // Velocidade mais rápida e responsiva
+const FILL_RATE = 0.35; // ✅ MANTIDO ORIGINAL - velocidade perfeita
 const TOLERANCE = 8.0; // Margem mais generosa para resultado "Perfeito"
 const GOOD_TOLERANCE = 15.0; // Margem mais generosa para "Bom"
 
@@ -18,9 +18,18 @@ interface RefuelInfo {
   liters: number;
 }
 
-export const MinigameScreen: React.FC = () => {
-  const { state } = useLocation();
-  const navigate = useNavigate();
+// ✅ PROPS OPCIONAIS PARA USAR COMO MODAL
+interface MinigameScreenProps {
+  mockNavigate?: (path: string, options?: any) => void;
+  mockLocation?: { state: any };
+}
+
+export const MinigameScreen: React.FC<MinigameScreenProps> = ({ mockNavigate, mockLocation }) => {
+  // ✅ USA MOCKS SE FORNECIDOS, SENÃO USA HOOKS NORMAIS
+  const navigate = mockNavigate || useNavigate();
+  const locationStateObj = mockLocation || useLocation();
+  const { state } = locationStateObj;
+
   const locationState = state as any;
   const vehicle = locationState?.selectedVehicle ?? locationState?.vehicle;
   const selectedRoute = locationState?.selectedRoute;
@@ -86,21 +95,25 @@ export const MinigameScreen: React.FC = () => {
 
           return newLevel;
         });
-      }, 20); // 50 FPS - balance entre suavidade e responsividade
+      }, 20); // ✅ MANTIDO ORIGINAL - 20ms é a velocidade certa
     }
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
   }, [isPouring, hasOverflowed]);
 
-  const handleInteractionStart = () => {
+  // ✅ CORRIGIDO: Adicionado preventDefault para evitar conflitos no modal
+  const handleInteractionStart = (e?: any) => {
     if (!result && !hasOverflowed) {
+      e?.preventDefault?.(); // ✅ PREVINE CONFLITOS DE EVENTOS
       setIsPouring(true);
     }
   };
 
-  const handleInteractionEnd = () => {
+  // ✅ CORRIGIDO: Adicionado preventDefault para evitar conflitos no modal
+  const handleInteractionEnd = (e?: any) => {
     if (isPouring) {
+      e?.preventDefault?.(); // ✅ PREVINE CONFLITOS DE EVENTOS
       setIsPouring(false);
       // Pequeno delay para permitir que o último frame seja processado
       setTimeout(() => {

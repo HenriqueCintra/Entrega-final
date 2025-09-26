@@ -8,9 +8,16 @@ const BASE_FUEL_PRICES: Record<string, number> = {
   ALCOOL: 5.99,
 };
 
-export const FuelPage: React.FC = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
+// ✅ PROPS OPCIONAIS PARA USAR COMO MODAL
+interface FuelPageProps {
+  mockNavigate?: (path: string, options?: any) => void;
+  mockLocation?: { state: any };
+}
+
+export const FuelPage: React.FC<FuelPageProps> = ({ mockNavigate, mockLocation }) => {
+  // ✅ USA MOCKS SE FORNECIDOS, SENÃO USA HOOKS NORMAIS
+  const navigate = mockNavigate || useNavigate();
+  const location = mockLocation || useLocation();
 
   // ✅ PRIORIZA OS PREÇOS DINÂMICOS VINDOS DO JOGO
   const fuelPricesToUse = location.state?.stationPrices || BASE_FUEL_PRICES;

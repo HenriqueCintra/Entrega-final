@@ -23,6 +23,7 @@ import RadioToggle from '@/components/RadioToggle';
 import TruckRadio from '@/components/TruckRadio';
 import { AudioControl } from "../../components/AudioControl";
 import { AudioManager } from "../../components/AudioManager";
+import { FuelModalContainer } from "../fuel/FuelModalContainer"; // ✅ NOVO IMPORT
 
 // Interface para eventos vindos da API
 interface EventData {
@@ -57,6 +58,9 @@ export function GameScene() {
   // REFs DE CONTROLE DE EVENTOS
   const activeGameIdRef = useRef<number | null>(null);
   const isFinishing = useRef(false);
+
+  // ✅ NOVO ESTADO PARA CONTROLAR O MODAL DE ABASTECIMENTO
+  const [showFuelModal, setShowFuelModal] = useState(false);
 
   // ✅ MANTEMOS OS ESTADOS PARA O BOTÃO DE ABASTECIMENTO
   const [autoStopAtNextStation, setAutoStopAtNextStation] = useState(false);
@@ -295,6 +299,34 @@ export function GameScene() {
     }
   });
 
+  // ✅✅✅ NOVA MUTATION DE ABASTECIMENTO ✅✅✅
+  const abastecerMutation = useMutation({
+    mutationFn: GameService.processarAbastecimento,
+    onSuccess: (partidaAtualizada) => {
+      console.log("✅ Abastecimento confirmado pelo backend!", partidaAtualizada);
+
+      // Sincroniza TODOS os dados com o backend
+      setMoney(partidaAtualizada.saldo);
+      setCurrentFuel(partidaAtualizada.combustivel_atual);
+
+      // Fecha o modal
+      setShowFuelModal(false);
+
+      // Despausa imediatamente (sem setTimeout!)
+      gamePaused.current = false;
+
+      console.log("🎮 Jogo despausado imediatamente - dados persistidos no backend!");
+    },
+    onError: (error) => {
+      console.error("❌ Erro no abastecimento:", error);
+      alert("Erro ao processar abastecimento. Tente novamente.");
+
+      // Em caso de erro, fecha modal e despausa sem alterações
+      setShowFuelModal(false);
+      gamePaused.current = false;
+    }
+  });
+
   // Função que chama a API para sortear um quiz
   const handleTriggerQuiz = async () => {
     try {
@@ -330,56 +362,48 @@ export function GameScene() {
     setCurrentQuiz(null);
   };
 
-  // ✅ FUNÇÃO DE ABASTECIMENTO MANTIDA
-  const generateDynamicPrices = (basePrices: Record<string, number>) => {
-    const variation = 1 + (Math.random() - 0.5) * 0.3; // Variação de +/- 15%
-    const newPrices: Record<string, number> = {};
-    for (const fuel in basePrices) {
-      newPrices[fuel] = parseFloat((basePrices[fuel] * variation).toFixed(2));
-    }
-    return newPrices;
+  // ✅✅✅ NOVA FUNÇÃO DE ABASTECIMENTO SIMPLIFICADA (PAUSE & MODAL) ✅✅✅
+  const handleInitiateRefuel = (gasStation: any) => {
+    console.log("⛽ Iniciando abastecimento...");
+
+    // ✅ REMOVE a verificação de pausa - eventos de abastecimento DEVEM pausar o jogo
+    console.log("🔥 Setando showFuelModal = true");
+    setShowFuelModal(true);
+
+    // O jogo já está pausado pelo evento, isso é correto
+    console.log("🔥 handleInitiateRefuel FINALIZADO");
+  }
+
+  // ✅✅✅ NOVAS FUNÇÕES DE CALLBACK DO MODAL ATUALIZADAS ✅✅✅
+
+  // Esta função será chamada pelo modal quando o abastecimento for concluído
+  const handleFuelComplete = (newMoney: number, newFuel: number) => {
+    console.log(`✅ MODAL COMPLETED: Tentando abastecer - Saldo final: R$${newMoney}, Combustível final: ${newFuel}L`);
+
+    // Calcula quanto foi gasto e adicionado
+    const custoTotal = money - newMoney;
+    const litrosAdicionados = newFuel - currentFuel;
+
+    console.log(`⛽ Transação: -R$${custoTotal.toFixed(2)}, +${litrosAdicionados.toFixed(2)}L`);
+
+    // Chama o backend para processar a transação
+    abastecerMutation.mutate({
+      custo: custoTotal,
+      litros: litrosAdicionados
+    });
+
+    // O resto será feito no onSuccess/onError da mutation
   };
 
-  const handleInitiateRefuel = (gasStation: any) => {
-    if (gamePaused.current) return;
+  // Esta função será chamada se o jogador cancelar ou pular o abastecimento
+  const handleFuelCancel = () => {
+    console.log("❌ MODAL CANCELLED: Abastecimento cancelado pelo jogador");
 
-    console.log(`⛽ Parada automática acionada para: ${gasStation.locationName || 'Posto'}`);
-    gamePaused.current = true;
-    setIsPaused(true);
+    // ✅ Apenas fecha o modal e despausa o jogo
+    setShowFuelModal(false);
+    gamePaused.current = false;
 
-    const basePrices = { DIESEL: 6.89, GASOLINA: 7.29, ALCOOL: 5.99 };
-    const dynamicPrices = generateDynamicPrices(basePrices);
-    console.log("Preços dinâmicos para este posto:", dynamicPrices);
-
-    // ✅ SALVA O ESTADO ATUAL NO LOCALSTORAGE PARA RESTAURAÇÃO
-    const inProgressState = {
-      activeGameId: activeGameIdRef.current,
-      vehicle,
-      money,
-      selectedRoute,
-      currentFuel,
-      progress: (distanceTravelled.current / totalDistance) * 100,
-      gameTime,
-      distanceTravelled: distanceTravelled.current,
-      totalDistance, // ✅ NOVO: Salva a distância total da rota.
-      gameLoaded: true, // ✅ NOVO: Um marcador para ajudar na lógica de retomada.
-      // ✅ ADICIONAR MAIS ESTADOS CRÍTICOS
-      currentPathIndex,
-      pathProgress: pathProgressRef.current,
-      triggeredGasStations: triggeredGasStations.current, // Movido para manter a consistência.
-    };
-    localStorage.setItem('inProgressRefuelState', JSON.stringify(inProgressState));
-
-    navigate('/fuel', {
-      state: {
-        fromGame: true, // ✅ MARCADOR CRUCIAL
-        selectedVehicle: vehicle,
-        availableMoney: money,
-        selectedRoute: selectedRoute,
-        stationPrices: dynamicPrices, // ✅ PREÇOS DINÂMICOS
-        gasStationName: gasStation.locationName || 'Posto de Combustível', // ✅ NOME DO POSTO
-      },
-    });
+    console.log("🎮 Jogo despausado sem modificações!");
   };
 
   // MUTAÇÃO PARA RESPONDER EVENTO - MANTÉM sincronização de tempo apenas aqui
@@ -698,7 +722,7 @@ export function GameScene() {
     togglePause();
   };
 
-  // ✅✅✅ FUNÇÃO DE RESPOSTA A EVENTOS CORRIGIDA ✅✅✅
+  // ✅✅✅ FUNÇÃO DE RESPOSTA A EVENTOS - CORREÇÃO FINAL ✅✅✅
   const handleOptionClick = (optionId: number) => {
     if (isResponding) return;
 
@@ -711,21 +735,25 @@ export function GameScene() {
     if (activeEvent.evento.categoria === 'abastecimento') {
       console.log(`⛽ Processando resposta de abastecimento - Opção: ${optionId}`);
 
-      // Fecha o modal imediatamente
-      setShowPopup(false);
-      setActiveEvent(null);
-      gamePaused.current = false;
-      processingEvent.current = false;
-
       if (optionId === -1) {
         // Opção "Sim, abastecer"
-        console.log("✅ Jogador escolheu abastecer, redirecionando para tela de combustível...");
+        console.log("✅ Jogador escolheu abastecer, abrindo modal de abastecimento...");
+        // ✅ Usar activeEvent ANTES de limpar
         handleInitiateRefuel(activeEvent.posto_info || {});
       } else {
         // Opção "Não, seguir viagem"
         console.log("❌ Jogador escolheu não abastecer, continuando viagem...");
-        // Nada mais a fazer, o jogo continua normalmente
+        gamePaused.current = false; // Despausa imediatamente
       }
+
+      // ✅ Limpar estados DEPOIS de usar activeEvent
+      setShowPopup(false);
+      setActiveEvent(null);
+      processingEvent.current = false;
+
+      // ✅ CORREÇÃO CRÍTICA: NÃO chamar respondToEvent para abastecimento
+      // Eventos de abastecimento são virtuais e não existem no banco
+      console.log("🔇 Evento de abastecimento processado localmente (não enviado ao backend)");
       return;
     }
 
@@ -736,7 +764,6 @@ export function GameScene() {
     // ✅ SEMPRE USAR A FONTE DA VERDADE PARA A DISTÂNCIA
     respondToEventMutation.mutate({ optionId, distancia: distanceTravelled.current });
   };
-
   // ============= INICIALIZAÇÃO DO JOGO =============
 
   const initializeGame = (
@@ -1071,40 +1098,6 @@ export function GameScene() {
 
     console.log("🚀 Lógica de inicialização única está rodando...");
 
-    // ✅ DETECÇÃO DE RETOMADA APÓS ABASTECIMENTO
-    const { resumeAfterRefuel, updatedVehicle, updatedMoney } = location.state || {};
-
-    if (resumeAfterRefuel) {
-      console.log("🔄 Retomando jogo após abastecimento...");
-      const savedStateJSON = localStorage.getItem('inProgressRefuelState');
-
-      if (savedStateJSON) {
-        try {
-          const savedState = JSON.parse(savedStateJSON);
-
-          // ✅ CORREÇÃO: Restaurar TODOS os estados críticos ANTES de inicializar o jogo.
-          // O dinheiro e combustível vêm da tela de abastecimento (location.state).
-          setMoney(updatedMoney);
-          setCurrentFuel(updatedVehicle.currentFuel);
-
-          // O resto dos dados vem do que salvamos no localStorage.
-          setGameTime(savedState.gameTime || 0);
-          setProgress(savedState.progress || 0);
-          setTotalDistance(savedState.selectedRoute?.actualDistance || savedState.selectedRoute?.distance || 500);
-
-          // Limpa o estado salvo para evitar reutilização
-          localStorage.removeItem('inProgressRefuelState');
-
-          // PASSA O ESTADO RESTAURADO COMPLETO PARA A FUNÇÃO DE INICIALIZAÇÃO
-          initializeGame(updatedVehicle, updatedMoney, savedState);
-          return;
-
-        } catch (error) {
-          console.error("Erro ao restaurar estado. Iniciando novo jogo como fallback.", error);
-        }
-      }
-    }
-
     const { selectedVehicle, selectedRoute: route, savedProgress } = location.state || {};
 
     if (!selectedVehicle || !route?.id || !route?.mapaId) {
@@ -1229,11 +1222,10 @@ export function GameScene() {
   // ✅✅✅ SISTEMA DE TICKS PERIÓDICOS ATUALIZADO ✅✅✅
   useEffect(() => {
     tickTimerRef.current = setInterval(() => {
-      if (!gamePaused.current && !gameEnded && gameLoaded && activeGameIdRef.current) {
-        // ✅ ENVIA A DISTÂNCIA E A INTENÇÃO DE ABASTECIMENTO
+      if (!gamePaused.current && !gameEnded && gameLoaded && activeGameIdRef.current && !showFuelModal) {
         partidaTickMutation.mutate({
           distancia_percorrida: distanceTravelled.current,
-          quer_abastecer: autoStopAtNextStation // ✅ PASSA A INTENÇÃO DO JOGADOR
+          quer_abastecer: autoStopAtNextStation
         });
       }
     }, 2000);
@@ -1241,7 +1233,7 @@ export function GameScene() {
     return () => {
       if (tickTimerRef.current) clearInterval(tickTimerRef.current);
     };
-  }, [gameEnded, gameLoaded, totalDistance, autoStopAtNextStation]); // ✅ ADICIONA autoStopAtNextStation ÀS DEPENDÊNCIAS
+  }, [gameEnded, gameLoaded, totalDistance, autoStopAtNextStation, showFuelModal]);// ✅ ADICIONA autoStopAtNextStation ÀS DEPENDÊNCIAS
 
   // ✅ SISTEMA DE TEMPO CORRIGIDO - ACELERA SEMPRE NO FRONTEND
   useEffect(() => {
@@ -1843,6 +1835,17 @@ export function GameScene() {
             </div>
           )}
         </div>
+      )}
+
+      {/* ✅ MODAL DE ABASTECIMENTO - SÓ APARECE QUANDO showFuelModal = true */}
+      {showFuelModal && (
+        <FuelModalContainer
+          vehicle={{ ...vehicle, currentFuel }}
+          currentMoney={money}
+          selectedRoute={selectedRoute}
+          onComplete={handleFuelComplete}
+          onCancel={handleFuelCancel}
+        />
       )}
 
       {/* Mensagem de fim de jogo */}
