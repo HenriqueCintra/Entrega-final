@@ -547,118 +547,123 @@ export function GameScene() {
     zoomEffect.current.progress = 0;
   };
 
-  // ✅ ADIÇÃO: Sistema de background modular da versão antiga
-  const updateBackgroundSystem = (k: any, deltaTime: number, moveAmount: number) => {
-    // Aplicar efeito de zoom
-    applyZoomEffect(k, deltaTime);
+  // ADIÇÃO: Sistema de background simétrico corrigido
+const updateBackgroundSystem = (k: any, deltaTime: number, moveAmount: number) => {
+  // Aplicar efeito de zoom
+  applyZoomEffect(k, deltaTime);
 
-    // Movimento dos backgrounds
-    k.get("bg_cidade").forEach((bg: any) => bg.move(moveAmount, 0));
-    k.get("bg_terra").forEach((bg: any) => bg.move(moveAmount, 0));
+  // Movimento dos backgrounds - AMBOS SE MOVEM NA MESMA VELOCIDADE
+  k.get("bg_cidade").forEach((bg: any) => bg.move(moveAmount, 0));
+  k.get("bg_terra").forEach((bg: any) => bg.move(moveAmount, 0));
 
-    // Gerenciar cooldown
-    if (transitionCooldown.current > 0) {
-      transitionCooldown.current -= deltaTime;
-    }
+  // Gerenciar cooldown
+  if (transitionCooldown.current > 0) {
+    transitionCooldown.current -= deltaTime;
+  }
 
-    // Garantir que sempre temos um background visível quando não há transição
-    if (!isTransitioning.current && !nextBg.current && transitionProgress.current === 0 && transitionCooldown.current <= 0) {
-      k.get(`bg_${currentBg.current}`).forEach((bg: any) => {
-        if (bg.opacity !== 1) bg.opacity = 1;
-      });
-      const otherBg = currentBg.current === 'cidade' ? 'terra' : 'cidade';
-      k.get(`bg_${otherBg}`).forEach((bg: any) => {
-        if (bg.opacity !== 0) bg.opacity = 0;
-      });
-    }
+  // Garantir que sempre temos um background visível quando não há transição
+  if (!isTransitioning.current && !nextBg.current && transitionProgress.current === 0 && transitionCooldown.current <= 0) {
+    k.get(`bg_${currentBg.current}`).forEach((bg: any) => {
+      if (bg.opacity !== 1) bg.opacity = 1;
+    });
+    const otherBg = currentBg.current === 'cidade' ? 'terra' : 'cidade';
+    k.get(`bg_${otherBg}`).forEach((bg: any) => {
+      if (bg.opacity !== 0) bg.opacity = 0;
+    });
+  }
 
-    // Reposicionamento dos backgrounds
-    const bgWidth = 2048 * Math.max(k.width() / 2048, k.height() / 762);
-    const backgrounds = k.get("bg_cidade").concat(k.get("bg_terra"));
+  // ✅ CORREÇÃO: Reposicionamento simétrico dos backgrounds
+  const bgWidth = 2048 * Math.max(k.width() / 2048, k.height() / 762);
+  const cidadeBackgrounds = k.get("bg_cidade");
+  const terraBackgrounds = k.get("bg_terra");
 
-    backgrounds.forEach((bg: any, index: number) => {
-      if (index % 2 === 0) { // bg1 de cada tipo
-        const otherBg = backgrounds[index + 1];
-        if (otherBg && bg.pos.x + bgWidth <= 0) {
-          bg.pos.x = otherBg.pos.x + bgWidth;
-        }
-      } else { // bg2 de cada tipo
-        const otherBg = backgrounds[index - 1];
-        if (otherBg && bg.pos.x + bgWidth <= 0) {
-          bg.pos.x = otherBg.pos.x + bgWidth;
-        }
-      }
-    });
+  // Reposicionar backgrounds da cidade
+  cidadeBackgrounds.forEach((bg: any, index: number) => {
+    if (bg.pos.x + bgWidth <= 0) {
+      const otherIndex = index === 0 ? 1 : 0;
+      bg.pos.x = cidadeBackgrounds[otherIndex].pos.x + bgWidth;
+    }
+  });
 
-    // Sistema de transição suave com opacity
-    if (isTransitioning.current && nextBg.current) {
-      transitionProgress.current += deltaTime / TRANSITION_DURATION;
+  // Reposicionar backgrounds da terra
+  terraBackgrounds.forEach((bg: any, index: number) => {
+    if (bg.pos.x + bgWidth <= 0) {
+      const otherIndex = index === 0 ? 1 : 0;
+      bg.pos.x = terraBackgrounds[otherIndex].pos.x + bgWidth;
+    }
+  });
 
-      if (transitionProgress.current >= 1) {
-        transitionProgress.current = 0;
-        isTransitioning.current = false;
+  // Sistema de transição suave com opacity
+  if (isTransitioning.current && nextBg.current) {
+    transitionProgress.current += deltaTime / TRANSITION_DURATION;
 
-        const newCurrentBg = nextBg.current;
-        const oldBg = currentBg.current;
+    if (transitionProgress.current >= 1) {
+      transitionProgress.current = 0;
+      isTransitioning.current = false;
 
-        k.get(`bg_${newCurrentBg}`).forEach((bg: any) => { bg.opacity = 1; });
-        k.get(`bg_${oldBg}`).forEach((bg: any) => { bg.opacity = 0; });
+      const newCurrentBg = nextBg.current;
+      const oldBg = currentBg.current;
 
-        currentBg.current = newCurrentBg;
-        nextBg.current = null;
-        transitionCooldown.current = COOLDOWN_DURATION;
+      k.get(`bg_${newCurrentBg}`).forEach((bg: any) => { bg.opacity = 1; });
+      k.get(`bg_${oldBg}`).forEach((bg: any) => { bg.opacity = 0; });
 
-        console.log(`Transição suave completa! Novo cenário é ${currentBg.current}`);
-      }
+      currentBg.current = newCurrentBg;
+      nextBg.current = null;
+      transitionCooldown.current = COOLDOWN_DURATION;
 
-      if (isTransitioning.current && nextBg.current) {
-        const easedProgress = easeInOutCubic(transitionProgress.current);
-        const currentOpacity = 1 - easedProgress;
-        const nextOpacity = easedProgress;
+      console.log(`🎨 Transição suave completa! Novo cenário é ${currentBg.current}`);
+    }
 
-        k.get(`bg_${currentBg.current}`).forEach((bg: any) => { bg.opacity = currentOpacity; });
-        k.get(`bg_${nextBg.current}`).forEach((bg: any) => { bg.opacity = nextOpacity; });
-      }
-    }
+    if (isTransitioning.current && nextBg.current) {
+      const easedProgress = easeInOutCubic(transitionProgress.current);
+      const currentOpacity = 1 - easedProgress;
+      const nextOpacity = easedProgress;
 
-    // Timer para mudança de background
-    backgroundSwitchTimer.current -= deltaTime;
-    if (backgroundSwitchTimer.current <= 0 && !nextBg.current && !isTransitioning.current) {
-      const shouldSwitchToTerra = (currentBg.current === 'cidade' && k.rand() < 0.3);
-      const shouldSwitchToCidade = (currentBg.current === 'terra' && k.rand() < 0.8);
+      k.get(`bg_${currentBg.current}`).forEach((bg: any) => { bg.opacity = currentOpacity; });
+      k.get(`bg_${nextBg.current}`).forEach((bg: any) => { bg.opacity = nextOpacity; });
+    }
+  }
 
-      if (shouldSwitchToTerra || shouldSwitchToCidade) {
-        startZoomEffect();
+  // Timer para mudança de background
+  backgroundSwitchTimer.current -= deltaTime;
+  if (backgroundSwitchTimer.current <= 0 && !nextBg.current && !isTransitioning.current && transitionCooldown.current <= 0) {
+    const shouldSwitchToTerra = (currentBg.current === 'cidade' && k.rand() < 0.3);
+    const shouldSwitchToCidade = (currentBg.current === 'terra' && k.rand() < 0.8);
 
-        k.wait(ZOOM_CONFIG.LEAD_IN_TIME, () => {
-          const bgWidth = 2048 * Math.max(k.width() / 2048, k.height() / 762);
+    if (shouldSwitchToTerra || shouldSwitchToCidade) {
+      startZoomEffect();
 
-          if (shouldSwitchToTerra) {
-            nextBg.current = 'terra';
-            const bgTerra = k.get("bg_terra");
-            if (bgTerra.length >= 2) {
-              bgTerra[0].pos.x = 0;
-              bgTerra[1].pos.x = bgWidth;
-            }
-            console.log("🎬 Iniciando FADE: cidade → terra");
-          } else if (shouldSwitchToCidade) {
-            nextBg.current = 'cidade';
-            const bgCidade = k.get("bg_cidade");
-            if (bgCidade.length >= 2) {
-              bgCidade[0].pos.x = 0;
-              bgCidade[1].pos.x = bgWidth;
-            }
-            console.log("🎬 Iniciando FADE: terra → cidade");
-          }
+      k.wait(ZOOM_CONFIG.LEAD_IN_TIME, () => {
+        const bgWidth = 2048 * Math.max(k.width() / 2048, k.height() / 762);
 
-          isTransitioning.current = true;
-          transitionProgress.current = 0;
-        });
+        if (shouldSwitchToTerra) {
+          nextBg.current = 'terra';
+          const bgTerra = k.get("bg_terra");
+          if (bgTerra.length >= 2) {
+            // ✅ CORREÇÃO: Posicionamento simétrico inicial
+            bgTerra[0].pos.x = 0;
+            bgTerra[1].pos.x = bgWidth;
+          }
+          console.log("🎬 Iniciando FADE: cidade → terra");
+        } else if (shouldSwitchToCidade) {
+          nextBg.current = 'cidade';
+          const bgCidade = k.get("bg_cidade");
+          if (bgCidade.length >= 2) {
+            // ✅ CORREÇÃO: Posicionamento simétrico inicial
+            bgCidade[0].pos.x = 0;
+            bgCidade[1].pos.x = bgWidth;
+          }
+          console.log("🎬 Iniciando FADE: terra → cidade");
+        }
 
-        backgroundSwitchTimer.current = k.rand(15, 25);
-      }
-    }
-  };
+        isTransitioning.current = true;
+        transitionProgress.current = 0;
+      });
+
+      backgroundSwitchTimer.current = k.rand(15, 25);
+    }
+  }
+};
 
   //Função para aumentar a velocidade
   const handleSpeedUp = () => {
