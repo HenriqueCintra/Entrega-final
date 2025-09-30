@@ -1,8 +1,9 @@
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../contexts/AuthContext";
 import { TeamService } from "../../api/teamService";
+import { GameService } from "../../api/gameService";
 import { Button } from "../../components/ui/button";
 import {
   Card,
@@ -21,12 +22,42 @@ interface UserStats {
 export const PerfilPage = () => {
   const navigate = useNavigate();
   const { user, logout, refreshUser } = useAuth();
+  const queryClient = useQueryClient();
+
+  // ✅ LIMPAR CACHE AO MONTAR O COMPONENTE
+  useEffect(() => {
+    console.log('🔄 PerfilPage montado - invalidando cache de partidas...');
+    queryClient.invalidateQueries({ queryKey: ['partidaAtiva'] });
+  }, [queryClient]);
 
   // Buscar dados da equipe se o usuário estiver em uma
   const { data: teamData } = useQuery({
     queryKey: ['teamDetails', user?.equipe],
     queryFn: () => TeamService.getTeamDetails(user!.equipe!),
     enabled: !!user?.equipe, // Só busca se o usuário estiver em uma equipe
+  });
+
+  // ✅ VERIFICAR SE HÁ PARTIDA ATIVA/PAUSADA NO BACKEND
+  const { data: partidaAtiva } = useQuery({
+    queryKey: ['partidaAtiva', user?.equipe],
+    queryFn: async () => {
+      console.log('🔄 Buscando partida ativa do backend (sem cache)...');
+      try {
+        return await GameService.getActiveGame();
+      } catch (error: any) {
+        if (error.response?.status === 404) {
+          console.log('ℹ️ Nenhuma partida ativa encontrada');
+          return null; // Sem partida ativa
+        }
+        throw error;
+      }
+    },
+    enabled: !!user?.equipe,
+    retry: false, // Não retentar se não houver partida
+    staleTime: 0, // ✅ SEMPRE considerar dados como obsoletos
+    gcTime: 0, // ✅ NÃO manter cache (era cacheTime em versões antigas)
+    refetchOnMount: 'always', // ✅ SEMPRE buscar ao montar o componente
+    refetchOnWindowFocus: true, // ✅ Buscar quando a janela receber foco
   });
 
   // Stats ainda estáticos (podem ser implementados depois)
@@ -39,6 +70,11 @@ export const PerfilPage = () => {
 
 
   const handlePlayNow = () => {
+    // ✅ LIMPAR CACHE ANTES DE INICIAR NOVO JOGO
+    console.log('🆕 Iniciando novo jogo - limpando cache...');
+    queryClient.invalidateQueries({ queryKey: ['partidaAtiva'] });
+    localStorage.removeItem('savedGameProgress');
+    
     if (user?.equipe) {
       navigate("/desafio");
     } else {
@@ -47,65 +83,126 @@ export const PerfilPage = () => {
     }
   };
 
-  const handleContinueGame = () => {
-    const savedProgress = localStorage.getItem('savedGameProgress');
+  const handleContinueGame = async () => {
+    console.log('🔄 Buscando partida ativa/pausada do backend...');
 
-    if (savedProgress) {
-      try {
-        const gameProgress = JSON.parse(savedProgress);
-        console.log('🔄 Carregando progresso salvo:', gameProgress);
+    try {
+      // ✅ BUSCAR PARTIDA DO BACKEND
+      const partida = await GameService.getActiveGame();
+      
+      console.log('✅ Partida encontrada no backend:', partida);
+      console.log('📊 Status da partida:', partida.status);
+      console.log('🚛 Veículo:', partida.veiculo_detalhes);
+      console.log('🗺️ Rota:', partida.rota_detalhes);
 
-        // ✅ VALIDAÇÃO DOS DADOS ESSENCIAIS
-        if (!gameProgress.vehicle || !gameProgress.vehicle.name) {
-          console.error('❌ Dados do veículo inválidos no progresso salvo');
-          alert('Erro: Dados do jogo salvo estão corrompidos. Iniciando novo jogo...');
-          localStorage.removeItem('savedGameProgress');
-          navigate("/desafio");
-          return;
-        }
-
-        if (!gameProgress.selectedRoute || !gameProgress.selectedRoute.id) {
-          console.error('❌ Dados da rota inválidos no progresso salvo');
-          alert('Erro: Dados do jogo salvo estão corrompidos. Iniciando novo jogo...');
-          localStorage.removeItem('savedGameProgress');
-          navigate("/desafio");
-          return;
-        }
-
-        console.log('✅ Dados validados, navegando para o jogo...');
-
-        navigate('/game', {
-          state: {
-            selectedVehicle: gameProgress.vehicle,
-            availableMoney: gameProgress.money,
-            selectedRoute: gameProgress.selectedRoute,
-            savedProgress: {
-              currentFuel: gameProgress.currentFuel,
-              progress: gameProgress.progress,
-              currentPathIndex: gameProgress.currentPathIndex,
-              pathProgress: gameProgress.pathProgress,
-              gameTime: gameProgress.gameTime,
-              activeGameId: gameProgress.activeGameId,
-              distanceTravelled: gameProgress.distanceTravelled,
-              triggeredGasStations: gameProgress.triggeredGasStations || []
-            }
-          }
-        });
-      } catch (error) {
-        console.error('❌ Erro ao carregar progresso:', error);
-        alert('Erro ao carregar o jogo salvo. Iniciando novo jogo...');
-        localStorage.removeItem('savedGameProgress');
+      // ✅ VALIDAR DADOS DO BACKEND
+      if (!partida.veiculo_detalhes || !partida.rota_detalhes) {
+        console.error('❌ Dados incompletos na partida do backend');
+        console.error('veiculo_detalhes:', partida.veiculo_detalhes);
+        console.error('rota_detalhes:', partida.rota_detalhes);
+        alert('Erro: Dados da partida estão incompletos. Iniciando novo jogo...');
         navigate("/desafio");
+        return;
       }
-    } else {
-      const startNewGame = window.confirm('Não há jogo salvo. Deseja iniciar um novo jogo?');
-      if (startNewGame) {
-        if (user?.equipe) {
-          navigate("/desafio");
-        } else {
-          alert("Você precisa estar em uma equipe para iniciar um novo jogo.");
-          navigate("/choose-team");
+      
+      // Type assertion para satisfazer TypeScript
+      const veiculo = partida.veiculo_detalhes!;
+      const rota = partida.rota_detalhes!;
+
+      // ✅ MAPEAMENTO DE MODELOS PARA IMAGENS (case-insensitive)
+      const getVehicleImage = (modelo: string): string => {
+        const modeloLower = modelo.toLowerCase().trim();
+        
+        const imageMap: { [key: string]: string } = {
+          'caminhonete': '/assets/caminhonete.png',
+          'caminhão pequeno': '/assets/caminhao_pequeno.png',
+          'caminhao pequeno': '/assets/caminhao_pequeno.png',
+          'caminhão médio': '/assets/caminhao_medio.png',
+          'caminhao medio': '/assets/caminhao_medio.png',
+          'carreta': '/assets/carreta.png',
+        };
+
+        const image = imageMap[modeloLower] || '/assets/truck.png';
+        console.log('🖼️ Mapeando veículo:', modelo, '→', image);
+        return image;
+      };
+
+      const vehicleImage = getVehicleImage(veiculo.modelo);
+
+      // ✅ CONVERTER DADOS DO BACKEND PARA O FORMATO DO FRONTEND
+      const vehicleData = {
+        id: partida.veiculo?.toString() || veiculo.id.toString(),
+        name: veiculo.modelo,
+        capacity: veiculo.capacidade_carga,
+        consumption: {
+          asphalt: veiculo.autonomia / veiculo.capacidade_combustivel,
+          dirt: veiculo.autonomia / veiculo.capacidade_combustivel * 0.7
+        },
+        image: vehicleImage,
+        // ✅ NÃO definir spriteSheet - deixar undefined para carregar como imagem simples
+        maxCapacity: veiculo.capacidade_combustivel,
+        currentFuel: partida.combustivel_atual,
+        cost: veiculo.preco,
+        speed: veiculo.velocidade,
+        autonomy: veiculo.autonomia
+      };
+
+      const routeData = {
+        id: partida.rota || rota.id,
+        mapaId: partida.mapa || 0,
+        name: rota.nome,
+        description: rota.descricao,
+        distance: rota.distancia_km,
+        actualDistance: rota.distancia_km,
+        estimatedTimeHours: rota.tempo_estimado_horas,
+        roadType: rota.tipo_estrada,
+        averageSpeed: rota.velocidade_media_kmh,
+        pathCoordinates: rota.pathCoordinates || [],
+        fuelStop: rota.fuelStop || [],
+        danger_zones_data: rota.danger_zones_data || [],
+        dirt_segments_data: rota.dirt_segments_data || []
+      };
+
+      console.log('✅ Dados convertidos, navegando para o jogo...');
+
+      // ✅ NAVEGAR PARA O JOGO COM DADOS DO BACKEND
+      navigate('/game', {
+        state: {
+          selectedVehicle: vehicleData,
+          availableMoney: partida.saldo,
+          selectedRoute: routeData,
+          savedProgress: {
+            currentFuel: partida.combustivel_atual,
+            progress: partida.progresso || 0,
+            currentPathIndex: 0, // Backend não salva isso ainda
+            pathProgress: 0, // Backend não salva isso ainda
+            gameTime: partida.tempo_jogo_segundos || (partida.tempo_jogo ? partida.tempo_jogo * 60 : 0),
+            activeGameId: partida.id,
+            distanceTravelled: partida.distancia_percorrida,
+            triggeredGasStations: [] // Backend não salva isso ainda
+          }
         }
+      });
+
+      // ✅ LIMPAR LOCALSTORAGE APÓS CARREGAR DO BACKEND
+      localStorage.removeItem('savedGameProgress');
+
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar partida:', error);
+      
+      // Se não encontrar partida no backend (404), oferecer iniciar novo jogo
+      if (error.response?.status === 404) {
+        const startNewGame = window.confirm('Não há jogo salvo. Deseja iniciar um novo jogo?');
+        if (startNewGame) {
+          if (user?.equipe) {
+            navigate("/desafio");
+          } else {
+            alert("Você precisa estar em uma equipe para iniciar um novo jogo.");
+            navigate("/choose-team");
+          }
+        }
+      } else {
+        alert('Erro ao carregar partida do servidor. Tente novamente.');
       }
     }
   };
@@ -385,17 +482,22 @@ export const PerfilPage = () => {
                   <CardContent className="p-4" onClick={handleContinueGame}>
                     <div className="flex items-center">
                       <div className="w-8 h-8 bg-purple-700 rounded-full flex items-center justify-center">
-                        <span className="text-white text-2xl">{localStorage.getItem('savedGameProgress') ? '⏱️' : '🎮'}</span>
+                        <span className="text-white text-2xl">{partidaAtiva ? '⏱️' : '🎮'}</span>
                       </div>
                       <div className="ml-3">
                         <h3 className="[font-family:'Silkscreen',Helvetica] font-bold" style={titleStyle}>
-                          {localStorage.getItem('savedGameProgress') ? 'CONTINUAR' : 'NOVO JOGO'}
+                          {partidaAtiva ? 'CONTINUAR' : 'NOVO JOGO'}
                         </h3>
                         <p className="[font-family:'Silkscreen',Helvetica] text-xs">
-                          {localStorage.getItem('savedGameProgress')
-                            ? 'RETOMAR A ÚLTIMA PARTIDA'
+                          {partidaAtiva
+                            ? `RETOMAR ${(partidaAtiva as any)?.status === 'pausado' ? 'JOGO PAUSADO' : 'PARTIDA'}`
                             : 'INICIAR NOVA AVENTURA'}
                         </p>
+                        {partidaAtiva && (partidaAtiva as any)?.progresso !== undefined && (
+                          <p className="[font-family:'Silkscreen',Helvetica] text-xs text-purple-600 mt-1">
+                            {(partidaAtiva as any).progresso.toFixed(0)}% completo
+                          </p>
+                        )}
                       </div>
                     </div>
                   </CardContent>

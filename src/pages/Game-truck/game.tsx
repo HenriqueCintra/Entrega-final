@@ -683,12 +683,26 @@ const updateBackgroundSystem = (k: any, deltaTime: number, moveAmount: number) =
     });
   };
 
-  const togglePause = () => {
-    const nextPausedState = !gamePaused.current;
-    gamePaused.current = nextPausedState;
-    setIsPaused(nextPausedState);
-    console.log(`Jogo ${nextPausedState ? "pausado" : "despausado"}`);
-  };
+  const togglePause = () => {
+    const nextPausedState = !gamePaused.current;
+    gamePaused.current = nextPausedState;
+    setIsPaused(nextPausedState);
+    console.log(`Jogo ${nextPausedState ? "pausado" : "despausado"}`);
+  };
+
+  // ✅ NOVA FUNÇÃO: Retomar o jogo chamando o backend
+  const handleResume = async () => {
+    try {
+      console.log("🔄 Retomando jogo no backend...");
+      await GameService.resumeGame();
+      console.log("✅ Jogo retomado no backend");
+      togglePause(); // Despausa localmente após sucesso no backend
+    } catch (error) {
+      console.error("❌ Erro ao retomar jogo no backend:", error);
+      // Mesmo com erro, permite continuar localmente
+      togglePause();
+    }
+  };
 
   const handleRestart = () => {
     window.location.reload();
@@ -915,26 +929,37 @@ const updateBackgroundSystem = (k: any, deltaTime: number, moveAmount: number) =
         opacity
       } = k;
 
-      destroyRef.current = destroy;
+      destroyRef.current = destroy;
 
-      try {
-        console.log("Tentando carregar sprites...");
+      // ✅ CORREÇÃO: Verificar se é um sprite sheet ou imagem simples (antes do try para estar acessível)
+      const isSpriteSheet = initialVehicle.spriteSheet !== undefined;
 
-        // ✅ CORREÇÃO: Carregamento correto dos backgrounds
-        loadSprite("background_cidade", "/assets/background-cidade.png");
-        loadSprite("background_terra", "/assets/background-terra.png");
+      try {
+        console.log("Tentando carregar sprites...");
 
-        const vehicleImageUrl = getVehicleImageUrl(initialVehicle.spriteSheet || initialVehicle.image);
-        console.log("Imagem original do veículo:", initialVehicle.image);
-        console.log("URL convertida para kaboom:", vehicleImageUrl);
+        // ✅ CORREÇÃO: Carregamento correto dos backgrounds
+        loadSprite("background_cidade", "/assets/background-cidade.png");
+        loadSprite("background_terra", "/assets/background-terra.png");
 
-        loadSprite("car", vehicleImageUrl, {
-          sliceX: 2,
-          sliceY: 1,
-          anims: {
-            run: { from: 0, to: 1, loop: true, speed: 8 },
-          },
-        });
+        const vehicleImageUrl = getVehicleImageUrl(initialVehicle.spriteSheet || initialVehicle.image);
+        console.log("Imagem original do veículo:", initialVehicle.image);
+        console.log("URL convertida para kaboom:", vehicleImageUrl);
+        
+        if (isSpriteSheet) {
+          // Carregar como sprite sheet com animação
+          loadSprite("car", vehicleImageUrl, {
+            sliceX: 2,
+            sliceY: 1,
+            anims: {
+              run: { from: 0, to: 1, loop: true, speed: 8 },
+            },
+          });
+          console.log("✅ Veículo carregado como sprite sheet animado");
+        } else {
+          // Carregar como imagem simples sem animação
+          loadSprite("car", vehicleImageUrl);
+          console.log("✅ Veículo carregado como imagem simples");
+        }
 
         // veiculos do trafego
         loadSprite("carro_1", "/assets/carro_trafego_1.png");
@@ -975,18 +1000,23 @@ const updateBackgroundSystem = (k: any, deltaTime: number, moveAmount: number) =
         // Inicializar timer de transição
         backgroundSwitchTimer.current = rand(2, 4);
 
-        const roadYPosition = height() * 0.48;
-        const baseWidth = 600;
-        const scaleFactor = (width() / baseWidth) * 0.3;
+        const roadYPosition = height() * 0.48;
+        const baseWidth = 600;
+        const scaleFactor = (width() / baseWidth) * 0.3;
 
-        const car = add([
-          sprite("car", { anim: "run" }),
-          pos(width() * 0.08, roadYPosition),
-          area(),
-          body(),
-          z(2),
-          scale(scaleFactor),
-        ]);
+        // ✅ CORREÇÃO: Criar carro com ou sem animação dependendo do tipo
+        const carSprite = isSpriteSheet 
+          ? sprite("car", { anim: "run" })  // Com animação se for sprite sheet
+          : sprite("car");                   // Sem animação se for imagem simples
+
+        const car = add([
+          carSprite,
+          pos(width() * 0.08, roadYPosition),
+          area(),
+          body(),
+          z(2),
+          scale(scaleFactor),
+        ]);
 
         const lane_contramao = height() * 0.60;
         const lane_mesmo_sentido = height() * 0.68;
@@ -1190,7 +1220,11 @@ const updateBackgroundSystem = (k: any, deltaTime: number, moveAmount: number) =
       return;
     }
 
-    createGameMutation.mutateAsync({
+    // ✅ NOVO JOGO: Limpar localStorage antes de criar
+    console.log("🆕 Criando nova partida - limpando dados antigos do localStorage");
+    localStorage.removeItem('savedGameProgress');
+
+    createGameMutation.mutateAsync({
       mapa: route.mapaId,
       rota: route.id,
       veiculo: parseInt(selectedVehicle.id, 10) || 1,
@@ -2029,13 +2063,13 @@ const updateBackgroundSystem = (k: any, deltaTime: number, moveAmount: number) =
         </div>
       )}
 
-      {/* Menu de pausa */}
-      <PauseMenu
-      	 isVisible={isPaused}
-      	 onResume={togglePause}
-      	 onRestart={handleRestart}
-      	 onGoToProfile={handleGoToProfile}
-      />
+      {/* Menu de pausa */}
+      <PauseMenu
+      	 isVisible={isPaused}
+      	 onResume={handleResume}
+      	 onRestart={handleRestart}
+      	 onGoToProfile={handleGoToProfile}
+      />
 
       {/* Modal de resultado do evento */}
       <EventResultModal
