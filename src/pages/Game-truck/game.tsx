@@ -694,42 +694,60 @@ const updateBackgroundSystem = (k: any, deltaTime: number, moveAmount: number) =
     window.location.reload();
   };
 
-  const handleGoToProfile = () => {
-    const gameProgress = {
-      vehicle,
-      money,
-      selectedRoute,
-      currentFuel,
-      progress: (distanceTravelled.current / totalDistance) * 100, // ✅ USA A FONTE DA VERDADE
-      currentPathIndex,
-      pathProgress: pathProgressRef.current,
-      gameTime,
-      timestamp: Date.now(),
-      activeGameId: activeGameIdRef.current,
-      distanceTravelled: distanceTravelled.current, // ✅ SALVA A DISTÂNCIA REAL
-    };
-    localStorage.setItem('savedGameProgress', JSON.stringify(gameProgress));
-    navigate('/perfil');
-  };
+  const handleGoToProfile = async () => {
+    const gameProgress = {
+      vehicle,
+      money,
+      selectedRoute,
+      currentFuel,
+      progress: (distanceTravelled.current / totalDistance) * 100, // ✅ USA A FONTE DA VERDADE
+      currentPathIndex,
+      pathProgress: pathProgressRef.current,
+      gameTime,
+      timestamp: Date.now(),
+      activeGameId: activeGameIdRef.current,
+      distanceTravelled: distanceTravelled.current, // ✅ SALVA A DISTÂNCIA REAL
+    };
+    localStorage.setItem('savedGameProgress', JSON.stringify(gameProgress));
+    
+    // ✅ PAUSAR NO BACKEND ANTES DE SAIR
+    try {
+      await GameService.pauseGame();
+      console.log("✅ Jogo pausado no backend antes de ir para o perfil");
+    } catch (error) {
+      console.error("❌ Erro ao pausar jogo:", error);
+    }
+    
+    navigate('/perfil');
+  };
 
-  const handleSaveAndPause = () => {
-    console.log("💾 Salvando progresso e pausando o jogo...");
-    const gameProgress = {
-      vehicle,
-      money,
-      selectedRoute,
-      currentFuel,
-      progress: (distanceTravelled.current / totalDistance) * 100, // ✅ USA A FONTE DA VERDADE
-      currentPathIndex,
-      pathProgress: pathProgressRef.current,
-      gameTime,
-      timestamp: Date.now(),
-      activeGameId: activeGameIdRef.current,
-      distanceTravelled: distanceTravelled.current, // ✅ SALVA A DISTÂNCIA REAL
-    };
-    localStorage.setItem('savedGameProgress', JSON.stringify(gameProgress));
-    togglePause();
-  };
+  const handleSaveAndPause = async () => {
+    console.log("💾 Salvando progresso e pausando o jogo...");
+    const gameProgress = {
+      vehicle,
+      money,
+      selectedRoute,
+      currentFuel,
+      progress: (distanceTravelled.current / totalDistance) * 100, // ✅ USA A FONTE DA VERDADE
+      currentPathIndex,
+      pathProgress: pathProgressRef.current,
+      gameTime,
+      timestamp: Date.now(),
+      activeGameId: activeGameIdRef.current,
+      distanceTravelled: distanceTravelled.current, // ✅ SALVA A DISTÂNCIA REAL
+    };
+    localStorage.setItem('savedGameProgress', JSON.stringify(gameProgress));
+    
+    // ✅ CHAMAR O BACKEND PARA PAUSAR A PARTIDA
+    try {
+      await GameService.pauseGame();
+      console.log("✅ Jogo pausado no backend");
+    } catch (error) {
+      console.error("❌ Erro ao pausar jogo no backend:", error);
+    }
+    
+    togglePause();
+  };
 
   // ✅✅✅ FUNÇÃO DE RESPOSTA A EVENTOS - CORREÇÃO FINAL ✅✅✅
   const handleOptionClick = (optionId: number) => {
@@ -775,15 +793,23 @@ const updateBackgroundSystem = (k: any, deltaTime: number, moveAmount: number) =
   };
   // ============= INICIALIZAÇÃO DO JOGO =============
 
-  const initializeGame = (
-    initialVehicle: Vehicle,
-    initialMoney: number,
-    restoredState?: any // ✅ PARÂMETRO PARA ESTADO RESTAURADO
-  ) => {
-    if (!initialVehicle || !initialVehicle.name) {
-      console.error("Dados do veículo não encontrados");
-      return;
-    }
+  const initializeGame = (
+    initialVehicle: Vehicle,
+    initialMoney: number,
+    restoredState?: any // ✅ PARÂMETRO PARA ESTADO RESTAURADO
+  ) => {
+    console.log("🚀 initializeGame chamado com:", {
+      vehicle: initialVehicle,
+      money: initialMoney,
+      hasRestoredState: !!restoredState
+    });
+    
+    if (!initialVehicle || !initialVehicle.name) {
+      console.error("❌ Dados do veículo não encontrados");
+      console.error("📦 Veículo recebido:", initialVehicle);
+      console.error("🔍 Propriedades do veículo:", initialVehicle ? Object.keys(initialVehicle) : 'undefined');
+      return;
+    }
 
     if (!canvasRef.current) {
       console.error("Canvas não encontrado, tentando novamente...");
@@ -1126,14 +1152,43 @@ const updateBackgroundSystem = (k: any, deltaTime: number, moveAmount: number) =
     }
     // --------------------------------
 
-    if (savedProgress && savedProgress.activeGameId) {
-      console.log("🟢 Restaurando partida existente com ID:", savedProgress.activeGameId);
-      setActiveGameId(savedProgress.activeGameId);
-      activeGameIdRef.current = savedProgress.activeGameId;
+    if (savedProgress && savedProgress.activeGameId) {
+      console.log("🟢 Restaurando partida existente com ID:", savedProgress.activeGameId);
+      console.log("🔍 Veículo do location.state:", selectedVehicle);
+      console.log("🔍 Dinheiro do location.state:", location.state?.availableMoney);
+      
+      setActiveGameId(savedProgress.activeGameId);
+      activeGameIdRef.current = savedProgress.activeGameId;
 
-      initializeGame(savedProgress.vehicle, savedProgress.money, savedProgress);
-      return;
-    }
+      // ✅ VALIDAR DADOS DO VEÍCULO (usa selectedVehicle do location.state, não do savedProgress)
+      if (!selectedVehicle || !selectedVehicle.name) {
+        console.error("❌ Dados do veículo incompletos!");
+        console.error("📦 Veículo recebido:", selectedVehicle);
+        console.error("📦 Location state:", location.state);
+        alert("Erro: Dados do jogo salvo estão corrompidos. Iniciando novo jogo...");
+        localStorage.removeItem('savedGameProgress');
+        navigate('/desafio');
+        return;
+      }
+
+      // ✅ USAR availableMoney do location.state
+      const restoredMoney = location.state?.availableMoney || money;
+
+      // ✅ CHAMAR O BACKEND PARA RETOMAR A PARTIDA
+      GameService.resumeGame()
+        .then(() => {
+          console.log("✅ Partida retomada no backend");
+          // ✅ CORREÇÃO: usa selectedVehicle e restoredMoney do location.state
+          initializeGame(selectedVehicle, restoredMoney, savedProgress);
+        })
+        .catch((error) => {
+          console.error("❌ Erro ao retomar partida:", error);
+          // Mesmo com erro, tenta inicializar localmente
+          initializeGame(selectedVehicle, restoredMoney, savedProgress);
+        });
+      
+      return;
+    }
 
     createGameMutation.mutateAsync({
       mapa: route.mapaId,

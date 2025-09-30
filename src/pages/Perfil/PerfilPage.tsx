@@ -53,7 +53,26 @@ export const PerfilPage = () => {
     if (savedProgress) {
       try {
         const gameProgress = JSON.parse(savedProgress);
-        console.log('Carregando progresso salvo:', gameProgress);
+        console.log('🔄 Carregando progresso salvo:', gameProgress);
+
+        // ✅ VALIDAÇÃO DOS DADOS ESSENCIAIS
+        if (!gameProgress.vehicle || !gameProgress.vehicle.name) {
+          console.error('❌ Dados do veículo inválidos no progresso salvo');
+          alert('Erro: Dados do jogo salvo estão corrompidos. Iniciando novo jogo...');
+          localStorage.removeItem('savedGameProgress');
+          navigate("/desafio");
+          return;
+        }
+
+        if (!gameProgress.selectedRoute || !gameProgress.selectedRoute.id) {
+          console.error('❌ Dados da rota inválidos no progresso salvo');
+          alert('Erro: Dados do jogo salvo estão corrompidos. Iniciando novo jogo...');
+          localStorage.removeItem('savedGameProgress');
+          navigate("/desafio");
+          return;
+        }
+
+        console.log('✅ Dados validados, navegando para o jogo...');
 
         navigate('/game', {
           state: {
@@ -66,14 +85,17 @@ export const PerfilPage = () => {
               currentPathIndex: gameProgress.currentPathIndex,
               pathProgress: gameProgress.pathProgress,
               gameTime: gameProgress.gameTime,
-              activeGameId: gameProgress.activeGameId
+              activeGameId: gameProgress.activeGameId,
+              distanceTravelled: gameProgress.distanceTravelled,
+              triggeredGasStations: gameProgress.triggeredGasStations || []
             }
           }
         });
       } catch (error) {
-        console.error('Erro ao carregar progresso:', error);
+        console.error('❌ Erro ao carregar progresso:', error);
         alert('Erro ao carregar o jogo salvo. Iniciando novo jogo...');
-        navigate("/select-vehicle");
+        localStorage.removeItem('savedGameProgress');
+        navigate("/desafio");
       }
     } else {
       const startNewGame = window.confirm('Não há jogo salvo. Deseja iniciar um novo jogo?');
