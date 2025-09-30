@@ -14,12 +14,58 @@ interface PartidaResponse {
   distancia_percorrida: number;
   status: "concluido" | "em_andamento" | "pausado" | "cancelada";
   tempo_jogo?: number;
+  tempo_jogo_segundos?: number; // ✅ ADICIONADO
   resultado?: "vitoria" | "derrota";
   motivo_finalizacao?: string;
   eficiencia?: number;
   saldo_inicial?: number;
   quantidade_carga_inicial?: number;
-  progresso?: number; // ✅ ADICIONADO: Para progresso calculado pelo backend
+  progresso?: number;
+  
+  // ✅ NOVOS CAMPOS: IDs das relações
+  mapa: number;
+  rota: number;
+  veiculo: number;
+  
+  // ✅ NOVOS CAMPOS: Dados completos aninhados
+  veiculo_detalhes?: {
+    id: number;
+    modelo: string;
+    capacidade_carga: number;
+    capacidade_combustivel: number;
+    velocidade: number;
+    preco: number;
+    autonomia: number;
+  };
+  
+  rota_detalhes?: {
+    id: number;
+    nome: string;
+    descricao: string;
+    distancia_km: number;
+    tempo_estimado_horas: number;
+    tipo_estrada: string;
+    velocidade_media_kmh: number;
+    danger_zones_data: any[];
+    dirt_segments_data: any[];
+    fuelStop: any[];
+    pathCoordinates: any[];
+  };
+  
+  mapa_detalhes?: {
+    id: number;
+    nome: string;
+    descricao: string;
+    objetivo: string;
+    ferramentas: any[];
+    dificuldade: string;
+    tempo_limite: string;
+    min_jogadores: number;
+    max_jogadores: number;
+    imagem: string;
+    peso_carga_kg: number;
+  };
+  
   eventos_ocorridos?: Array<{
     id: number;
     evento: {

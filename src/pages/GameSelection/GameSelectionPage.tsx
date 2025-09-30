@@ -68,8 +68,24 @@ const GameSelectionPage = () => {
     }
   }, [user, authLoading, navigate]);
 
-  const handleGameClick = (gameId: string) => {
+  const handleGameClick = async (gameId: string) => {
     if (gameId === 'entrega_eficiente') {
+      try {
+        // Verifica se há uma partida ativa ou pausada
+        const partidaAtiva = await GameService.getActiveGame();
+        
+        // Se encontrou uma partida ativa ou pausada, redireciona para o perfil
+        if (partidaAtiva && (partidaAtiva.status === 'pausado' || partidaAtiva.status === 'em_andamento')) {
+          console.log('✅ Partida pausada/ativa encontrada. Redirecionando para perfil...');
+          navigate('/perfil');
+          return;
+        }
+      } catch (error) {
+        // Se não houver partida ativa (erro 404), continua o fluxo normal
+        console.log('ℹ️ Nenhuma partida ativa encontrada. Iniciando novo jogo...');
+      }
+
+      // Fluxo normal: redireciona para o tutorial
       if (desafios && desafios.length > 0) {
         const primeiroDesafio = desafios[0];
         navigate('/tutorial', { state: { mapaId: primeiroDesafio.id } });

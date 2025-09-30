@@ -683,53 +683,85 @@ const updateBackgroundSystem = (k: any, deltaTime: number, moveAmount: number) =
     });
   };
 
-  const togglePause = () => {
-    const nextPausedState = !gamePaused.current;
-    gamePaused.current = nextPausedState;
-    setIsPaused(nextPausedState);
-    console.log(`Jogo ${nextPausedState ? "pausado" : "despausado"}`);
-  };
+  const togglePause = () => {
+    const nextPausedState = !gamePaused.current;
+    gamePaused.current = nextPausedState;
+    setIsPaused(nextPausedState);
+    console.log(`Jogo ${nextPausedState ? "pausado" : "despausado"}`);
+  };
+
+  // ✅ NOVA FUNÇÃO: Retomar o jogo chamando o backend
+  const handleResume = async () => {
+    try {
+      console.log("🔄 Retomando jogo no backend...");
+      await GameService.resumeGame();
+      console.log("✅ Jogo retomado no backend");
+      togglePause(); // Despausa localmente após sucesso no backend
+    } catch (error) {
+      console.error("❌ Erro ao retomar jogo no backend:", error);
+      // Mesmo com erro, permite continuar localmente
+      togglePause();
+    }
+  };
 
   const handleRestart = () => {
     window.location.reload();
   };
 
-  const handleGoToProfile = () => {
-    const gameProgress = {
-      vehicle,
-      money,
-      selectedRoute,
-      currentFuel,
-      progress: (distanceTravelled.current / totalDistance) * 100, // ✅ USA A FONTE DA VERDADE
-      currentPathIndex,
-      pathProgress: pathProgressRef.current,
-      gameTime,
-      timestamp: Date.now(),
-      activeGameId: activeGameIdRef.current,
-      distanceTravelled: distanceTravelled.current, // ✅ SALVA A DISTÂNCIA REAL
-    };
-    localStorage.setItem('savedGameProgress', JSON.stringify(gameProgress));
-    navigate('/perfil');
-  };
+  const handleGoToProfile = async () => {
+    const gameProgress = {
+      vehicle,
+      money,
+      selectedRoute,
+      currentFuel,
+      progress: (distanceTravelled.current / totalDistance) * 100, // ✅ USA A FONTE DA VERDADE
+      currentPathIndex,
+      pathProgress: pathProgressRef.current,
+      gameTime,
+      timestamp: Date.now(),
+      activeGameId: activeGameIdRef.current,
+      distanceTravelled: distanceTravelled.current, // ✅ SALVA A DISTÂNCIA REAL
+    };
+    localStorage.setItem('savedGameProgress', JSON.stringify(gameProgress));
+    
+    // ✅ PAUSAR NO BACKEND ANTES DE SAIR
+    try {
+      await GameService.pauseGame();
+      console.log("✅ Jogo pausado no backend antes de ir para o perfil");
+    } catch (error) {
+      console.error("❌ Erro ao pausar jogo:", error);
+    }
+    
+    navigate('/perfil');
+  };
 
-  const handleSaveAndPause = () => {
-    console.log("💾 Salvando progresso e pausando o jogo...");
-    const gameProgress = {
-      vehicle,
-      money,
-      selectedRoute,
-      currentFuel,
-      progress: (distanceTravelled.current / totalDistance) * 100, // ✅ USA A FONTE DA VERDADE
-      currentPathIndex,
-      pathProgress: pathProgressRef.current,
-      gameTime,
-      timestamp: Date.now(),
-      activeGameId: activeGameIdRef.current,
-      distanceTravelled: distanceTravelled.current, // ✅ SALVA A DISTÂNCIA REAL
-    };
-    localStorage.setItem('savedGameProgress', JSON.stringify(gameProgress));
-    togglePause();
-  };
+  const handleSaveAndPause = async () => {
+    console.log("💾 Salvando progresso e pausando o jogo...");
+    const gameProgress = {
+      vehicle,
+      money,
+      selectedRoute,
+      currentFuel,
+      progress: (distanceTravelled.current / totalDistance) * 100, // ✅ USA A FONTE DA VERDADE
+      currentPathIndex,
+      pathProgress: pathProgressRef.current,
+      gameTime,
+      timestamp: Date.now(),
+      activeGameId: activeGameIdRef.current,
+      distanceTravelled: distanceTravelled.current, // ✅ SALVA A DISTÂNCIA REAL
+    };
+    localStorage.setItem('savedGameProgress', JSON.stringify(gameProgress));
+    
+    // ✅ CHAMAR O BACKEND PARA PAUSAR A PARTIDA
+    try {
+      await GameService.pauseGame();
+      console.log("✅ Jogo pausado no backend");
+    } catch (error) {
+      console.error("❌ Erro ao pausar jogo no backend:", error);
+    }
+    
+    togglePause();
+  };
 
   // ✅✅✅ FUNÇÃO DE RESPOSTA A EVENTOS - CORREÇÃO FINAL ✅✅✅
   const handleOptionClick = (optionId: number) => {
@@ -775,15 +807,23 @@ const updateBackgroundSystem = (k: any, deltaTime: number, moveAmount: number) =
   };
   // ============= INICIALIZAÇÃO DO JOGO =============
 
-  const initializeGame = (
-    initialVehicle: Vehicle,
-    initialMoney: number,
-    restoredState?: any // ✅ PARÂMETRO PARA ESTADO RESTAURADO
-  ) => {
-    if (!initialVehicle || !initialVehicle.name) {
-      console.error("Dados do veículo não encontrados");
-      return;
-    }
+  const initializeGame = (
+    initialVehicle: Vehicle,
+    initialMoney: number,
+    restoredState?: any // ✅ PARÂMETRO PARA ESTADO RESTAURADO
+  ) => {
+    console.log("🚀 initializeGame chamado com:", {
+      vehicle: initialVehicle,
+      money: initialMoney,
+      hasRestoredState: !!restoredState
+    });
+    
+    if (!initialVehicle || !initialVehicle.name) {
+      console.error("❌ Dados do veículo não encontrados");
+      console.error("📦 Veículo recebido:", initialVehicle);
+      console.error("🔍 Propriedades do veículo:", initialVehicle ? Object.keys(initialVehicle) : 'undefined');
+      return;
+    }
 
     if (!canvasRef.current) {
       console.error("Canvas não encontrado, tentando novamente...");
@@ -889,26 +929,37 @@ const updateBackgroundSystem = (k: any, deltaTime: number, moveAmount: number) =
         opacity
       } = k;
 
-      destroyRef.current = destroy;
+      destroyRef.current = destroy;
 
-      try {
-        console.log("Tentando carregar sprites...");
+      // ✅ CORREÇÃO: Verificar se é um sprite sheet ou imagem simples (antes do try para estar acessível)
+      const isSpriteSheet = initialVehicle.spriteSheet !== undefined;
 
-        // ✅ CORREÇÃO: Carregamento correto dos backgrounds
-        loadSprite("background_cidade", "/assets/background-cidade.png");
-        loadSprite("background_terra", "/assets/background-terra.png");
+      try {
+        console.log("Tentando carregar sprites...");
 
-        const vehicleImageUrl = getVehicleImageUrl(initialVehicle.spriteSheet || initialVehicle.image);
-        console.log("Imagem original do veículo:", initialVehicle.image);
-        console.log("URL convertida para kaboom:", vehicleImageUrl);
+        // ✅ CORREÇÃO: Carregamento correto dos backgrounds
+        loadSprite("background_cidade", "/assets/background-cidade.png");
+        loadSprite("background_terra", "/assets/background-terra.png");
 
-        loadSprite("car", vehicleImageUrl, {
-          sliceX: 2,
-          sliceY: 1,
-          anims: {
-            run: { from: 0, to: 1, loop: true, speed: 8 },
-          },
-        });
+        const vehicleImageUrl = getVehicleImageUrl(initialVehicle.spriteSheet || initialVehicle.image);
+        console.log("Imagem original do veículo:", initialVehicle.image);
+        console.log("URL convertida para kaboom:", vehicleImageUrl);
+        
+        if (isSpriteSheet) {
+          // Carregar como sprite sheet com animação
+          loadSprite("car", vehicleImageUrl, {
+            sliceX: 2,
+            sliceY: 1,
+            anims: {
+              run: { from: 0, to: 1, loop: true, speed: 8 },
+            },
+          });
+          console.log("✅ Veículo carregado como sprite sheet animado");
+        } else {
+          // Carregar como imagem simples sem animação
+          loadSprite("car", vehicleImageUrl);
+          console.log("✅ Veículo carregado como imagem simples");
+        }
 
         // veiculos do trafego
         loadSprite("carro_1", "/assets/carro_trafego_1.png");
@@ -949,18 +1000,23 @@ const updateBackgroundSystem = (k: any, deltaTime: number, moveAmount: number) =
         // Inicializar timer de transição
         backgroundSwitchTimer.current = rand(2, 4);
 
-        const roadYPosition = height() * 0.48;
-        const baseWidth = 600;
-        const scaleFactor = (width() / baseWidth) * 0.3;
+        const roadYPosition = height() * 0.48;
+        const baseWidth = 600;
+        const scaleFactor = (width() / baseWidth) * 0.3;
 
-        const car = add([
-          sprite("car", { anim: "run" }),
-          pos(width() * 0.08, roadYPosition),
-          area(),
-          body(),
-          z(2),
-          scale(scaleFactor),
-        ]);
+        // ✅ CORREÇÃO: Criar carro com ou sem animação dependendo do tipo
+        const carSprite = isSpriteSheet 
+          ? sprite("car", { anim: "run" })  // Com animação se for sprite sheet
+          : sprite("car");                   // Sem animação se for imagem simples
+
+        const car = add([
+          carSprite,
+          pos(width() * 0.08, roadYPosition),
+          area(),
+          body(),
+          z(2),
+          scale(scaleFactor),
+        ]);
 
         const lane_contramao = height() * 0.60;
         const lane_mesmo_sentido = height() * 0.68;
@@ -1126,16 +1182,49 @@ const updateBackgroundSystem = (k: any, deltaTime: number, moveAmount: number) =
     }
     // --------------------------------
 
-    if (savedProgress && savedProgress.activeGameId) {
-      console.log("🟢 Restaurando partida existente com ID:", savedProgress.activeGameId);
-      setActiveGameId(savedProgress.activeGameId);
-      activeGameIdRef.current = savedProgress.activeGameId;
+    if (savedProgress && savedProgress.activeGameId) {
+      console.log("🟢 Restaurando partida existente com ID:", savedProgress.activeGameId);
+      console.log("🔍 Veículo do location.state:", selectedVehicle);
+      console.log("🔍 Dinheiro do location.state:", location.state?.availableMoney);
+      
+      setActiveGameId(savedProgress.activeGameId);
+      activeGameIdRef.current = savedProgress.activeGameId;
 
-      initializeGame(savedProgress.vehicle, savedProgress.money, savedProgress);
-      return;
-    }
+      // ✅ VALIDAR DADOS DO VEÍCULO (usa selectedVehicle do location.state, não do savedProgress)
+      if (!selectedVehicle || !selectedVehicle.name) {
+        console.error("❌ Dados do veículo incompletos!");
+        console.error("📦 Veículo recebido:", selectedVehicle);
+        console.error("📦 Location state:", location.state);
+        alert("Erro: Dados do jogo salvo estão corrompidos. Iniciando novo jogo...");
+        localStorage.removeItem('savedGameProgress');
+        navigate('/desafio');
+        return;
+      }
 
-    createGameMutation.mutateAsync({
+      // ✅ USAR availableMoney do location.state
+      const restoredMoney = location.state?.availableMoney || money;
+
+      // ✅ CHAMAR O BACKEND PARA RETOMAR A PARTIDA
+      GameService.resumeGame()
+        .then(() => {
+          console.log("✅ Partida retomada no backend");
+          // ✅ CORREÇÃO: usa selectedVehicle e restoredMoney do location.state
+          initializeGame(selectedVehicle, restoredMoney, savedProgress);
+        })
+        .catch((error) => {
+          console.error("❌ Erro ao retomar partida:", error);
+          // Mesmo com erro, tenta inicializar localmente
+          initializeGame(selectedVehicle, restoredMoney, savedProgress);
+        });
+      
+      return;
+    }
+
+    // ✅ NOVO JOGO: Limpar localStorage antes de criar
+    console.log("🆕 Criando nova partida - limpando dados antigos do localStorage");
+    localStorage.removeItem('savedGameProgress');
+
+    createGameMutation.mutateAsync({
       mapa: route.mapaId,
       rota: route.id,
       veiculo: parseInt(selectedVehicle.id, 10) || 1,
@@ -1974,13 +2063,13 @@ const updateBackgroundSystem = (k: any, deltaTime: number, moveAmount: number) =
         </div>
       )}
 
-      {/* Menu de pausa */}
-      <PauseMenu
-      	 isVisible={isPaused}
-      	 onResume={togglePause}
-      	 onRestart={handleRestart}
-      	 onGoToProfile={handleGoToProfile}
-      />
+      {/* Menu de pausa */}
+      <PauseMenu
+      	 isVisible={isPaused}
+      	 onResume={handleResume}
+      	 onRestart={handleRestart}
+      	 onGoToProfile={handleGoToProfile}
+      />
 
       {/* Modal de resultado do evento */}
       <EventResultModal
