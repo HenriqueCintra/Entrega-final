@@ -703,7 +703,7 @@ useEffect(() => {
             </Polyline>
           )}
           {/* Marcadores de Velocidade para a Rota Selecionada */}
-          {selectedRoute?.speedLimits.map((speedLimit: any, index: number) => (
+          {selectedRoute?.speedLimits?.map((speedLimit: any, index: number) => (
             speedLimit.coordinates && (
               <Marker
                 key={`speed-${selectedRoute.routeId}-${index}`}
@@ -719,7 +719,7 @@ useEffect(() => {
           ))}
 
           {/* Renderiza os marcadores */}
-          {selectedRoute?.tollBooths.map((toll: any, index: number) =>{ 
+          {selectedRoute?.tollBooths?.map((toll: any, index: number) =>{ 
             // console.log("Renderizando tollBooths:", toll);
             <Marker key={`toll-${index}`} position={toll.coordinates as L.LatLngTuple} icon={tollIcon}><Popup>{toll.location}</Popup></Marker>})}
 
