@@ -450,23 +450,10 @@ export const MapComponent: React.FC<MapComponentProps> = ({
     const map = useMapEvents({});
 
 useEffect(() => {
-  if (route?.pathCoordinates) {
-    // Converta pathCoordinates para o formato esperado pelo Leaflet
-    const pathCoordinates: [number, number][] = route.pathCoordinates.map(coord => {
-      if (coord.length === 2) {
-        return [coord[0], coord[1]]; // Garante que cada coordenada tenha exatamente dois elementos
-      }
-      throw new Error("Coordenada inválida: cada ponto deve ter exatamente [latitude, longitude]");
-    });
-
-    // Ajusta os limites do mapa com as coordenadas convertidas
-    const bounds = L.latLngBounds(pathCoordinates);
-    map.fitBounds(bounds, { padding: [50, 50] });
-  }
-
   // Só ajuste o mapa automaticamente quando uma rota for selecionada pela primeira vez
   // ou quando isPlaying for false (não está em execução)
-  if (route && route.pathCoordinates && route.pathCoordinates.length > 1 && (!initialMapViewSet || !isPlaying)) {
+  // NÃO ajustar durante o jogo para permitir zoom manual do usuário
+  if (route && route.pathCoordinates && route.pathCoordinates.length > 1 && !initialMapViewSet) {
     const pathCoordinates: [number, number][] = route.pathCoordinates.map(coord => {
       if (coord.length === 2) {
         return [coord[0], coord[1]];
@@ -483,7 +470,7 @@ useEffect(() => {
     map.fitBounds(bounds, { padding: [100, 100] });
     setInitialMapViewSet(true);
   }
-}, [map, route, isPlaying]); // Adicionado isPlaying para reajustar o zoom quando pausado
+}, [map, route]); // Removido isPlaying das dependências para não reajustar durante o jogo
 
     return null;
   }
