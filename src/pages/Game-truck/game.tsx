@@ -1204,10 +1204,21 @@ const updateBackgroundSystem = (k: any, deltaTime: number, moveAmount: number) =
       // ✅ USAR availableMoney do location.state
       const restoredMoney = location.state?.availableMoney || money;
 
-      // ✅ CHAMAR O BACKEND PARA RETOMAR A PARTIDA
+      // ✅ CHAMAR O BACKEND PARA RETOMAR A PARTIDA E BUSCAR TEMPO ATUALIZADO
       GameService.resumeGame()
         .then(() => {
           console.log("✅ Partida retomada no backend");
+          // ✅ BUSCAR DADOS ATUALIZADOS DO BACKEND (incluindo tempo_jogo)
+          return GameService.getActiveGame();
+        })
+        .then((partidaAtualizada) => {
+          console.log("📊 Dados atualizados do backend recebidos, tempo_jogo:", partidaAtualizada.tempo_jogo);
+          // ✅ ATUALIZAR O TEMPO NO ESTADO RESTAURADO COM O VALOR DO BACKEND
+          if (partidaAtualizada.tempo_jogo !== undefined) {
+            const tempoSegundos = Math.round(partidaAtualizada.tempo_jogo * 60);
+            savedProgress.gameTime = tempoSegundos;
+            console.log(`⏱️ TEMPO SINCRONIZADO DO BACKEND: ${tempoSegundos}s (${Math.floor(tempoSegundos / 60)}min)`);
+          }
           // ✅ CORREÇÃO: usa selectedVehicle e restoredMoney do location.state
           initializeGame(selectedVehicle, restoredMoney, savedProgress);
         })
