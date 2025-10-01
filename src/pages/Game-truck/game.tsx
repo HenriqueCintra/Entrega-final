@@ -724,12 +724,16 @@ const updateBackgroundSystem = (k: any, deltaTime: number, moveAmount: number) =
     };
     localStorage.setItem('savedGameProgress', JSON.stringify(gameProgress));
     
-    // ✅ PAUSAR NO BACKEND ANTES DE SAIR
-    try {
-      await GameService.pauseGame();
-      console.log("✅ Jogo pausado no backend antes de ir para o perfil");
-    } catch (error) {
-      console.error("❌ Erro ao pausar jogo:", error);
+    // ✅ SÓ PAUSAR SE O JOGO ESTIVER RODANDO
+    if (!isPaused) {
+      try {
+        await GameService.pauseGame();
+        console.log("✅ Jogo pausado no backend antes de ir para o perfil");
+      } catch (error) {
+        console.error("❌ Erro ao pausar jogo:", error);
+      }
+    } else {
+      console.log("ℹ️ Jogo já está pausado, não precisa pausar novamente");
     }
     
     navigate('/perfil');
