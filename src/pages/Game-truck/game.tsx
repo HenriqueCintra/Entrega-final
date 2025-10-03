@@ -2002,7 +2002,7 @@ const updateBackgroundSystem = (k: any, deltaTime: number, moveAmount: number) =
             	 <div><strong>🎯 Eficiência:</strong><br /><span style={{ fontSize: "18px", color: "#0066cc" }}>{finalGameResults.eficiencia?.toFixed(1) || '0.0'}%</span></div>
             	 <div><strong>💯 Pontuação:</strong><br /><span style={{ fontSize: "18px", color: "#0066cc" }}>{finalGameResults.pontuacao} pts</span></div>
             	 <div><strong>💰 Saldo Final:</strong><br /><span style={{ fontSize: "16px" }}>R$ {finalGameResults.saldo.toFixed(2)}</span></div>
-            	 <div><strong>📦 Carga:</strong><br /><span style={{ fontSize: "16px" }}>{finalGameResults.quantidade_carga} / {finalGameResults.quantidade_carga_inicial} un.</span></div>
+            	 <div><strong>📦 Carga Inicial:</strong><br /><span style={{ fontSize: "16px" }}>{finalGameResults.quantidade_carga_inicial} un.</span></div>
           	 </div>
           	 <div style={{ marginTop: "15px", textAlign: "center" }}>
           	 	 <strong>⏱️ Tempo Total:</strong> {formatTime(finalGameResults.tempo_real * 60)}
