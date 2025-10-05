@@ -23,9 +23,17 @@ export const Cadastro = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  // Função para limpar erro quando o usuário começar a digitar
+  const clearError = () => {
+    if (error) {
+      setError("");
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
     setFormData(prev => ({ ...prev, [id]: value }));
+    clearError(); // Limpa erro quando o usuário digita
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,8 +69,31 @@ export const Cadastro = () => {
         navigate("/login");
       }, 2000);
     } catch (error: any) {
-      if (error.response && error.response.data) {
-        // Trata erros da API
+      console.error("Erro completo de cadastro:", error);
+      
+      // Tratamento específico de erros com mensagens claras
+      if (error.response && error.response.status === 400) {
+        if (error.response.data) {
+          if (typeof error.response.data === 'object') {
+            // Trata erros específicos de validação
+            const errorMessages = Object.entries(error.response.data)
+              .map(([key, value]) => {
+                if (Array.isArray(value)) {
+                  return value.join(", ");
+                }
+                return `${key}: ${value}`;
+              })
+              .join("; ");
+            setError(errorMessages);
+          } else {
+            setError("Dados inválidos. Verifique as informações fornecidas.");
+          }
+        } else {
+          setError("Dados inválidos. Verifique as informações fornecidas.");
+        }
+      } else if (error.response && error.response.status === 409) {
+        setError("Usuário ou email já cadastrado. Tente fazer login ou use dados diferentes.");
+      } else if (error.response && error.response.data) {
         if (typeof error.response.data === 'object') {
           // Extrai mensagens de erro
           const errorMessages = Object.entries(error.response.data)
@@ -72,8 +103,13 @@ export const Cadastro = () => {
         } else {
           setError("Falha ao realizar cadastro. Verifique os dados.");
         }
+      } else if (error.request) {
+        setError("Servidor não está respondendo. Verifique sua conexão com a internet.");
+      } else if (error.message) {
+        // Mensagem específica do AuthService
+        setError(error.message);
       } else {
-        setError("Erro de conexão. Tente novamente mais tarde.");
+        setError("Erro inesperado. Tente novamente em alguns momentos.");
       }
     } finally {
       setLoading(false);
@@ -132,9 +168,9 @@ export const Cadastro = () => {
 
               {/* Mensagem de erro */}
               {error && (
-                <div className="text-red-500 flex items-center gap-2 mb-4">
-                  <AlertCircle size={20} />
-                  <span>{error}</span>
+                <div className="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2 mb-4">
+                  <AlertCircle size={20} className="flex-shrink-0" />
+                  <span className="font-medium">{error}</span>
                 </div>
               )}
 

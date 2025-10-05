@@ -77,10 +77,9 @@ class AuthServiceClass {
     } catch (error: any) {
       console.error('❌ Erro no login:', error);
       this.logout(); // Limpa tokens em caso de falha
-      if (error.response?.status === 401) {
-        throw new Error('Usuário ou senha incorretos.');
-      }
-      throw new Error('Falha ao realizar login. Tente novamente mais tarde.');
+      
+      // Propaga o erro original para o componente tratar
+      throw error;
     }
   }
 
@@ -132,10 +131,9 @@ class AuthServiceClass {
 
     } catch (error: any) {
       console.error('❌ Erro no registro:', error);
-      if (error.response?.status === 400) {
-        throw error; // Propaga o erro para o componente tratar
-      }
-      throw new Error('Falha ao realizar cadastro. Tente novamente mais tarde.');
+      
+      // Propaga o erro original para o componente tratar
+      throw error;
     }
   }
 
