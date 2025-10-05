@@ -1,0 +1,37 @@
+warning: in the working copy of 'src/api/gameService.ts', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --cc src/api/gameService.ts[m
+[1mindex 45e76ac,5254d37..0000000[m
+[1m--- a/src/api/gameService.ts[m
+[1m+++ b/src/api/gameService.ts[m
+[36m@@@ -283,25 -323,12 +323,24 @@@[m [mexport const GameService = [m
+      }[m
+    },[m
+  [m
+[32m +  async getPartida(id: number): Promise<PartidaResponse> {[m
+[32m +    console.log(`🎮 Buscando partida com ID: ${id}...`);[m
+[32m +    try {[m
+[32m +      const response = await api.get<PartidaResponse>(`/jogo1/partidas/${id}/`);[m
+[32m +      console.log('✅ Partida encontrada:', response.data.id);[m
+[32m +      return response.data;[m
+[32m +    } catch (error) {[m
+[32m +      console.error(`❌ Erro ao buscar partida ${id}:`, error);[m
+[32m +      throw error;[m
+[32m +    }[m
+[32m +  },[m
+[32m +[m
+[31m-   async createGame(gameData: { [m
+[31m-     mapa: number; [m
+[31m-     rota: number; [m
+[31m-     veiculo: number; [m
+[31m-     saldo_inicial?: number; [m
+[31m-     combustivel_inicial?: number;[m
+[31m-     quantidade_carga_inicial?: number;[m
+[32m+   async createGame(gameData: {[m
+[32m+     mapa: number;[m
+[32m+     rota: number;[m
+[32m+     veiculo: number;[m
+[32m+     saldo_inicial?: number;[m
+[32m+     combustivel_inicial?: number[m
+    }): Promise<PartidaResponse> {[m
+      console.log('🚀 Criando nova partida com dados:', gameData);[m
+      if (!gameData.mapa || !gameData.rota || !gameData.veiculo) {[m
