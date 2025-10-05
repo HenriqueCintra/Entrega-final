@@ -348,7 +348,7 @@ export function GameScene() {
       setResultModalContent({
         title: activeEvent?.evento.nome || 'Evento Concluído',
         description: data.detail,
-        consequences: data.efeitos_aplicados || [],
+        consequences: [],
       });
       setIsResultModalOpen(true);
 
@@ -378,6 +378,7 @@ export function GameScene() {
       return GameService.syncGameProgress(progressData);
     },
     onSuccess: (updatedPartida: PartidaData) => {
+      localStorage.removeItem('savedGameProgress');
       console.log("✅ Progresso sincronizado! Status:", updatedPartida.status);
       console.log("📊 Dados da partida finalizada:", {
         resultado: updatedPartida.resultado,
@@ -395,6 +396,8 @@ export function GameScene() {
       } else {
         console.warn("⚠️ Partida não foi marcada como concluída. Status:", updatedPartida.status);
       }
+      localStorage.removeItem('savedGameProgress'); // Novo: Remover progresso salvo ao finalizar
+      console.log('🧹 Progresso salvo removido ao finalizar partida');
     },
     onError: (error) => {
       console.error("❌ Erro ao sincronizar jogo:", error);
@@ -942,7 +945,7 @@ export function GameScene() {
 
     console.log("🚀 Lógica de inicialização única está rodando...");
 
-    const { selectedVehicle, selectedRoute: route, savedProgress, cargoAmount, selectedChallenge } = location.state || {};
+    const { selectedVehicle, selectedRoute: route, savedProgress: stateSavedProgress, cargoAmount, selectedChallenge } = location.state || {};
 
     if (!selectedVehicle || !route?.id || !route?.mapaId) {
       console.error("❌ Dados insuficientes para criar partida. Redirecionando...");
@@ -961,27 +964,94 @@ export function GameScene() {
     }
     // --------------------------------
 
-    if (savedProgress && savedProgress.activeGameId) {
-      console.log("🟢 Restaurando partida existente com ID:", savedProgress.activeGameId);
-      setActiveGameId(savedProgress.activeGameId);
-      activeGameIdRef.current = savedProgress.activeGameId;
+    // Verificar progresso salvo no localStorage
+    const savedProgressString = localStorage.getItem('savedGameProgress');
+    let savedProgress = savedProgressString ? JSON.parse(savedProgressString) : null;
 
-      initializeGame(savedProgress);
+    // Função auxiliar para inicializar com dados sincronizados
+    const initWithPartida = (partida: any, progressData: any) => {
+      setMoney(partida.saldo);
+      setCurrentFuel(partida.combustivel_atual);
+      setGameTime((partida.tempo_jogo || 0) * 60);
+      distanceTravelled.current = partida.distancia_percorrida;
+      const calcProgress = (partida.distancia_percorrida / (progressData.selectedRoute.actualDistance || totalDistance)) * 100;
+      progressRef.current = calcProgress;
+      setProgress(calcProgress);
+      activeGameIdRef.current = partida.id;
+      setActiveGameId(partida.id);
+
+      // Outros estados necessários (adapte conforme preciso)
+      console.log('🔄 Partida sincronizada com backend');
+
+      initializeGame(progressData);
+    };
+
+    if (savedProgress && savedProgress.activeGameId) {
+      console.log('📂 Progresso salvo encontrado. Verificando se a partida ainda está ativa...');
+      // Buscar estado mais recente do backend
+      GameService.getPartida(savedProgress.activeGameId)
+        .then((partida) => {
+          if (partida.status === 'em_andamento' || partida.status === 'pausado') {
+            console.log('✅ Partida ainda ativa, restaurando progresso...');
+            initWithPartida(partida, savedProgress);
+          } else {
+            console.log('❌ Partida salva não está mais ativa (status:', partida.status, '), criando nova...');
+            localStorage.removeItem('savedGameProgress');
+            createNewGame();
+          }
+        })
+        .catch((error) => {
+          console.error('❌ Erro ao sincronizar partida salva:', error);
+          localStorage.removeItem('savedGameProgress');
+          createNewGame();
+        });
       return;
     }
 
-    createGameMutation.mutateAsync({
-      mapa: route.mapaId,
-      rota: route.id,
-      veiculo: parseInt(selectedVehicle.id, 10) || 1,
-      saldo_inicial: money, // Passa o saldo da tela de abastecimento
-      combustivel_inicial: vehicle.currentFuel, // Passa o combustível da tela de abastecimento
-      quantidade_carga_inicial: quantidade_carga_inicial
-    }).then(() => {
-      initializeGame(savedProgress);
-    }).catch(error => {
-      console.error("❌ Falha crítica na criação da partida, não inicializando Kaboom", error);
-    });
+    // Função para criar nova partida
+    const createNewGame = () => {
+      const route = location.state?.selectedRoute;
+      const selectedVehicle = location.state?.selectedVehicle;
+
+      if (!route || !selectedVehicle) {
+        console.error('❌ Dados de rota ou veículo ausentes');
+        setLoadingError('Dados necessários ausentes. Por favor, selecione rota e veículo novamente.');
+        navigate('/routes');
+        return;
+      }
+
+      createGameMutation.mutateAsync({
+        mapa: route.mapaId,
+        rota: route.id,
+        veiculo: parseInt(selectedVehicle.id, 10) || 1,
+        saldo_inicial: money,
+        combustivel_inicial: vehicle.currentFuel
+      }).then((partida) => {
+        // Salvar progresso inicial no localStorage
+        const initialProgress = {
+          vehicle: selectedVehicle,
+          money: partida.saldo,
+          selectedRoute: route,
+          currentFuel: partida.combustivel_atual,
+          progress: 0,
+          currentPathIndex: 0,
+          pathProgress: 0,
+          gameTime: 0,
+          timestamp: Date.now(),
+          activeGameId: partida.id
+        };
+        localStorage.setItem('savedGameProgress', JSON.stringify(initialProgress));
+        console.log('💾 Progresso inicial salvo');
+
+        initializeGame(initialProgress);
+      }).catch(error => {
+        console.error("❌ Falha na criação da partida:", error);
+        setLoadingError('Erro ao criar partida. Tente novamente.');
+      });
+    };
+
+    // Criar nova partida apenas se não há progresso salvo válido
+    createNewGame();
 
     return () => {
       console.log("🧹 Limpando GameScene ao sair da página...");
@@ -1015,18 +1085,18 @@ export function GameScene() {
 
   // Inicializar estados
   useEffect(() => {
-    const { savedProgress } = location.state || {};
+    const { savedProgress: stateSavedProgress } = location.state || {};
 
-    if (savedProgress) {
+    if (stateSavedProgress) {
       console.log("📄 Restaurando progresso salvo...");
-      setCurrentFuel(savedProgress.currentFuel);
-      setProgress(savedProgress.progress);
-      setCurrentPathIndex(savedProgress.currentPathIndex);
-      setGameTime(Math.max(0, savedProgress.gameTime || 0));
+      setCurrentFuel(stateSavedProgress.currentFuel);
+      setProgress(stateSavedProgress.progress);
+      setCurrentPathIndex(stateSavedProgress.currentPathIndex);
+      setGameTime(Math.max(0, stateSavedProgress.gameTime || 0));
 
-      progressRef.current = savedProgress.progress;
-      currentPathIndexRef.current = savedProgress.currentPathIndex;
-      pathProgressRef.current = savedProgress.pathProgress;
+      progressRef.current = stateSavedProgress.progress;
+      currentPathIndexRef.current = stateSavedProgress.currentPathIndex;
+      pathProgressRef.current = stateSavedProgress.pathProgress;
     } else {
       console.log("✨ Iniciando um novo jogo...");
       setCurrentFuel(vehicle?.currentFuel || 0);
@@ -1042,6 +1112,29 @@ export function GameScene() {
       gameSpeedMultiplier.current = (estimatedHours * 60) / targetGameDurationMinutes;
     }
   }, [vehicle, selectedRoute, location.state]);
+
+  useEffect(() => {
+    if (!gameLoaded || gameEnded || !activeGameIdRef.current) return;
+
+    const saveInterval = setInterval(() => {
+      const gameProgress = {
+        vehicle,
+        money,
+        selectedRoute,
+        currentFuel,
+        progress,
+        currentPathIndex,
+        pathProgress: pathProgressRef.current,
+        gameTime,
+        timestamp: Date.now(),
+        activeGameId: activeGameIdRef.current
+      };
+      localStorage.setItem('savedGameProgress', JSON.stringify(gameProgress));
+      console.log('💾 Progresso salvo automaticamente');
+    }, 20000); // A cada 10 segundos
+
+    return () => clearInterval(saveInterval);
+  }, [gameLoaded, gameEnded, vehicle, money, selectedRoute, currentFuel, progress, currentPathIndex, gameTime]);
 
   const [gasoline, setGasoline] = useState(() => {
     const fuelPercent = (currentFuel / vehicle.maxCapacity) * 100;
