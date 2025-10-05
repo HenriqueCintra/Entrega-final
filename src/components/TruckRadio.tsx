@@ -29,6 +29,13 @@ const TruckRadio: React.FC<TruckRadioProps> = ({ isOpen, onClose }) => {
     fetchRadioStations();
   }, []);
 
+  // Aplica o volume inicial quando o componente monta
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume;
+    }
+  }, [volume]);
+
   const fetchSpecificStationByUrl = async (streamUrl: string): Promise<RadioStation | null> => {
     try {
       const encodedUrl = encodeURIComponent(streamUrl);
@@ -343,7 +350,6 @@ const TruckRadio: React.FC<TruckRadioProps> = ({ isOpen, onClose }) => {
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
         onError={() => setIsPlaying(false)}
-        volume={volume} // Aplicando o volume inicial
       />
     </div>
   );
