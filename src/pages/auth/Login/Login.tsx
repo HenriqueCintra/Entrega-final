@@ -21,6 +21,13 @@ export const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Função para limpar erro quando o usuário começar a digitar
+  const clearError = () => {
+    if (error) {
+      setError("");
+    }
+  };
+
   const handleForgotPassword = (e: React.MouseEvent) => {
     e.preventDefault();
     navigate("/forgot-password");
@@ -42,8 +49,18 @@ export const Login = () => {
       navigate("/ranking");
     } catch (error: any) {
       console.error("Erro completo de login:", error);
+      
+      // Tratamento específico de erros com mensagens claras
       if (error.response && error.response.status === 401) {
-        setError("Nome de usuário ou senha inválidos");
+        setError("Usuário ou senha incorretos. Verifique suas credenciais.");
+      } else if (error.response && error.response.status === 400) {
+        if (error.response.data && error.response.data.detail) {
+          setError(error.response.data.detail);
+        } else {
+          setError("Dados inválidos. Verifique o formato do usuário e senha.");
+        }
+      } else if (error.response && error.response.status === 404) {
+        setError("Usuário não encontrado. Verifique se o nome de usuário está correto.");
       } else if (error.response && error.response.data) {
         if (error.response.data.detail) {
           setError(error.response.data.detail);
@@ -60,9 +77,12 @@ export const Login = () => {
           setError("Falha ao realizar login. Verifique suas credenciais.");
         }
       } else if (error.request) {
-        setError("O servidor não respondeu. Verifique sua conexão.");
+        setError("Servidor não está respondendo. Verifique sua conexão com a internet.");
+      } else if (error.message) {
+        // Mensagem específica do AuthService
+        setError(error.message);
       } else {
-        setError("Erro de conexão. Tente novamente mais tarde.");
+        setError("Erro inesperado. Tente novamente em alguns momentos.");
       }
     } finally {
       setLoading(false);
@@ -112,7 +132,10 @@ export const Login = () => {
                     type="text"
                     className="h-[55px] rounded-xl border border-solid border-black [font-family:'Silkscreen',Helvetica] text-[20px]"
                     value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                    onChange={(e) => {
+                      setUsername(e.target.value);
+                      clearError();
+                    }}
                   />
                 </div>
 
@@ -128,14 +151,17 @@ export const Login = () => {
                     type="password"
                     className="h-[55px] rounded-xl border border-solid border-black [font-family:'Silkscreen',Helvetica] text-[20px]"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      clearError();
+                    }}
                   />
                 </div>
 
                 {error && (
-                  <div className="text-red-500 flex items-center gap-2 my-2">
-                    <AlertCircle size={20} />
-                    <span>{error}</span>
+                  <div className="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2 my-3">
+                    <AlertCircle size={20} className="flex-shrink-0" />
+                    <span className="font-medium">{error}</span>
                   </div>
                 )}
 

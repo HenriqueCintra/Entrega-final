@@ -1,25 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-// Preços base como fallback, caso não venham do estado de navegação
 const BASE_FUEL_PRICES: Record<string, number> = {
   DIESEL: 6.89,
   GASOLINA: 7.29,
   ALCOOL: 5.99,
 };
 
-// ✅ PROPS OPCIONAIS PARA USAR COMO MODAL
 interface FuelPageProps {
   mockNavigate?: (path: string, options?: any) => void;
   mockLocation?: { state: any };
 }
 
 export const FuelPage: React.FC<FuelPageProps> = ({ mockNavigate, mockLocation }) => {
-  // ✅ USA MOCKS SE FORNECIDOS, SENÃO USA HOOKS NORMAIS
   const navigate = mockNavigate || useNavigate();
   const location = mockLocation || useLocation();
 
-  // ✅ PRIORIZA OS PREÇOS DINÂMICOS VINDOS DO JOGO
   const fuelPricesToUse = location.state?.stationPrices || BASE_FUEL_PRICES;
   const gasStationName = location.state?.gasStationName || "POSTO DE COMBUSTÍVEL";
 
@@ -41,8 +37,24 @@ export const FuelPage: React.FC<FuelPageProps> = ({ mockNavigate, mockLocation }
   const [selectedAmount, setSelectedAmount] = useState<string>('1/4 TANQUE');
   const [showPenaltyModal, setShowPenaltyModal] = useState(false);
 
+  // === ✅ NOVOS ESTADOS PARA REVISÃO PREVENTIVA ===
+  const [revisaoFeita, setRevisaoFeita] = useState(false);
+  const [revisaoCost, setRevisaoCost] = useState(0);
+
+  // Identifica se é a tela inicial ou o modal em jogo
+  const isInitialSetup = !location.state?.fromGame;
+  // ==============================================
+
   const WRONG_FUEL_PENALTY = 500.0;
   const vehicleFuelType = vehicle?.fuelType || 'Diesel';
+
+  // === ✅ CALCULAR CUSTO DA REVISÃO (10% DO VALOR DO VEÍCULO) ===
+  useEffect(() => {
+    if (vehicle?.cost) {
+      setRevisaoCost(vehicle.cost * 0.10);
+    }
+  }, [vehicle]);
+  // ============================================================
 
   const calculateCost = () => {
     if (!vehicle) return 0;
@@ -60,12 +72,13 @@ export const FuelPage: React.FC<FuelPageProps> = ({ mockNavigate, mockLocation }
         break;
     }
 
-    // ✅ USA OS PREÇOS DINÂMICOS AO INVÉS DOS FIXOS
     return fuelPricesToUse[selectedFuel] * liters;
   };
 
   const totalCost = calculateCost();
-  const finalBalance = playerBalance - totalCost;
+  // === ✅ SALDO FINAL ATUALIZADO (INCLUI REVISÃO SE MARCADA) ===
+  const finalBalance = playerBalance - totalCost - (revisaoFeita ? revisaoCost : 0);
+  // ==============================================================
 
   const handleRefuel = () => {
     if (!vehicle || totalCost <= 0) return;
@@ -100,14 +113,16 @@ export const FuelPage: React.FC<FuelPageProps> = ({ mockNavigate, mockLocation }
       liters: vehicle ? vehicle.maxCapacity * fraction : 0,
     };
 
-    // ✅ REPASSA TODOS OS DADOS NECESSÁRIOS INCLUINDO O MARCADOR 'fromGame'
     navigate('/fuel-minigame', {
       state: {
         refuelInfo,
         selectedVehicle: vehicle,
         availableMoney: playerBalance,
         selectedRoute,
-        fromGame: location.state?.fromGame // ✅ REPASSA O MARCADOR CRUCIAL
+        fromGame: location.state?.fromGame,
+        // === ✅ PASSAR O ESTADO DA REVISÃO ADIANTE ===
+        revisaoFeita: isInitialSetup && revisaoFeita
+        // ============================================
       }
     });
   };
@@ -116,7 +131,6 @@ export const FuelPage: React.FC<FuelPageProps> = ({ mockNavigate, mockLocation }
     const fromGame = location.state?.fromGame;
 
     if (fromGame) {
-      // ✅ SE VEIO DO JOGO, VOLTA COM ESTADO 'resumeAfterRefuel'
       navigate('/game', {
         state: {
           resumeAfterRefuel: true,
@@ -125,12 +139,14 @@ export const FuelPage: React.FC<FuelPageProps> = ({ mockNavigate, mockLocation }
         }
       });
     } else {
-      // Comportamento original
       navigate('/game', {
         state: {
           selectedVehicle: vehicle,
           availableMoney: playerBalance,
-          selectedRoute
+          selectedRoute,
+          // === ✅ PASSAR O ESTADO DA REVISÃO ADIANTE ===
+          revisaoFeita: isInitialSetup && revisaoFeita
+          // ============================================
         }
       });
     }
@@ -146,7 +162,6 @@ export const FuelPage: React.FC<FuelPageProps> = ({ mockNavigate, mockLocation }
       const fileName = vehicleImage.replace('/src/assets/', '');
       return `/assets/${fileName}`;
     }
-    // fallback: mantém caminho relativo ao public
     return vehicleImage;
   };
 
@@ -158,7 +173,6 @@ export const FuelPage: React.FC<FuelPageProps> = ({ mockNavigate, mockLocation }
           onClick={() => {
             const fromGame = location.state?.fromGame;
             if (fromGame) {
-              // ✅ SE VEIO DO JOGO, VOLTA PARA O JOGO DIRETAMENTE
               navigate('/game', {
                 state: {
                   resumeAfterRefuel: true,
@@ -167,7 +181,6 @@ export const FuelPage: React.FC<FuelPageProps> = ({ mockNavigate, mockLocation }
                 }
               });
             } else {
-              // Comportamento original
               navigate('/routes');
             }
           }}
@@ -176,12 +189,10 @@ export const FuelPage: React.FC<FuelPageProps> = ({ mockNavigate, mockLocation }
           ← Voltar
         </button>
 
-        {/* ✅ TÍTULO CENTRALIZADO - MOSTRA O NOME DO POSTO DINÂMICO */}
         <h1 className="text-lg text-white font-bold tracking-wider font-['Silkscreen'] absolute left-1/2 transform -translate-x-1/2">
           {gasStationName.toUpperCase()}
         </h1>
 
-        {/* Saldo */}
         <div className="text-right text-sm text-white font-['Silkscreen']">
           <div className="mb-1">
             R$ {playerBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -198,7 +209,7 @@ export const FuelPage: React.FC<FuelPageProps> = ({ mockNavigate, mockLocation }
             {vehicle.name.toUpperCase()}
           </div>
 
-          {/* Vehicle Stats - fundo mais suave */}
+          {/* Vehicle Stats */}
           <div className="bg-gradient-to-br from-purple-50 to-purple-100 border-4 border-purple-800 p-5 mb-5 text-sm rounded shadow-lg">
             <div className="grid grid-cols-2 gap-5 mb-5 text-purple-900">
               <div className="text-center">
@@ -226,9 +237,42 @@ export const FuelPage: React.FC<FuelPageProps> = ({ mockNavigate, mockLocation }
             </div>
           </div>
 
+          {/* === ✅ NOVA SEÇÃO: REVISÃO PREVENTIVA (APENAS NA TELA INICIAL) === */}
+          {isInitialSetup && (
+            <div className="mt-4 bg-gradient-to-br from-blue-50 to-blue-100 border-4 border-blue-800 p-4 rounded shadow-lg text-blue-900">
+              <h4 className="font-bold text-base mb-3 text-center font-['Silkscreen']">🔧 REVISÃO PREVENTIVA</h4>
+              <p className="text-xs mb-3 font-['Silkscreen'] text-center">
+                Pague por uma revisão completa e evite panes mecânicas e elétricas durante a viagem.
+              </p>
+              <div
+                className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${revisaoFeita
+                  ? 'bg-green-200 border-green-800'
+                  : 'bg-white border-blue-800 hover:bg-blue-50'
+                  }`}
+                onClick={() => setRevisaoFeita(!revisaoFeita)}
+              >
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={revisaoFeita}
+                    readOnly
+                    className="w-5 h-5 mr-3"
+                  />
+                  <span className="font-bold font-['Silkscreen']">
+                    {revisaoFeita ? 'REVISÃO INCLUÍDA!' : 'FAZER REVISÃO'}
+                  </span>
+                </div>
+                <span className="font-bold text-lg font-['Silkscreen']">
+                  - R$ {revisaoCost.toFixed(2)}
+                </span>
+              </div>
+            </div>
+          )}
+          {/* ================================================================= */}
+
           <button
             onClick={handleSkip}
-            className="bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-purple-900 px-6 py-3 border-4 border-purple-800 font-bold text-sm rounded shadow-lg transition-all hover:scale-105 font-['Silkscreen']"
+            className="bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-purple-900 px-6 py-3 border-4 border-purple-800 font-bold text-sm rounded shadow-lg transition-all hover:scale-105 font-['Silkscreen'] mt-4"
           >
             PULAR ABASTECIMENTO
           </button>
@@ -240,7 +284,7 @@ export const FuelPage: React.FC<FuelPageProps> = ({ mockNavigate, mockLocation }
             <h3 className="text-base font-bold text-white font-['Silkscreen']">ABASTECIMENTO</h3>
           </div>
 
-          {/* ✅ SEÇÃO DE PREÇOS DINÂMICOS - DESTAQUE VISUAL */}
+          {/* Preços dinâmicos */}
           <div className="mb-6 p-4 bg-gradient-to-r from-green-600 to-green-700 border-4 border-green-900 rounded shadow-lg">
             <h4 className="text-white font-bold mb-3 text-sm text-center font-['Silkscreen']">💰 PREÇOS ESPECIAIS HOJE! 💰</h4>
             <div className="grid grid-cols-3 gap-2 text-center">
@@ -275,7 +319,6 @@ export const FuelPage: React.FC<FuelPageProps> = ({ mockNavigate, mockLocation }
               ))}
             </div>
 
-            {/* ✅ FUEL PRICE - AGORA USA OS PREÇOS DINÂMICOS */}
             <div className="bg-gradient-to-r from-purple-500 to-purple-600 border-4 border-purple-900 p-3 text-center rounded shadow-lg">
               <div className="text-white font-bold text-sm font-['Silkscreen']">
                 {selectedFuel}: R$ {fuelPricesToUse[selectedFuel].toFixed(2)} / LITRO
@@ -311,7 +354,7 @@ export const FuelPage: React.FC<FuelPageProps> = ({ mockNavigate, mockLocation }
             <div className="text-lg font-bold text-white font-['Silkscreen']">TOTAL: R$ {totalCost.toFixed(2)}</div>
           </div>
 
-          {/* Refuel */}
+          {/* Refuel Button */}
           <button
             onClick={handleRefuel}
             disabled={totalCost > playerBalance}
