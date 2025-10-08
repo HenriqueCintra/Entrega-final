@@ -8,8 +8,8 @@ import {
   CardTitle,
 } from "../../../components/ui/card";
 import { Input } from "../../../components/ui/input";
-import { ArrowLeft, House, AlertCircle } from 'lucide-react';
-import { ButtonHomeBack } from "@/components/ButtonHomeBack";
+import { ArrowLeft, AlertCircle } from 'lucide-react'; 
+
 import AuthService from "../../../api/authService";
 
 export const ForgotPassword = () => {
@@ -241,11 +241,20 @@ export const ForgotPassword = () => {
           src="/nuvemright.png"
         />
 
-        {/* Botões de navegação */}
-        <div className="flex gap-5 absolute top-14 left-[33px]">
-          <ButtonHomeBack onClick={() => navigate("/login")}><ArrowLeft /></ButtonHomeBack>
-          <ButtonHomeBack onClick={() => navigate("/")}><House /></ButtonHomeBack>
+        {/* ================================================================ */}
+        {/* ======================= BOTÃO DE VOLTAR ======================== */}
+        {/* ================================================================ */}
+        <div className="absolute top-14 left-[33px]">
+          <Button
+            onClick={() => navigate("/login")}
+            className="bg-[#e3922a] hover:bg-[#d4831f] text-black px-4 py-2 border-2 border-black rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-['Silkscreen'] h-12 flex items-center gap-2 transform transition-transform duration-300 hover:scale-105"
+          >
+            <ArrowLeft size={20} />
+            Voltar
+          </Button>
         </div>
+        {/* ================================================================ */}
+        {/* ================================================================ */}
 
         {/* Conteúdo principal */}
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
@@ -255,5 +264,3 @@ export const ForgotPassword = () => {
     </div>
   );
 };
-
-export default ForgotPassword;

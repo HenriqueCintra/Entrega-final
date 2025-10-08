@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { ArrowLeft, Home, Loader2 } from 'lucide-react';
-import { ButtonHomeBack } from "@/components/ButtonHomeBack";
 import { AudioControl } from "@/components/AudioControl";
 import { fetchChallengesFromBackend, FrontendChallenge } from "../../services/challengeService";
 import { ChallengeCard } from "../../components/ChallengeCard";
@@ -68,7 +67,7 @@ export const ApresentacaoDesafioPage = () => {
     };
 
     loadChallenges();
-  }, []);
+  }, [navigate]);
 
   // Sincronizar o carrossel com o índice atual
   useEffect(() => {
@@ -171,16 +170,33 @@ export const ApresentacaoDesafioPage = () => {
   return (
     <div className="bg-white flex flex-row justify-center w-full">
       <div className="w-full min-h-screen [background:linear-gradient(180deg,rgba(32,2,89,1)_0%,rgba(121,70,213,1)_100%)] relative overflow-hidden z-10">
-        <div className="flex gap-5 absolute top-4 left-4 z-10">
-          <ButtonHomeBack onClick={() => navigate(-1)}><ArrowLeft/></ButtonHomeBack>
-          <ButtonHomeBack onClick={() => navigate("/perfil")}><Home/></ButtonHomeBack>
+        {/* ================================================================ */}
+        {/* ======================= BOTÕES ATUALIZADOS ===================== */}
+        {/* ================================================================ */}
+        <div className="flex gap-4 absolute top-4 left-4 z-10">
+          <Button
+              onClick={() => navigate(-1)}
+              className="bg-[#e3922a] hover:bg-[#d4831f] text-black px-4 py-2 border-2 border-black rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-['Silkscreen'] h-12 flex items-center gap-2 transform transition-transform duration-300 hover:scale-105"
+          >
+              <ArrowLeft size={20} />
+              Voltar
+          </Button>
+          <Button
+              onClick={() => navigate("/perfil")}
+              className="bg-[#e3922a] hover:bg-[#d4831f] text-black px-4 py-2 border-2 border-black rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-['Silkscreen'] h-12 flex items-center gap-2 transform transition-transform duration-300 hover:scale-105"
+          >
+              <Home size={20} />
+              Perfil
+          </Button>
         </div>
+        {/* ================================================================ */}
+        {/* ================================================================ */}
 
         <div className="absolute top-4 right-4 z-10">
           <AudioControl />
         </div>
 
-        <div className="pt-8   pb-8 px-4 flex flex-col justify-center items-center min-h-screen z-10">
+        <div className="pt-8 pb-8 px-4 flex flex-col justify-center items-center min-h-screen z-10">
           {/* Carrossel de desafios */}
           <div className="relative w-full max-w-[1000px] mx-auto px-8 md:px-16">
             <Carousel
@@ -216,27 +232,8 @@ export const ApresentacaoDesafioPage = () => {
               <CarouselNext className="hidden transition-all duration-300 ease-in-out hover:scale-110 md:flex opacity-100 -right-12 h-12 w-12 bg-[#e3922a] hover:bg-[#d4831f] text-white border-2 border-black rounded-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" />
             </Carousel>
           </div>
-
-          {/* Indicadores na parte de baixo */}
-          {/* {availableChallenges.length > 1 && (
-            <div className="flex justify-center space-x-2 mt-6">
-              {availableChallenges.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => setCurrentChallengeIndex(index)}
-                  className={`w-3 h-3 rounded-full transition-all ${
-                    currentChallengeIndex === index
-                      ? 'bg-[#e3922a] scale-125'
-                      : 'bg-gray-400 hover:bg-gray-500'
-                  }`}
-                />
-              ))}
-            </div>
-          )} */}
         </div>
       </div>
     </div>
   );
 };
-
-export default ApresentacaoDesafioPage;
