@@ -6,8 +6,8 @@ import { useQuery } from '@tanstack/react-query';
 import GameCard from './components/GameCard';
 import PixelHeading from './components/PixelHeading';
 import Footer from './components/Footer';
+import { Button } from '@/components/ui/button'; 
 import { ArrowLeft, ImageIcon, Loader, AlertTriangle } from 'lucide-react';
-import { ButtonHomeBack } from '@/components/ButtonHomeBack';
 import { AudioControl } from '@/components/AudioControl';
 import { GameService } from '@/api/gameService';
 import { Map as Desafio } from '@/types'; // O tipo Map representa um Desafio
@@ -90,7 +90,7 @@ const GameSelectionPage = () => {
         const primeiroDesafio = desafios[0];
         navigate('/tutorial', { state: { mapaId: primeiroDesafio.id } });
       } else if (!isLoading) {
-         alert("Nenhum desafio encontrado para este jogo. Verifique o backend.");
+          alert("Nenhum desafio encontrado para este jogo. Verifique o backend.");
       }
     } else {
       const game = gamesData.find(g => g.id === gameId);
@@ -116,9 +116,20 @@ const GameSelectionPage = () => {
       className="min-h-screen bg-gradient-to-b from-purple-900 to-indigo-800 flex flex-col items-center justify-between py-12 px-4"
       style={{ fontFamily: "'Press Start 2P', cursive" }}
     >
-      <div className="flex gap-5 absolute top-14 left-[33px]">
-        <ButtonHomeBack onClick={() => navigate(-1)}><ArrowLeft /></ButtonHomeBack>
+      {/* ================================================================ */}
+      {/* ======================= BOTÃO DE VOLTAR ======================== */}
+      {/* ================================================================ */}
+      <div className="absolute top-14 left-[33px]">
+        <Button
+            onClick={() => navigate(-1)}
+            className="bg-[#e3922a] hover:bg-[#d4831f] text-black px-4 py-2 border-2 border-black rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-['Silkscreen'] h-12 flex items-center gap-2 transform transition-transform duration-300 hover:scale-105"
+        >
+            <ArrowLeft size={20} />
+            Voltar
+        </Button>
       </div>
+      {/* ================================================================ */}
+      {/* ================================================================ */}
       
       <div className="absolute top-14 right-[33px]">
         <AudioControl />

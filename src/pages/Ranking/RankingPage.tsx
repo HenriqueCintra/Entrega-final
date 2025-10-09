@@ -146,16 +146,21 @@ export const RankingPage = () => {
   return (
     <div className="bg-white w-full h-screen overflow-hidden">
       <div className={`w-full h-full [background:linear-gradient(180deg,rgba(57,189,248,1)_0%,rgba(154,102,248,1)_100%)] relative overflow-hidden ${silkscreenFont}`}>
-        {/* Botões de navegação */}
+        {/* ================================================================ */}
+        {/* ======================= BOTÃO DE VOLTAR ======================== */}
+        {/* ================================================================ */}
         <div className="absolute top-4 left-4 z-20">
           <Button
             onClick={handleNavigateBack}
-            variant="outline"
-            className="p-2 bg-white border-2 border-black rounded-md hover:bg-gray-200"
+            className="bg-[#e3922a] hover:bg-[#d4831f] text-black px-4 py-2 border-2 border-black rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-['Silkscreen'] h-12 flex items-center gap-2 transform transition-transform duration-300 hover:scale-105"
           >
-            <ArrowLeft size={24} className="text-black" />
+            <ArrowLeft size={20} />
+            Voltar
           </Button>
         </div>
+        {/* ================================================================ */}
+        {/* ================================================================ */}
+        
         <div className="absolute top-4 right-4 z-20 flex gap-2">
           <AudioControl />
           <Button

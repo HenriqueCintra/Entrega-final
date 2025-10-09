@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "../../components/ui/button";
-import { ArrowLeft, Home } from 'lucide-react'; 
-import { ButtonHomeBack } from "@/components/ButtonHomeBack";
+// Ícone 'Home' removido
+import { ArrowLeft } from 'lucide-react'; 
+// A importação do ButtonHomeBack não é mais necessária
+// import { ButtonHomeBack } from "@/components/ButtonHomeBack";
 import { AudioControl } from "@/components/AudioControl";
 import { useNavigate } from "react-router-dom";
 
@@ -68,10 +70,20 @@ export const TutorialPage = () => {
           src="/nuvemright.png"
         />
 
-        <div className="flex gap-5 absolute top-14 left-[33px]">
-          <ButtonHomeBack onClick={() => navigate(-1)}><ArrowLeft/></ButtonHomeBack>
-          <ButtonHomeBack onClick={() => navigate("/perfil")}><Home/></ButtonHomeBack>
+        {/* ================================================================ */}
+        {/* ======================= BOTÃO DE VOLTAR ======================== */}
+        {/* ================================================================ */}
+        <div className="absolute top-14 left-[33px]">
+            <Button
+                onClick={() => navigate(-1)}
+                className="bg-[#e3922a] hover:bg-[#d4831f] text-black px-4 py-2 border-2 border-black rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-['Silkscreen'] h-12 flex items-center gap-2 transform transition-transform duration-300 hover:scale-105"
+            >
+                <ArrowLeft size={20} />
+                Voltar
+            </Button>
         </div>
+        {/* ================================================================ */}
+        {/* ================================================================ */}
 
         <div className="absolute top-14 right-[33px]">
           <AudioControl />
