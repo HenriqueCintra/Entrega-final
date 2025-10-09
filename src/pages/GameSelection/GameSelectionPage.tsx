@@ -100,9 +100,115 @@ const GameSelectionPage = () => {
     }
   };
 
-  const handleContinueGame = () => {
+  const handleContinueGame = async () => {
     setShowContinueModal(false);
-    navigate('/perfil');
+
+    try {
+      // Busca a partida ativa do backend
+      const partidaAtiva = await GameService.getActiveGame();
+
+      // Busca os detalhes completos da partida
+      const partidaCompleta = await GameService.getPartida(partidaAtiva.id);
+
+      console.log('🎮 Continuando partida:', partidaCompleta);
+
+      // ✅ Mapeia o ID do veículo para a imagem correta
+      // IDs do banco: 1=Caminhonete, 2=Caminhão Pequeno, 3=Caminhão Médio, 4=Carreta
+      const vehicleImageByIdMap: { [key: number]: string } = {
+        1: '/assets/caminhonete.png',
+        2: '/assets/caminhao_pequeno.png',
+        3: '/assets/caminhao_medio.png',
+        4: '/assets/carreta.png'
+      };
+
+      // Fallback: mapeia por nome do modelo caso o ID não funcione
+      const vehicleImageByNameMap: { [key: string]: string } = {
+        'Caminhonete': '/assets/caminhonete.png',
+        'Caminhão Pequeno': '/assets/caminhao_pequeno.png',
+        'Caminhão Médio': '/assets/caminhao_medio.png',
+        'Carreta': '/assets/carreta.png'
+      };
+
+      const vehicleModel = partidaCompleta.veiculo_detalhes?.modelo || 'Caminhão Médio';
+      const vehicleId = partidaCompleta.veiculo;
+
+      // Tenta primeiro por ID, depois por nome
+      const vehicleImage = vehicleImageByIdMap[vehicleId] ||
+        vehicleImageByNameMap[vehicleModel] ||
+        '/assets/caminhao_medio.png';
+
+      console.log('🚗 Veículo ID:', vehicleId, 'Modelo:', vehicleModel, '→ Imagem:', vehicleImage);
+
+      // Reconstrói o estado do jogo a partir dos dados do backend
+      const selectedVehicle = {
+        id: String(partidaCompleta.veiculo), // ✅ Converte para string
+        name: vehicleModel,
+        capacity: partidaCompleta.veiculo_detalhes?.capacidade_carga || 1000,
+        maxCapacity: partidaCompleta.veiculo_detalhes?.capacidade_combustivel || 100,
+        currentFuel: partidaCompleta.combustivel_atual,
+        cost: partidaCompleta.veiculo_detalhes?.preco || 0,
+        consumption: {
+          asphalt: 3,
+          dirt: 2
+        },
+        image: vehicleImage, // ✅ Usa a imagem correta baseada no modelo
+        spriteSheet: undefined
+      };
+
+      const selectedRoute = {
+        id: partidaCompleta.rota,
+        mapaId: partidaCompleta.mapa, // ✅ ADICIONA mapaId para compatibilidade
+        name: partidaCompleta.rota_detalhes?.nome || 'Rota',
+        description: partidaCompleta.rota_detalhes?.descricao || '',
+        distance: partidaCompleta.rota_detalhes?.distancia_km || 500,
+        actualDistance: partidaCompleta.rota_detalhes?.distancia_km || 500, // ✅ ADICIONA actualDistance
+        estimatedTime: partidaCompleta.rota_detalhes?.tempo_estimado_horas || 8,
+        estimatedTimeHours: partidaCompleta.rota_detalhes?.tempo_estimado_horas || 8, // ✅ ADICIONA estimatedTimeHours
+        roadType: partidaCompleta.rota_detalhes?.tipo_estrada || 'asfalto',
+        averageSpeed: partidaCompleta.rota_detalhes?.velocidade_media_kmh || 60,
+        dangerZones: partidaCompleta.rota_detalhes?.danger_zones_data || [],
+        dirtSegments: partidaCompleta.rota_detalhes?.dirt_segments_data || [],
+        fuelStop: partidaCompleta.rota_detalhes?.fuelStop || [],
+        pathCoordinates: partidaCompleta.rota_detalhes?.pathCoordinates || []
+      };
+
+      console.log('🚗 Veículo reconstruído:', selectedVehicle);
+      console.log('🗺️ Rota reconstruída:', selectedRoute);
+
+      // Calcula o progresso atual
+      const progressPercentage = partidaCompleta.progresso ||
+        ((partidaCompleta.distancia_percorrida / (partidaCompleta.rota_detalhes?.distancia_km || 500)) * 100);
+
+      console.log('📊 Progresso calculado:', {
+        progresso_backend: partidaCompleta.progresso,
+        distancia_percorrida: partidaCompleta.distancia_percorrida,
+        distancia_total: partidaCompleta.rota_detalhes?.distancia_km,
+        progressPercentage: progressPercentage
+      });
+
+      const navigationState = {
+        selectedVehicle,
+        selectedRoute,
+        availableMoney: partidaCompleta.saldo,
+        mapaId: partidaCompleta.mapa,
+        savedProgress: {
+          activeGameId: partidaCompleta.id,
+          distanceTravelled: partidaCompleta.distancia_percorrida,
+          progress: progressPercentage,
+          gameTime: partidaCompleta.tempo_jogo_segundos || 0,
+          currentFuel: partidaCompleta.combustivel_atual
+        }
+      };
+
+      console.log('🚀 Navegando para /game com estado:', navigationState);
+
+      // Navega para o jogo com o estado restaurado
+      navigate('/game', { state: navigationState });
+
+    } catch (error) {
+      console.error('❌ Erro ao continuar jogo:', error);
+      alert('Erro ao carregar o jogo. Tente novamente.');
+    }
   };
 
   const handleNewGame = () => {
