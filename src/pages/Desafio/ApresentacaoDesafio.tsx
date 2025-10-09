@@ -148,18 +148,20 @@ export const ApresentacaoDesafioPage = () => {
             {erro || "Nenhum desafio disponível."}
           </h1>
           <div className="space-y-2">
-            <Button 
-              onClick={() => window.location.reload()} 
-              className="bg-red-600 text-white mr-2 text-base px-4 py-2"
-            >
-              Tentar Novamente
-            </Button>
-            <Button 
-              onClick={() => navigate('/game-selection')} 
-              className="bg-gray-600 text-white text-base px-4 py-2"
-            >
-              Voltar para Seleção de Jogos
-            </Button>
+            <Button
+              onClick={() => navigate('/tutorial')}
+              className="bg-[#e3922a] hover:bg-[#d4831f] text-black px-4 py-2 border-2 border-black rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-['Silkscreen'] h-12 flex items-center gap-2 transform transition-transform duration-300 hover:scale-105"
+          >
+              <ArrowLeft size={20} />
+              Voltar
+          </Button>
+          <Button
+              onClick={() => navigate("/perfil")}
+              className="bg-[#e3922a] hover:bg-[#d4831f] text-black px-4 py-2 border-2 border-black rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-['Silkscreen'] h-12 flex items-center gap-2 transform transition-transform duration-300 hover:scale-105"
+          >
+              <Home size={20} />
+              Perfil
+          </Button>
           </div>
         </div>
       </div>
