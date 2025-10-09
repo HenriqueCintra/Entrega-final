@@ -715,12 +715,7 @@ export function GameScene() {
   };
 
   const handleRestart = () => {
-    console.log("🔄 Reiniciando jogo - limpando dados salvos...");
-    // Limpar todos os dados salvos
-    localStorage.removeItem('savedGameProgress');
-    localStorage.removeItem('activeGameId');
-    // Redirecionar para seleção de desafios
-    navigate('/desafios');
+    window.location.reload();
   };
 
   const handleGoToProfile = async () => {
@@ -878,10 +873,20 @@ export function GameScene() {
       return;
     }
 
-    // ✅ CORREÇÃO F5: Verificar se o jogo já está rodando
+    // ✅ CORREÇÃO: Limpar Kaboom anterior se existir
     if ((window as any).__kaboom_initiated__) {
-      console.log("🔄 Jogo já está rodando, não reinicializando...");
-      return;
+      console.log("🔄 Kaboom já iniciado, limpando instância anterior...");
+      try {
+        const k = (window as any).k;
+        if (k?.destroy) {
+          k.destroy();
+        }
+        (window as any).__kaboom_initiated__ = false;
+        (window as any).k = null;
+        console.log("✅ Instância anterior do Kaboom limpa");
+      } catch (error) {
+        console.error("❌ Erro ao limpar Kaboom:", error);
+      }
     }
 
     console.log("Inicializando jogo com veículo:", initialVehicle.name, "Imagem:", initialVehicle.image);
@@ -943,6 +948,9 @@ export function GameScene() {
 
       window.addEventListener('resize', handleResizeRef.current!);
       (window as any).__kaboom_initiated__ = true;
+      (window as any).k = k; // ✅ Salvar referência para cleanup
+      
+      console.log("✅ Kaboom inicializado com sucesso!");
 
       const {
         loadSprite,
@@ -1313,9 +1321,18 @@ export function GameScene() {
     return () => {
       console.log("🧹 Limpando GameScene ao sair da página...");
       if ((window as any).__kaboom_initiated__) {
-        const k = (window as any).k;
-        if (k?.destroy) k.destroy();
-        (window as any).__kaboom_initiated__ = false;
+        try {
+          const k = (window as any).k;
+          if (k?.destroy) {
+            console.log("🗑️ Destruindo instância do Kaboom...");
+            k.destroy();
+          }
+          (window as any).__kaboom_initiated__ = false;
+          (window as any).k = null;
+          console.log("✅ Kaboom limpo com sucesso");
+        } catch (error) {
+          console.error("❌ Erro ao limpar Kaboom:", error);
+        }
       }
       if (handleResizeRef.current) {
         window.removeEventListener('resize', handleResizeRef.current);
