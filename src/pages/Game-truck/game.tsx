@@ -844,7 +844,7 @@ export function GameScene() {
       const routeDistance = initialRoute.actualDistance || initialRoute.distance;
       setTotalDistance(routeDistance);
 
-      const estimatedHours = initialRoute.estimatedTimeHours || 7.5;
+      const estimatedHours = initialRoute.estimatedTimeHours || initialRoute.estimatedTime || 7.5;
       const targetGameDurationMinutes = 20;
       gameSpeedMultiplier.current = (estimatedHours * 60) / targetGameDurationMinutes;
       console.log(`🗺️ Distância total definida para: ${routeDistance}km`);
@@ -861,7 +861,7 @@ export function GameScene() {
 
     if (!canvasRef.current) {
       console.error("Canvas não encontrado, tentando novamente...");
-      setTimeout(() => initializeGame(initialVehicle, initialMoney, restoredState), 100);
+      setTimeout(() => initializeGame(initialVehicle, initialMoney, initialRoute, restoredState), 100);
       return;
     }
 
@@ -869,14 +869,24 @@ export function GameScene() {
 
     if (!document.contains(canvasRef.current)) {
       console.error("Canvas não está no DOM, aguardando...");
-      setTimeout(() => initializeGame(initialVehicle, initialMoney, restoredState), 100);
+      setTimeout(() => initializeGame(initialVehicle, initialMoney, initialRoute, restoredState), 100);
       return;
     }
 
-    // ✅ CORREÇÃO F5: Verificar se o jogo já está rodando
+    // ✅ CORREÇÃO: Limpar Kaboom anterior se existir
     if ((window as any).__kaboom_initiated__) {
-      console.log("🔄 Jogo já está rodando, não reinicializando...");
-      return;
+      console.log("🔄 Kaboom já iniciado, limpando instância anterior...");
+      try {
+        const k = (window as any).k;
+        if (k?.destroy) {
+          k.destroy();
+        }
+        (window as any).__kaboom_initiated__ = false;
+        (window as any).k = null;
+        console.log("✅ Instância anterior do Kaboom limpa");
+      } catch (error) {
+        console.error("❌ Erro ao limpar Kaboom:", error);
+      }
     }
 
     console.log("Inicializando jogo com veículo:", initialVehicle.name, "Imagem:", initialVehicle.image);
@@ -884,9 +894,12 @@ export function GameScene() {
 
     // ✅ USE VALORES RESTAURADOS SE EXISTIREM
     if (restoredState) {
+      // ✅ CALCULA A DISTÂNCIA TOTAL PRIMEIRO
+      const routeDistance = initialRoute?.actualDistance || initialRoute?.distance || totalDistance;
+      
       // ✅ RESTAURA A FONTE DA VERDADE DIRETAMENTE
       distanceTravelled.current = restoredState.distanceTravelled || 0;
-      progressRef.current = (distanceTravelled.current / totalDistance) * 100;
+      progressRef.current = routeDistance > 0 ? (distanceTravelled.current / routeDistance) * 100 : 0;
       setGameTime(restoredState.gameTime || 0);
       triggeredGasStations.current = restoredState.triggeredGasStations || [];
       activeGameIdRef.current = restoredState.activeGameId;
@@ -899,6 +912,7 @@ export function GameScene() {
         distanceTravelled: distanceTravelled.current,
         progress: progressRef.current,
         gameTime: restoredState.gameTime,
+        routeDistance: routeDistance,
         triggeredStations: triggeredGasStations.current.length
       });
     } else {
@@ -934,6 +948,9 @@ export function GameScene() {
 
       window.addEventListener('resize', handleResizeRef.current!);
       (window as any).__kaboom_initiated__ = true;
+      (window as any).k = k; // ✅ Salvar referência para cleanup
+      
+      console.log("✅ Kaboom inicializado com sucesso!");
 
       const {
         loadSprite,
@@ -1199,53 +1216,76 @@ export function GameScene() {
 
     console.log("🚀 Lógica de inicialização única está rodando...");
 
-    const existingActiveGame = localStorage.getItem('activeGameId');
-    if (existingActiveGame) {
-      console.log("🔄 Partida ativa encontrada no localStorage, restaurando...");
+    // ✅ PRIORIDADE 1: Verificar se há dados no location.state (vindo de "Continuar Jogo")
+    const { selectedVehicle, selectedRoute: route, savedProgress, cargoAmount, selectedChallenge, revisaoFeita } = location.state || {};
+    
+    console.log("📦 Location.state recebido:", {
+      hasVehicle: !!selectedVehicle,
+      hasRoute: !!route,
+      hasSavedProgress: !!savedProgress,
+      savedProgressData: savedProgress
+    });
+
+    // ✅ SE VEIO DO "CONTINUAR JOGO", RESTAURAR IMEDIATAMENTE
+    if (savedProgress && savedProgress.activeGameId && selectedVehicle && route) {
+      console.log("🟢 RESTAURANDO PARTIDA do location.state com ID:", savedProgress.activeGameId);
+      console.log("🔍 Dados recebidos:", {
+        vehicle: selectedVehicle.name,
+        route: route.name,
+        money: location.state?.availableMoney,
+        fuel: selectedVehicle.currentFuel,
+        progress: savedProgress.progress,
+        distanceTravelled: savedProgress.distanceTravelled
+      });
+
+      setActiveGameId(savedProgress.activeGameId);
+      activeGameIdRef.current = savedProgress.activeGameId;
       
-      const savedProgress = localStorage.getItem('savedGameProgress');
-      if (savedProgress) {
-        try {
-          const progressData = JSON.parse(savedProgress);
+      // Salvar no localStorage para persistência
+      localStorage.setItem('activeGameId', savedProgress.activeGameId.toString());
+
+      // ✅ USAR availableMoney do location.state
+      const restoredMoney = location.state?.availableMoney || money;
+
+      // ✅ CHAMAR O BACKEND PARA RETOMAR A PARTIDA
+      GameService.resumeGame()
+        .then(() => {
+          console.log("✅ Partida retomada no backend");
+          return GameService.getActiveGame();
+        })
+        .then((partidaAtualizada) => {
+          console.log("📊 Dados atualizados do backend:", partidaAtualizada);
           
-          // VERIFICAÇÃO DE INTEGRIDADE: Garante que os dados essenciais existem
-          if (progressData.vehicle && progressData.selectedRoute) {
-            console.log("✅ Dados de progresso válidos encontrados.");
-            
-            setActiveGameId(parseInt(existingActiveGame));
-            activeGameIdRef.current = parseInt(existingActiveGame);
-            
-            // Restaurar estados do jogo a partir de progressData
-            setMoney(progressData.money || 1000);
-            setCurrentFuel(progressData.currentFuel || 0);
-            setProgress(progressData.progress || 0);
-            setGameTime(progressData.gameTime || 0);
-            distanceTravelled.current = progressData.distanceTravelled || 0;
-            
-            console.log("🎮 Restaurando jogo visual com dados salvos...");
-            initializeGame(progressData.vehicle, progressData.money, progressData.selectedRoute, progressData);
-            return; // Impede a execução do código de "novo jogo"
-          } else {
-            console.warn("⚠️ Dados de veículo ou rota não encontrados no progresso salvo. Limpando dados corrompidos.");
-          }
-        } catch (error) {
-          console.error("❌ Erro ao analisar o progresso salvo:", error);
-        }
-      } else {
-        console.warn("🤔 Partida ativa encontrada, mas sem dados de progresso. Limpando para segurança.");
-      }
-      
-      // Se chegou aqui, a restauração falhou. Limpa tudo para evitar loops.
-      localStorage.removeItem('activeGameId');
-      localStorage.removeItem('savedGameProgress');
-      console.log("🧹 Dados de jogo inválidos ou corrompidos foram limpos.");
+          // ✅ ATUALIZAR savedProgress COM DADOS DO BACKEND
+          const progressoAtualizado = {
+            ...savedProgress,
+            distanceTravelled: partidaAtualizada.distancia_percorrida,
+            progress: partidaAtualizada.progresso || savedProgress.progress,
+            gameTime: partidaAtualizada.tempo_jogo_segundos || savedProgress.gameTime,
+            currentFuel: partidaAtualizada.combustivel_atual
+          };
+          
+          // Atualizar o veículo com combustível correto
+          const vehicleAtualizado = {
+            ...selectedVehicle,
+            currentFuel: partidaAtualizada.combustivel_atual
+          };
+          
+          console.log("🎮 Inicializando jogo com progresso restaurado:", progressoAtualizado);
+          initializeGame(vehicleAtualizado, partidaAtualizada.saldo, route, progressoAtualizado);
+        })
+        .catch((error) => {
+          console.error("❌ Erro ao retomar partida:", error);
+          // Mesmo com erro, tenta inicializar localmente
+          initializeGame(selectedVehicle, restoredMoney, route, savedProgress);
+        });
+
+      return;
     }
 
-    const { selectedVehicle, selectedRoute: route, savedProgress, cargoAmount, selectedChallenge, revisaoFeita } = location.state || {};
-
+    // ✅ VERIFICAR SE É UM NOVO JOGO (precisa de mapaId)
     if (!selectedVehicle || !route?.id || !route?.mapaId) {
       console.error("❌ Dados insuficientes para criar partida. Redirecionando...");
-      // Removido o alert para uma melhor experiência do usuário
       navigate('/routes');
       return;
     }
@@ -1259,56 +1299,6 @@ export function GameScene() {
       console.warn(`⚠️ Não foi possível calcular a carga inicial. Usando valor padrão do backend. Carga: ${cargoAmount}, Peso Total: ${selectedChallenge?.peso_carga_kg}`);
     }
     // --------------------------------
-
-    if (savedProgress && savedProgress.activeGameId) {
-      console.log("🟢 Restaurando partida existente com ID:", savedProgress.activeGameId);
-      console.log("🔍 Veículo do location.state:", selectedVehicle);
-      console.log("🔍 Dinheiro do location.state:", location.state?.availableMoney);
-
-      setActiveGameId(savedProgress.activeGameId);
-      activeGameIdRef.current = savedProgress.activeGameId;
-
-      // ✅ VALIDAR DADOS DO VEÍCULO (usa selectedVehicle do location.state, não do savedProgress)
-      if (!selectedVehicle || !selectedVehicle.name) {
-        console.error("❌ Dados do veículo incompletos!");
-        console.error("📦 Veículo recebido:", selectedVehicle);
-        console.error("📦 Location state:", location.state);
-        alert("Erro: Dados do jogo salvo estão corrompidos. Iniciando novo jogo...");
-        localStorage.removeItem('savedGameProgress');
-        navigate('/desafio');
-        return;
-      }
-
-      // ✅ USAR availableMoney do location.state
-      const restoredMoney = location.state?.availableMoney || money;
-
-      // ✅ CHAMAR O BACKEND PARA RETOMAR A PARTIDA E BUSCAR TEMPO ATUALIZADO
-      GameService.resumeGame()
-        .then(() => {
-          console.log("✅ Partida retomada no backend");
-          // ✅ BUSCAR DADOS ATUALIZADOS DO BACKEND (incluindo tempo_jogo)
-          return GameService.getActiveGame();
-        })
-        .then((partidaAtualizada) => {
-          console.log("📊 Dados atualizados do backend recebidos, tempo_jogo:", partidaAtualizada.tempo_jogo);
-          // ✅ ATUALIZAR O TEMPO NO ESTADO RESTAURADO COM O VALOR DO BACKEND
-          if (partidaAtualizada.tempo_jogo !== undefined) {
-            const tempoSegundos = Math.round(partidaAtualizada.tempo_jogo * 60);
-            savedProgress.gameTime = tempoSegundos;
-            console.log(`⏱️ TEMPO SINCRONIZADO DO BACKEND: ${tempoSegundos}s (${Math.floor(tempoSegundos / 60)}min)`);
-          }
-          // ✅ CORREÇÃO: usa selectedVehicle e restoredMoney do location.state
-          initializeGame(selectedVehicle, restoredMoney, savedProgress);
-        })
-        .catch((error) => {
-          console.error("❌ Erro ao retomar partida:", error);
-          // Mesmo com erro, tenta inicializar localmente
-          initializeGame(selectedVehicle, restoredMoney, savedProgress);
-        });
-
-      return;
-    }
-
 
     // ✅ NOVO JOGO: Limpar localStorage antes de criar
     console.log("🆕 Criando nova partida - limpando dados antigos do localStorage");
@@ -1331,9 +1321,18 @@ export function GameScene() {
     return () => {
       console.log("🧹 Limpando GameScene ao sair da página...");
       if ((window as any).__kaboom_initiated__) {
-        const k = (window as any).k;
-        if (k?.destroy) k.destroy();
-        (window as any).__kaboom_initiated__ = false;
+        try {
+          const k = (window as any).k;
+          if (k?.destroy) {
+            console.log("🗑️ Destruindo instância do Kaboom...");
+            k.destroy();
+          }
+          (window as any).__kaboom_initiated__ = false;
+          (window as any).k = null;
+          console.log("✅ Kaboom limpo com sucesso");
+        } catch (error) {
+          console.error("❌ Erro ao limpar Kaboom:", error);
+        }
       }
       if (handleResizeRef.current) {
         window.removeEventListener('resize', handleResizeRef.current);

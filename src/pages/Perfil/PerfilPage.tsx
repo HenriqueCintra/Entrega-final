@@ -24,12 +24,6 @@ export const PerfilPage = () => {
   const { user, logout, refreshUser } = useAuth();
   const queryClient = useQueryClient();
 
-  // ✅ LIMPAR CACHE AO MONTAR O COMPONENTE
-  useEffect(() => {
-    console.log('🔄 PerfilPage montado - invalidando cache de partidas...');
-    queryClient.invalidateQueries({ queryKey: ['partidaAtiva'] });
-  }, [queryClient]);
-
   // Buscar dados da equipe se o usuário estiver em uma
   const { data: teamData } = useQuery({
     queryKey: ['teamDetails', user?.equipe],
@@ -67,6 +61,12 @@ export const PerfilPage = () => {
     earnings: 12,
     victories: 12
   });
+
+  // ✅ LIMPAR CACHE AO MONTAR O COMPONENTE
+  useEffect(() => {
+    console.log('🔄 PerfilPage montado - invalidando cache de partidas...');
+    queryClient.invalidateQueries({ queryKey: ['partidaAtiva'] });
+  }, [queryClient]);
 
 
   const handlePlayNow = () => {
@@ -190,7 +190,7 @@ export const PerfilPage = () => {
     } catch (error: any) {
       console.error('❌ Erro ao buscar partida:', error);
       
-      // Se não encontrar partida no backend (404), oferecer iniciar novo jogo
+      // Se não encontrar partida no backend (404), oferece iniciar novo jogo
       if (error.response?.status === 404) {
         const startNewGame = window.confirm('Não há jogo salvo. Deseja iniciar um novo jogo?');
         if (startNewGame) {
@@ -273,8 +273,6 @@ export const PerfilPage = () => {
           alt="Cloud decoration"
           src="/nuvemright.png"
         />
-
-        {/* === REMOVIDO: Modal de seleção de avatar === */}
 
         {/* Controle de áudio */}
         <div className="absolute top-14 right-8 z-20">
