@@ -1,72 +1,52 @@
-import { useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "../../contexts/AuthContext";
-import { TeamService } from "../../api/teamService";
-import { GameService } from "../../api/gameService";
-import { Button } from "../../components/ui/button";
-import {
-  Card,
-  CardContent,
-} from "../../components/ui/card";
-import { AudioControl } from "../../components/AudioControl";
-import { PlayIcon, Trophy, TruckIcon, MapPin, DollarSign } from 'lucide-react';
+import { useMemo } from "react";
+import { Button } from "@/components/ui/button";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { useQuery, useQueryClient } from "react-query";
+import * as teamService from "@/api/teamService";
+import * as gameService from "@/api/gameService";
+import { Card, CardContent } from "@/components/ui/card";
+import { AudioControl } from "@/components/AudioControl";
+import { DollarSign, MapPin, PlayIcon, Trophy, TruckIcon } from "lucide-react";
+import { useRanking } from "../../hooks/useRanking";
+
 
 interface UserStats {
-  deliveries: number;
-  distance: number;
-  earnings: number;
-  victories: number;
+    deliveries: number;
+    distance: number;
+    earnings: number;
+    victories: number;
 }
 
-export const PerfilPage = () => {
-  const navigate = useNavigate();
-  const { user, logout, refreshUser } = useAuth();
-  const queryClient = useQueryClient();
+export function PerfilPage() {
+    const { user, logout, refreshUser } = useAuth();
+    const navigate = useNavigate();
+    const queryClient = useQueryClient();
+    const { teamData: rankingData } = useRanking();
 
-  // ✅ LIMPAR CACHE AO MONTAR O COMPONENTE
-  useEffect(() => {
-    console.log('🔄 PerfilPage montado - invalidando cache de partidas...');
-    queryClient.invalidateQueries({ queryKey: ['partidaAtiva'] });
-  }, [queryClient]);
+    const { data: teamData } = useQuery(['team', user?.equipe], () => teamService.get(user!.equipe!), {
+        enabled: !!user?.equipe,
+    });
 
-  // Buscar dados da equipe se o usuário estiver em uma
-  const { data: teamData } = useQuery({
-    queryKey: ['teamDetails', user?.equipe],
-    queryFn: () => TeamService.getTeamDetails(user!.equipe!),
-    enabled: !!user?.equipe, // Só busca se o usuário estiver em uma equipe
-  });
+    const { data: partidaAtiva } = useQuery('partidaAtiva', gameService.getPartidaAtiva, {
+        enabled: !!user,
+    });
 
-  // ✅ VERIFICAR SE HÁ PARTIDA ATIVA/PAUSADA NO BACKEND
-  const { data: partidaAtiva } = useQuery({
-    queryKey: ['partidaAtiva', user?.equipe],
-    queryFn: async () => {
-      console.log('🔄 Buscando partida ativa do backend (sem cache)...');
-      try {
-        return await GameService.getActiveGame();
-      } catch (error: any) {
-        if (error.response?.status === 404) {
-          console.log('ℹ️ Nenhuma partida ativa encontrada');
-          return null; // Sem partida ativa
+    const userStats: UserStats = useMemo(() => {
+        if (!user?.equipe || !rankingData || rankingData.length === 0) {
+            return { deliveries: 0, distance: 0, earnings: 0, victories: 0 };
         }
-        throw error;
-      }
-    },
-    enabled: !!user?.equipe,
-    retry: false, // Não retentar se não houver partida
-    staleTime: 0, // ✅ SEMPRE considerar dados como obsoletos
-    gcTime: 0, // ✅ NÃO manter cache (era cacheTime em versões antigas)
-    refetchOnMount: 'always', // ✅ SEMPRE buscar ao montar o componente
-    refetchOnWindowFocus: true, // ✅ Buscar quando a janela receber foco
-  });
-
-  // Stats ainda estáticos (podem ser implementados depois)
-  const [userStats] = useState<UserStats>({
-    deliveries: 12,
-    distance: 12,
-    earnings: 12,
-    victories: 12
-  });
+        const currentUserTeamData = rankingData.find(team => team.id === user.equipe);
+        if (!currentUserTeamData) {
+            return { deliveries: 0, distance: 0, earnings: 0, victories: 0 };
+        }
+        return {
+            deliveries: currentUserTeamData.stats.partidas_concluidas,
+            victories: currentUserTeamData.stats.vitorias,
+            earnings: 0,
+            distance: 0,
+        };
+    }, [user, rankingData]);
 
 
   const handlePlayNow = () => {
@@ -88,7 +68,7 @@ export const PerfilPage = () => {
 
     try {
       // ✅ BUSCAR PARTIDA DO BACKEND
-      const partida = await GameService.getActiveGame();
+      const partida = await gameService.getActiveGame();
       
       console.log('✅ Partida encontrada no backend:', partida);
       console.log('📊 Status da partida:', partida.status);
@@ -222,7 +202,7 @@ export const PerfilPage = () => {
   const handleGetOutTeam = async () => {
     if (!user?.equipe) return;
     try {
-      await TeamService.leaveTeam();
+      await teamService.leaveTeam();
       await refreshUser();
       alert("Você saiu da equipe com sucesso!");
     } catch (error) {
