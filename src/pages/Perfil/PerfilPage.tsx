@@ -12,13 +12,6 @@ import {
 import { AudioControl } from "../../components/AudioControl";
 import { PlayIcon, Trophy, TruckIcon, MapPin, DollarSign } from 'lucide-react';
 
-interface UserStats {
-  deliveries: number;
-  distance: number;
-  earnings: number;
-  victories: number;
-}
-
 export const PerfilPage = () => {
   const navigate = useNavigate();
   const { user, logout, refreshUser } = useAuth();
@@ -30,6 +23,14 @@ export const PerfilPage = () => {
     queryFn: () => TeamService.getTeamDetails(user!.equipe!),
     enabled: !!user?.equipe, // Só busca se o usuário estiver em uma equipe
   });
+
+  // Derivar estatísticas dos dados da equipe
+  const userStats = {
+    deliveries: teamData?.stats?.partidas_concluidas ?? 0,
+    distance: teamData?.stats?.distance ?? 0,
+    earnings: teamData?.stats?.earnings ?? 0,
+    victories: teamData?.stats?.vitorias ?? 0,
+  };
 
   // ✅ VERIFICAR SE HÁ PARTIDA ATIVA/PAUSADA NO BACKEND
   const { data: partidaAtiva } = useQuery({
@@ -54,13 +55,11 @@ export const PerfilPage = () => {
     refetchOnWindowFocus: true, // ✅ Buscar quando a janela receber foco
   });
 
-  // Stats ainda estáticos (podem ser implementados depois)
-  const [userStats] = useState<UserStats>({
-    deliveries: 12,
-    distance: 12,
-    earnings: 12,
-    victories: 12
-  });
+  // ✅ LIMPAR CACHE AO MONTAR O COMPONENTE
+  useEffect(() => {
+    console.log('🔄 PerfilPage montado - invalidando cache de partidas...');
+    queryClient.invalidateQueries({ queryKey: ['partidaAtiva'] });
+  }, [queryClient]);
 
   // ✅ LIMPAR CACHE AO MONTAR O COMPONENTE
   useEffect(() => {
@@ -74,7 +73,7 @@ export const PerfilPage = () => {
     console.log('🆕 Iniciando novo jogo - limpando cache...');
     queryClient.invalidateQueries({ queryKey: ['partidaAtiva'] });
     localStorage.removeItem('savedGameProgress');
-    
+
     if (user?.equipe) {
       navigate("/desafio");
     } else {
@@ -89,7 +88,7 @@ export const PerfilPage = () => {
     try {
       // ✅ BUSCAR PARTIDA DO BACKEND
       const partida = await GameService.getActiveGame();
-      
+
       console.log('✅ Partida encontrada no backend:', partida);
       console.log('📊 Status da partida:', partida.status);
       console.log('🚛 Veículo:', partida.veiculo_detalhes);
@@ -104,7 +103,7 @@ export const PerfilPage = () => {
         navigate("/desafio");
         return;
       }
-      
+
       // Type assertion para satisfazer TypeScript
       const veiculo = partida.veiculo_detalhes!;
       const rota = partida.rota_detalhes!;
@@ -112,7 +111,7 @@ export const PerfilPage = () => {
       // ✅ MAPEAMENTO DE MODELOS PARA IMAGENS (case-insensitive)
       const getVehicleImage = (modelo: string): string => {
         const modeloLower = modelo.toLowerCase().trim();
-        
+
         const imageMap: { [key: string]: string } = {
           'caminhonete': '/assets/caminhonete.png',
           'caminhão pequeno': '/assets/caminhao_pequeno.png',
@@ -189,7 +188,7 @@ export const PerfilPage = () => {
 
     } catch (error: any) {
       console.error('❌ Erro ao buscar partida:', error);
-      
+
       // Se não encontrar partida no backend (404), oferece iniciar novo jogo
       if (error.response?.status === 404) {
         const startNewGame = window.confirm('Não há jogo salvo. Deseja iniciar um novo jogo?');
@@ -428,7 +427,7 @@ export const PerfilPage = () => {
                     <MapPin size={24} color="#4ade80" />
                     <div className="[font-family:'Silkscreen',Helvetica] text-center mt-1">
                       <span className="text-xs">DISTÂNCIA</span>
-                      <div className="font-bold">{userStats.distance}</div>
+                      <div className="font-bold">{userStats.distance.toFixed(2)} km</div>
                     </div>
                   </CardContent>
                 </Card>
@@ -439,7 +438,7 @@ export const PerfilPage = () => {
                     <DollarSign size={24} color="#eab308" />
                     <div className="[font-family:'Silkscreen',Helvetica] text-center mt-1">
                       <span className="text-xs">GANHOS</span>
-                      <div className="font-bold">{userStats.earnings}</div>
+                      <div className="font-bold">R$ {userStats.earnings.toFixed(2)}</div>
                     </div>
                   </CardContent>
                 </Card>
