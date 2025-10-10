@@ -103,12 +103,20 @@ export const CriarEquipePage = () => {
           src="/nuvemright.png"
         />
 
-        {/* Back button */}
+        {/* ================================================================ */}
+        {/* ======================= BOTÃO DE VOLTAR ======================== */}
+        {/* ================================================================ */}
         <div className="absolute top-4 left-4 z-20">
-          <Button onClick={handleNavigateBack} variant="outline" className="p-2 bg-white border-2 border-black rounded-md hover:bg-gray-200">
-            <ArrowLeft size={24} className="text-black" />
-          </Button>
+            <Button
+                onClick={handleNavigateBack}
+                className="bg-[#e3922a] hover:bg-[#d4831f] text-black px-4 py-2 border-2 border-black rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-['Silkscreen'] h-12 flex items-center gap-2 transform transition-transform duration-300 hover:scale-105"
+            >
+                <ArrowLeft size={20} />
+                Voltar
+            </Button>
         </div>
+        {/* ================================================================ */}
+        {/* ================================================================ */}
 
         {/* Main content */}
         <div className="max-w-4xl mx-auto pt-16 pb-8 px-4 relative z-10">
@@ -282,5 +290,3 @@ export const CriarEquipePage = () => {
     </div>
   );
 };
-
-export default CriarEquipePage;

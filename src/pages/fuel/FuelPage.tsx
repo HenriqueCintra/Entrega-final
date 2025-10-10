@@ -1,15 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-const FUEL_PRICES: Record<string, number> = {
+const BASE_FUEL_PRICES: Record<string, number> = {
   DIESEL: 6.89,
   GASOLINA: 7.29,
   ALCOOL: 5.99,
 };
 
-export const FuelPage: React.FC = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
+interface FuelPageProps {
+  mockNavigate?: (path: string, options?: any) => void;
+  mockLocation?: { state: any };
+}
+
+export const FuelPage: React.FC<FuelPageProps> = ({ mockNavigate, mockLocation }) => {
+  const navigate = mockNavigate || useNavigate();
+  const location = mockLocation || useLocation();
+
+  const fuelPricesToUse = location.state?.stationPrices || BASE_FUEL_PRICES;
+  const gasStationName = location.state?.gasStationName || "POSTO DE COMBUSTÍVEL";
 
   const receivedVehicle = location.state?.selectedVehicle || location.state?.vehicle || {
     id: 'carreta',
@@ -29,8 +37,24 @@ export const FuelPage: React.FC = () => {
   const [selectedAmount, setSelectedAmount] = useState<string>('1/4 TANQUE');
   const [showPenaltyModal, setShowPenaltyModal] = useState(false);
 
+  // === ✅ NOVOS ESTADOS PARA REVISÃO PREVENTIVA ===
+  const [revisaoFeita, setRevisaoFeita] = useState(false);
+  const [revisaoCost, setRevisaoCost] = useState(0);
+
+  // Identifica se é a tela inicial ou o modal em jogo
+  const isInitialSetup = !location.state?.fromGame;
+  // ==============================================
+
   const WRONG_FUEL_PENALTY = 500.0;
   const vehicleFuelType = vehicle?.fuelType || 'Diesel';
+
+  // === ✅ CALCULAR CUSTO DA REVISÃO (10% DO VALOR DO VEÍCULO) ===
+  useEffect(() => {
+    if (vehicle?.cost) {
+      setRevisaoCost(vehicle.cost * 0.10);
+    }
+  }, [vehicle]);
+  // ============================================================
 
   const calculateCost = () => {
     if (!vehicle) return 0;
@@ -48,11 +72,13 @@ export const FuelPage: React.FC = () => {
         break;
     }
 
-    return FUEL_PRICES[selectedFuel] * liters;
+    return fuelPricesToUse[selectedFuel] * liters;
   };
 
   const totalCost = calculateCost();
-  const finalBalance = playerBalance - totalCost;
+  // === ✅ SALDO FINAL ATUALIZADO (INCLUI REVISÃO SE MARCADA) ===
+  const finalBalance = playerBalance - totalCost - (revisaoFeita ? revisaoCost : 0);
+  // ==============================================================
 
   const handleRefuel = () => {
     if (!vehicle || totalCost <= 0) return;
@@ -61,8 +87,8 @@ export const FuelPage: React.FC = () => {
       selectedFuel === 'DIESEL'
         ? 'Diesel'
         : selectedFuel === 'GASOLINA'
-        ? 'Gasolina'
-        : 'Alcool';
+          ? 'Gasolina'
+          : 'Alcool';
 
     if (selectedFuelNormalized !== vehicleFuelType) {
       setPlayerBalance(playerBalance - WRONG_FUEL_PENALTY);
@@ -87,11 +113,43 @@ export const FuelPage: React.FC = () => {
       liters: vehicle ? vehicle.maxCapacity * fraction : 0,
     };
 
-    navigate('/fuel-minigame', { state: { refuelInfo, selectedVehicle: vehicle, availableMoney: playerBalance, selectedRoute } });
+    navigate('/fuel-minigame', {
+      state: {
+        refuelInfo,
+        selectedVehicle: vehicle,
+        availableMoney: playerBalance,
+        selectedRoute,
+        fromGame: location.state?.fromGame,
+        // === ✅ PASSAR O ESTADO DA REVISÃO ADIANTE ===
+        revisaoFeita: isInitialSetup && revisaoFeita
+        // ============================================
+      }
+    });
   };
 
   const handleSkip = () => {
-    navigate('/game', { state: { selectedVehicle: vehicle, availableMoney: playerBalance, selectedRoute } });
+    const fromGame = location.state?.fromGame;
+
+    if (fromGame) {
+      navigate('/game', {
+        state: {
+          resumeAfterRefuel: true,
+          updatedVehicle: vehicle,
+          updatedMoney: playerBalance
+        }
+      });
+    } else {
+      navigate('/game', {
+        state: {
+          selectedVehicle: vehicle,
+          availableMoney: playerBalance,
+          selectedRoute,
+          // === ✅ PASSAR O ESTADO DA REVISÃO ADIANTE ===
+          revisaoFeita: isInitialSetup && revisaoFeita
+          // ============================================
+        }
+      });
+    }
   };
 
   if (!vehicle) return null;
@@ -104,7 +162,6 @@ export const FuelPage: React.FC = () => {
       const fileName = vehicleImage.replace('/src/assets/', '');
       return `/assets/${fileName}`;
     }
-    // fallback: mantém caminho relativo ao public
     return vehicleImage;
   };
 
@@ -112,20 +169,30 @@ export const FuelPage: React.FC = () => {
     <div className="min-h-screen [background:linear-gradient(180deg,rgba(32,2,89,1)_0%,rgba(121,70,213,1)_100%)] font-['Press_Start_2P'] text-white flex flex-col">
       {/* Header */}
       <div className="flex justify-between items-center p-4 relative z-10">
-        {}
         <button
-          onClick={() => navigate('/routes')}
+          onClick={() => {
+            const fromGame = location.state?.fromGame;
+            if (fromGame) {
+              navigate('/game', {
+                state: {
+                  resumeAfterRefuel: true,
+                  updatedVehicle: vehicle,
+                  updatedMoney: playerBalance
+                }
+              });
+            } else {
+              navigate('/routes');
+            }
+          }}
           className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 border border-black rounded-md shadow-md font-['Silkscreen'] h-10"
         >
           ← Voltar
         </button>
-        
-        {/* Título centralizado */}
+
         <h1 className="text-lg text-white font-bold tracking-wider font-['Silkscreen'] absolute left-1/2 transform -translate-x-1/2">
-          TELA DE ABASTECIMENTO
+          {gasStationName.toUpperCase()}
         </h1>
-        
-        {/* Saldo */}
+
         <div className="text-right text-sm text-white font-['Silkscreen']">
           <div className="mb-1">
             R$ {playerBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -138,12 +205,11 @@ export const FuelPage: React.FC = () => {
       <div className="flex flex-1">
         {/* Left Panel */}
         <div className="w-1/2 bg-white bg-opacity-15 backdrop-blur-sm border-r-4 border-purple-300 border-opacity-30 p-6 flex flex-col justify-start">
-          {}
           <div className="bg-gradient-to-r from-yellow-300 to-amber-400 text-purple-900 px-6 py-3 border-4 border-purple-800 inline-block mb-6 font-bold text-lg self-start rounded shadow-lg font-['Silkscreen']">
             {vehicle.name.toUpperCase()}
           </div>
 
-          {/* Vehicle Stats - fundo mais suave */}
+          {/* Vehicle Stats */}
           <div className="bg-gradient-to-br from-purple-50 to-purple-100 border-4 border-purple-800 p-5 mb-5 text-sm rounded shadow-lg">
             <div className="grid grid-cols-2 gap-5 mb-5 text-purple-900">
               <div className="text-center">
@@ -171,10 +237,42 @@ export const FuelPage: React.FC = () => {
             </div>
           </div>
 
-          {}
+          {/* === ✅ NOVA SEÇÃO: REVISÃO PREVENTIVA (APENAS NA TELA INICIAL) === */}
+          {isInitialSetup && (
+            <div className="mt-4 bg-gradient-to-br from-blue-50 to-blue-100 border-4 border-blue-800 p-4 rounded shadow-lg text-blue-900">
+              <h4 className="font-bold text-base mb-3 text-center font-['Silkscreen']">🔧 REVISÃO PREVENTIVA</h4>
+              <p className="text-xs mb-3 font-['Silkscreen'] text-center">
+                Pague por uma revisão completa e evite panes mecânicas e elétricas durante a viagem.
+              </p>
+              <div
+                className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${revisaoFeita
+                  ? 'bg-green-200 border-green-800'
+                  : 'bg-white border-blue-800 hover:bg-blue-50'
+                  }`}
+                onClick={() => setRevisaoFeita(!revisaoFeita)}
+              >
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={revisaoFeita}
+                    readOnly
+                    className="w-5 h-5 mr-3"
+                  />
+                  <span className="font-bold font-['Silkscreen']">
+                    {revisaoFeita ? 'REVISÃO INCLUÍDA!' : 'FAZER REVISÃO'}
+                  </span>
+                </div>
+                <span className="font-bold text-lg font-['Silkscreen']">
+                  - R$ {revisaoCost.toFixed(2)}
+                </span>
+              </div>
+            </div>
+          )}
+          {/* ================================================================= */}
+
           <button
             onClick={handleSkip}
-            className="bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-purple-900 px-6 py-3 border-4 border-purple-800 font-bold text-sm rounded shadow-lg transition-all hover:scale-105 font-['Silkscreen']"
+            className="bg-gradient-to-r from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-purple-900 px-6 py-3 border-4 border-purple-800 font-bold text-sm rounded shadow-lg transition-all hover:scale-105 font-['Silkscreen'] mt-4"
           >
             PULAR ABASTECIMENTO
           </button>
@@ -182,9 +280,21 @@ export const FuelPage: React.FC = () => {
 
         {/* Right Panel */}
         <div className="w-1/2 bg-white bg-opacity-15 backdrop-blur-sm p-6 flex flex-col justify-start">
-          {}
           <div className="bg-gradient-to-r from-purple-600 to-purple-700 border-4 border-purple-900 p-3 text-center mb-4 rounded shadow-lg">
-            <h3 className="text-base font-bold text-white font-['Silkscreen']">POSTO DE COMBUSTÍVEL</h3>
+            <h3 className="text-base font-bold text-white font-['Silkscreen']">ABASTECIMENTO</h3>
+          </div>
+
+          {/* Preços dinâmicos */}
+          <div className="mb-6 p-4 bg-gradient-to-r from-green-600 to-green-700 border-4 border-green-900 rounded shadow-lg">
+            <h4 className="text-white font-bold mb-3 text-sm text-center font-['Silkscreen']">💰 PREÇOS ESPECIAIS HOJE! 💰</h4>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              {Object.entries(fuelPricesToUse).map(([fuel, price]) => (
+                <div key={fuel} className="bg-white bg-opacity-20 border-2 border-white rounded p-2">
+                  <div className="text-white font-bold text-xs font-['Silkscreen']">{fuel}</div>
+                  <div className="text-yellow-300 font-bold text-sm font-['Silkscreen']">R$ {price.toFixed(2)}</div>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Fuel Type */}
@@ -195,25 +305,23 @@ export const FuelPage: React.FC = () => {
                 <button
                   key={fuel}
                   onClick={() => setSelectedFuel(fuel)}
-                  className={`px-4 py-3 border-4 border-purple-800 font-bold transition-all text-sm rounded shadow-lg hover:scale-105 font-['Silkscreen'] ${
-                    selectedFuel === fuel
-                      ? fuel === 'DIESEL'
-                        ? 'bg-gradient-to-r from-emerald-400 to-green-500 text-white scale-105'
-                        : fuel === 'GASOLINA'
+                  className={`px-4 py-3 border-4 border-purple-800 font-bold transition-all text-sm rounded shadow-lg hover:scale-105 font-['Silkscreen'] ${selectedFuel === fuel
+                    ? fuel === 'DIESEL'
+                      ? 'bg-gradient-to-r from-emerald-400 to-green-500 text-white scale-105'
+                      : fuel === 'GASOLINA'
                         ? 'bg-gradient-to-r from-yellow-400 to-amber-500 text-purple-900 scale-105'
                         : 'bg-gradient-to-r from-purple-400 to-violet-500 text-white scale-105'
-                      : 'bg-gradient-to-r from-purple-100 to-purple-200 text-purple-900 hover:from-purple-200 hover:to-purple-300'
-                  }`}
+                    : 'bg-gradient-to-r from-purple-100 to-purple-200 text-purple-900 hover:from-purple-200 hover:to-purple-300'
+                    }`}
                 >
                   {fuel}
                 </button>
               ))}
             </div>
 
-            {/* Fuel Price */}
             <div className="bg-gradient-to-r from-purple-500 to-purple-600 border-4 border-purple-900 p-3 text-center rounded shadow-lg">
               <div className="text-white font-bold text-sm font-['Silkscreen']">
-                {selectedFuel}: R$ {FUEL_PRICES[selectedFuel].toFixed(2)} / LITRO
+                {selectedFuel}: R$ {fuelPricesToUse[selectedFuel].toFixed(2)} / LITRO
               </div>
             </div>
           </div>
@@ -226,15 +334,14 @@ export const FuelPage: React.FC = () => {
                 <button
                   key={amount}
                   onClick={() => setSelectedAmount(amount)}
-                  className={`px-3 py-3 border-4 border-purple-800 font-bold text-xs transition-all rounded shadow-lg hover:scale-105 font-['Silkscreen'] ${
-                    selectedAmount === amount
-                      ? amount === '1/4 TANQUE'
-                        ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-purple-900 scale-105'
-                        : amount === '1/2 TANQUE'
+                  className={`px-3 py-3 border-4 border-purple-800 font-bold text-xs transition-all rounded shadow-lg hover:scale-105 font-['Silkscreen'] ${selectedAmount === amount
+                    ? amount === '1/4 TANQUE'
+                      ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-purple-900 scale-105'
+                      : amount === '1/2 TANQUE'
                         ? 'bg-gradient-to-r from-yellow-400 to-amber-500 text-purple-900 scale-105'
                         : 'bg-gradient-to-r from-emerald-400 to-green-500 text-white scale-105'
-                      : 'bg-gradient-to-r from-purple-100 to-purple-200 text-purple-900 hover:from-purple-200 hover:to-purple-300'
-                  }`}
+                    : 'bg-gradient-to-r from-purple-100 to-purple-200 text-purple-900 hover:from-purple-200 hover:to-purple-300'
+                    }`}
                 >
                   {amount}
                 </button>
@@ -247,15 +354,14 @@ export const FuelPage: React.FC = () => {
             <div className="text-lg font-bold text-white font-['Silkscreen']">TOTAL: R$ {totalCost.toFixed(2)}</div>
           </div>
 
-          {/* Refuel */}
+          {/* Refuel Button */}
           <button
             onClick={handleRefuel}
             disabled={totalCost > playerBalance}
-            className={`w-full py-4 border-4 border-purple-900 font-bold text-base transition-all rounded shadow-xl font-['Silkscreen'] ${
-              totalCost > playerBalance
-                ? 'bg-gradient-to-r from-purple-300 to-purple-400 text-purple-600 cursor-not-allowed'
-                : 'bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white hover:scale-105'
-            }`}
+            className={`w-full py-4 border-4 border-purple-900 font-bold text-base transition-all rounded shadow-xl font-['Silkscreen'] ${totalCost > playerBalance
+              ? 'bg-gradient-to-r from-purple-300 to-purple-400 text-purple-600 cursor-not-allowed'
+              : 'bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white hover:scale-105'
+              }`}
           >
             ABASTECER AGORA
           </button>

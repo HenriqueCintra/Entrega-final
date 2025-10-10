@@ -60,7 +60,6 @@ export interface FrontendChallenge {
   difficulty: 'Fácil' | 'Médio' | 'Difícil';
   estimatedDuration: string;
   objective?: string;
-  peso_carga_kg?: number; 
   tools?: Array<{
     type: string;
     description: string;
@@ -209,7 +208,7 @@ const convertBackendToFrontend = (backendMapa: BackendMapa): FrontendChallenge =
   }));
 
   return {
-    id: challengeId,
+    id: `${challengeId}-${backendMapa.id}`, // ID único combinando destino e ID do backend
     backendId: backendMapa.id, // Adiciona o ID real do backend
     name: backendMapa.nome,
     description: backendMapa.descricao,
@@ -219,8 +218,10 @@ const convertBackendToFrontend = (backendMapa: BackendMapa): FrontendChallenge =
     difficulty: mapDifficulty(backendMapa.dificuldade),
     estimatedDuration: backendMapa.tempo_limite,
     objective: backendMapa.objetivo,
-    peso_carga_kg: backendMapa.peso_carga_kg, 
-    tools: backendMapa.ferramentas
+    tools: backendMapa.ferramentas?.map(ferramenta => ({
+      type: ferramenta.tipo,
+      description: ferramenta.descricao
+    }))
   };
 };
 
@@ -240,51 +241,29 @@ export const testBackendConnection = async (): Promise<boolean> => {
 // Função principal para buscar desafios do backend
 export const fetchChallengesFromBackend = async (): Promise<FrontendChallenge[]> => {
   try {
-    console.log('🔍 Verificando autenticação...');
-    
     // Verificar se o usuário está autenticado
     if (!AuthService.isAuthenticated()) {
-      console.warn('⚠️ Usuário não autenticado');
       throw new Error('Usuário não autenticado. Faça login para acessar os desafios.');
     }
-
-    console.log('🔍 Fazendo requisição para buscar mapas...');
     
     // Usar a instância api que já tem interceptors configurados
     const response = await api.get('/jogo1/mapas/', { timeout: 10000 });
 
-    console.log('✅ Resposta recebida!');
-    console.log('🔍 Status:', response.status);
-    console.log('🔍 Dados:', response.data);
-
     if (!response.data) {
-      console.error('❌ Resposta vazia do backend');
       return [];
     }
 
     if (!Array.isArray(response.data)) {
-      console.error('❌ Resposta não é um array:', typeof response.data, response.data);
       return [];
     }
 
     if (response.data.length === 0) {
-      console.warn('⚠️ Array vazio - nenhum mapa encontrado no backend');
       return [];
     }
 
-    console.log(`✅ ${response.data.length} mapa(s) encontrado(s)`);
-
-    const challenges: FrontendChallenge[] = response.data.map((mapa, index) => {
-      console.log(`🔄 Convertendo mapa ${index + 1}:`, mapa.nome);
-      try {
-        return convertBackendToFrontend(mapa);
-      } catch (conversionError) {
-        console.error(`❌ Erro ao converter mapa ${index + 1}:`, conversionError, mapa);
-        throw conversionError;
-      }
+    const challenges: FrontendChallenge[] = response.data.map((mapa) => {
+      return convertBackendToFrontend(mapa);
     });
-    
-    console.log('🎯 Desafios convertidos:', challenges);
     
     return challenges;
 

@@ -9,6 +9,7 @@ import { MinigameScreen } from './pages/fuel/MinigameScreen';
 import { GameScene } from './pages/Game-truck/game';
 import { LoginPage } from './pages/auth/LoginPage';
 import { ApresentacaoDesafioPage } from './pages/Desafio/ApresentacaoDesafio';
+import { PerfilPage } from './pages/Perfil/PerfilPage';
 import { AudioProvider } from './contexts/AudioContext';
 import { AudioManager } from './components/AudioManager';
 import './App.css';
@@ -22,6 +23,7 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/perfil" element={<PerfilPage />} />
           <Route path="/desafios" element={<ApresentacaoDesafioPage />} />
           <Route path="/select-vehicle" element={<VehicleSelectionPage />} />
           <Route path="/routes" element={<RoutesPage />} />

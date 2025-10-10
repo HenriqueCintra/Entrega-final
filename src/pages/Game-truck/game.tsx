@@ -1,4 +1,4 @@
-// src/pages/Game-truck/game.tsx 
+// src/pages/Game-truck/game.tsx 
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
@@ -20,12 +20,13 @@ import type {
 import { setupRainSystem } from "@/components/rainSystem";
 import { RainEffect } from "@/components/RainEffect";
 import { EventResultModal } from './EventResultModal';
-import { QuizModal } from "../../components/QuizModal"; // Componente do Quiz
-import { PerguntaQuiz, ResponderQuizPayload, RespostaQuizResult } from "../../api/gameService"; // Tipos e serviços
+import { QuizModal } from "../../components/QuizModal";
+import { PerguntaQuiz, ResponderQuizPayload, RespostaQuizResult } from "../../api/gameService";
 import RadioToggle from '@/components/RadioToggle';
 import TruckRadio from '@/components/TruckRadio';
 import { AudioControl } from "../../components/AudioControl";
 import { AudioManager } from "../../components/AudioManager";
+import { FuelModalContainer } from "../fuel/FuelModalContainer"; // ✅ NOVO IMPORT
 
 // Interface para eventos vindos da API
 interface EventData {
@@ -35,7 +36,7 @@ interface EventData {
     id: number;
     nome: string;
     descricao: string;
-    tipo: 'positivo' | 'negativo';
+    tipo: 'positivo' | 'negativo' | 'neutro'; // ✅ ADICIONADO 'neutro' para eventos de abastecimento
     categoria: string;
     opcoes: Array<{
       id: number;
@@ -46,6 +47,7 @@ interface EventData {
   momento: string;
   ordem: number;
   opcao_escolhida: null;
+  posto_info?: any; // ✅ NOVO CAMPO: Para eventos de abastecimento
 }
 
 export function GameScene() {
@@ -55,10 +57,18 @@ export function GameScene() {
   const [isQuizActive, setIsQuizActive] = useState(false);
   const [currentQuiz, setCurrentQuiz] = useState<PerguntaQuiz | null>(null);
   const isQuizActiveRef = useRef(false);
+  const isMainEventActiveRef = useRef(false); // ✅ NOVO REF PARA VERIFICAÇÃO SEGURA
 
   // REFs DE CONTROLE DE EVENTOS
   const activeGameIdRef = useRef<number | null>(null);
   const isFinishing = useRef(false);
+
+  // ✅ NOVO ESTADO PARA CONTROLAR O MODAL DE ABASTECIMENTO
+  const [showFuelModal, setShowFuelModal] = useState(false);
+
+  // ✅ MANTEMOS OS ESTADOS PARA O BOTÃO DE ABASTECIMENTO
+  const [autoStopAtNextStation, setAutoStopAtNextStation] = useState(false);
+  const triggeredGasStations = useRef<number[]>([]); // ✅ MANTIDO PARA POSSÍVEL DEBUG
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -82,6 +92,8 @@ export function GameScene() {
   const gameInitialized = useRef(false);
   const progressRef = useRef(0);
   const [progress, setProgress] = useState(0);
+
+  // ✅ CORREÇÃO CRÍTICA: distanceTravelled.current é agora a ÚNICA fonte da verdade
   const distanceTravelled = useRef(0);
 
   const [currentPathIndex, setCurrentPathIndex] = useState(0);
@@ -197,7 +209,9 @@ export function GameScene() {
       rota: number;
       veiculo: number;
       saldo_inicial?: number;
-      combustivel_inicial?: number
+      combustivel_inicial?: number;
+      quantidade_carga_inicial?: number;
+      revisao_preventiva_feita?: boolean;
     }) => GameService.createGame(gameData),
     onSuccess: (partida) => {
       console.log('🎮 Partida criada com sucesso no backend, ID:', partida.id);
@@ -206,6 +220,9 @@ export function GameScene() {
       activeGameIdRef.current = partida.id;
       setMoney(partida.saldo);
       setCurrentFuel(partida.combustivel_atual);
+
+      // ✅ CORREÇÃO F5: Salvar ID da partida ativa no localStorage
+      localStorage.setItem('activeGameId', partida.id.toString());
 
       console.log('💰 Estado sincronizado - Saldo:', partida.saldo, 'Combustível:', partida.combustivel_atual);
       console.log('🔗 activeGameIdRef definido como:', activeGameIdRef.current);
@@ -217,13 +234,20 @@ export function GameScene() {
     }
   });
 
-  // MUTAÇÃO DE TICK ATUALIZADA - AGORA LIDA COM EVENTOS
+  // ✅✅✅ MUTAÇÃO DE TICK ATUALIZADA COM SUPORTE A ABASTECIMENTO ✅✅✅
   const partidaTickMutation = useMutation({
-    mutationFn: (data: { distancia_percorrida: number }) => GameService.partidaTick(data),
+    // ✅ NOVA ASSINATURA: Agora aceita quer_abastecer
+    mutationFn: (data: { distancia_percorrida: number; quer_abastecer: boolean }) => GameService.partidaTick(data),
     onSuccess: (tickResult) => {
       // Sincroniza dados financeiros e combustível
       setMoney(tickResult.saldo);
       setCurrentFuel(tickResult.combustivel_atual);
+
+      // ✅ ATUALIZA PROGRESSO SE O BACKEND CALCULOU (ou mantém a lógica local)
+      if (tickResult.progresso !== undefined) {
+        setProgress(tickResult.progresso);
+        progressRef.current = tickResult.progresso;
+      }
 
       // ✅ VERIFICAÇÃO DE GAME OVER APÓS TICK DO BACKEND
       console.log("🔍 Verificando Game Over no tick - Combustível:", tickResult.combustivel_atual, "Saldo:", tickResult.saldo);
@@ -252,17 +276,30 @@ export function GameScene() {
         return;
       }
 
-      // Verifica se há evento pendente retornado pelo tick
+      // ✅ VERIFICA SE HÁ EVENTO PENDENTE RETORNADO PELO TICK
       if (tickResult.evento_pendente && !activeEvent && !showPopup) {
-        console.log('🎲 Evento pendente detectado no tick:', tickResult.evento_pendente.evento.nome);
+        const eventoPendente = tickResult.evento_pendente;
+        console.log(`🎲 Evento pendente detectado no tick: "${eventoPendente.evento.nome}" (categoria: ${eventoPendente.evento.categoria})`);
+
+        // ✅ VERIFICA SE É UM EVENTO DE ABASTECIMENTO
+        if (eventoPendente.evento.categoria === 'abastecimento') {
+          console.log('⛽ Evento de ABASTECIMENTO detectado! Desligando toggle...');
+          setAutoStopAtNextStation(false); // ✅ DESLIGA O TOGGLE AUTOMATICAMENTE
+        } else {
+          console.log("🚨 Evento principal ativado, quizzes serão suprimidos.");
+          setIsMainEventActive(true); // INFORMA QUE UM EVENTO PRINCIPAL ESTÁ ATIVO
+        }
+
         // Adapta o formato do evento para o EventData esperado
         const eventData: EventData = {
-          ...tickResult.evento_pendente,
-          partida: tickResult.id // Adiciona o ID da partida
+          id: eventoPendente.id,
+          partida: activeGameIdRef.current || 0,
+          evento: eventoPendente.evento,
+          momento: eventoPendente.momento,
+          ordem: eventoPendente.ordem,
+          opcao_escolhida: eventoPendente.opcao_escolhida,
+          posto_info: eventoPendente.posto_info // ✅ PASSA OS DADOS DO POSTO
         };
-
-        console.log("🚨 Evento principal ativado, quizzes serão suprimidos.");
-        setIsMainEventActive(true); // INFORMA QUE UM EVENTO PRINCIPAL ESTÁ ATIVO
 
         setActiveEvent(eventData);
         setShowPopup(true);
@@ -277,13 +314,44 @@ export function GameScene() {
     }
   });
 
-// Função que chama a API para sortear um quiz
+  // ✅✅✅ NOVA MUTATION DE ABASTECIMENTO ✅✅✅
+  const abastecerMutation = useMutation({
+    mutationFn: GameService.processarAbastecimento,
+    onSuccess: (partidaAtualizada) => {
+      console.log("✅ Abastecimento confirmado pelo backend!", partidaAtualizada);
+
+      // Sincroniza TODOS os dados com o backend
+      setMoney(partidaAtualizada.saldo);
+      setCurrentFuel(partidaAtualizada.combustivel_atual);
+
+      // Fecha o modal
+      setShowFuelModal(false);
+
+      // Despausa imediatamente (sem setTimeout!)
+      gamePaused.current = false;
+
+      console.log("🎮 Jogo despausado imediatamente - dados persistidos no backend!");
+    },
+    onError: (error) => {
+      console.error("❌ Erro no abastecimento:", error);
+      alert("Erro ao processar abastecimento. Tente novamente.");
+
+      // Em caso de erro, fecha modal e despausa sem alterações
+      setShowFuelModal(false);
+      gamePaused.current = false;
+    }
+  });
+
+  // Função que chama a API para sortear um quiz
   const handleTriggerQuiz = async () => {
     try {
       const quizQuestion = await GameService.sortearQuiz();
-      if (quizQuestion) {
+      // ✅ CORREÇÃO DO BUG: Verifica se um evento principal começou DURANTE a chamada da API
+      if (quizQuestion && !isMainEventActiveRef.current) {
         setCurrentQuiz(quizQuestion);
         setIsQuizActive(true);
+      } else if (isMainEventActiveRef.current) {
+        console.log("❓ Quiz da API foi descartado porque um evento principal se tornou ativo.");
       }
     } catch (error) {
       console.error("Não foi possível carregar uma pergunta do quiz.", error);
@@ -312,7 +380,49 @@ export function GameScene() {
     setCurrentQuiz(null);
   };
 
+  // ✅✅✅ NOVA FUNÇÃO DE ABASTECIMENTO SIMPLIFICADA (PAUSE & MODAL) ✅✅✅
+  const handleInitiateRefuel = (gasStation: any) => {
+    console.log("⛽ Iniciando abastecimento...");
 
+    // ✅ REMOVE a verificação de pausa - eventos de abastecimento DEVEM pausar o jogo
+    console.log("🔥 Setando showFuelModal = true");
+    setShowFuelModal(true);
+
+    // O jogo já está pausado pelo evento, isso é correto
+    console.log("🔥 handleInitiateRefuel FINALIZADO");
+  }
+
+  // ✅✅✅ NOVAS FUNÇÕES DE CALLBACK DO MODAL ATUALIZADAS ✅✅✅
+
+  // Esta função será chamada pelo modal quando o abastecimento for concluído
+  const handleFuelComplete = (newMoney: number, newFuel: number) => {
+    console.log(`✅ MODAL COMPLETED: Tentando abastecer - Saldo final: R$${newMoney}, Combustível final: ${newFuel}L`);
+
+    // Calcula quanto foi gasto e adicionado
+    const custoTotal = money - newMoney;
+    const litrosAdicionados = newFuel - currentFuel;
+
+    console.log(`⛽ Transação: -R$${custoTotal.toFixed(2)}, +${litrosAdicionados.toFixed(2)}L`);
+
+    // Chama o backend para processar a transação
+    abastecerMutation.mutate({
+      custo: custoTotal,
+      litros: litrosAdicionados
+    });
+
+    // O resto será feito no onSuccess/onError da mutation
+  };
+
+  // Esta função será chamada se o jogador cancelar ou pular o abastecimento
+  const handleFuelCancel = () => {
+    console.log("❌ MODAL CANCELLED: Abastecimento cancelado pelo jogador");
+
+    // ✅ Apenas fecha o modal e despausa o jogo
+    setShowFuelModal(false);
+    gamePaused.current = false;
+
+    console.log("🎮 Jogo despausado sem modificações!");
+  };
 
   // MUTAÇÃO PARA RESPONDER EVENTO - MANTÉM sincronização de tempo apenas aqui
   const respondToEventMutation = useMutation({
@@ -335,29 +445,23 @@ export function GameScene() {
 
       // ✅ CORREÇÃO: Sincronizar distância se houve mudança (bônus de distância)
       if (updatedPartida.distancia_percorrida !== undefined && totalDistance > 0) {
-        const novoProgresso = Math.min(100, (updatedPartida.distancia_percorrida / totalDistance) * 100);
-
-        const progressoAnterior = progressRef.current;
-        progressRef.current = novoProgresso;
-        setProgress(novoProgresso);
+        // ✅ ATUALIZA A FONTE DA VERDADE DIRETAMENTE
         distanceTravelled.current = updatedPartida.distancia_percorrida;
 
+        const novoProgresso = Math.min(100, (updatedPartida.distancia_percorrida / totalDistance) * 100);
+        progressRef.current = novoProgresso;
+        setProgress(novoProgresso);
+
         console.log(`📍 PROGRESSO ATUALIZADO APÓS EVENTO:`);
-        console.log(`   Anterior: ${progressoAnterior.toFixed(2)}%`);
-        console.log(`   Novo: ${novoProgresso.toFixed(2)}%`);
-        console.log(`   Distância: ${updatedPartida.distancia_percorrida}km/${totalDistance}km`);
-
-        if (novoProgresso - progressoAnterior > 1) {
-          console.log(`🚀 BÔNUS DE DISTÂNCIA APLICADO: +${(novoProgresso - progressoAnterior).toFixed(2)}% de progresso!`);
-        }
+        console.log(`   Novo: ${novoProgresso.toFixed(2)}%`);
+        console.log(`   Distância: ${updatedPartida.distancia_percorrida}km/${totalDistance}km`);
       }
-
 
       // Mostrar modal de resultado ao invés de alert
       setResultModalContent({
         title: activeEvent?.evento.nome || 'Evento Concluído',
         description: data.detail,
-        consequences: data.efeitos_aplicados || [],
+        consequences: [],
       });
       setIsResultModalOpen(true);
 
@@ -387,6 +491,7 @@ export function GameScene() {
       return GameService.syncGameProgress(progressData);
     },
     onSuccess: (updatedPartida: PartidaData) => {
+      localStorage.removeItem('savedGameProgress');
       console.log("✅ Progresso sincronizado! Status:", updatedPartida.status);
       console.log("📊 Dados da partida finalizada:", {
         resultado: updatedPartida.resultado,
@@ -401,6 +506,11 @@ export function GameScene() {
         setGameEnded(true);
         setShowEndMessage(true);
         gamePaused.current = true;
+        
+        // ✅ CORREÇÃO F5: Limpar dados da partida ativa ao finalizar
+        localStorage.removeItem('activeGameId');
+        localStorage.removeItem('savedGameProgress');
+        console.log('🧹 Dados da partida removidos ao finalizar');
       } else {
         console.warn("⚠️ Partida não foi marcada como concluída. Status:", updatedPartida.status);
       }
@@ -457,12 +567,12 @@ export function GameScene() {
     zoomEffect.current.progress = 0;
   };
 
-  // ✅ ADIÇÃO: Sistema de background modular da versão antiga
+  // ADIÇÃO: Sistema de background simétrico corrigido
   const updateBackgroundSystem = (k: any, deltaTime: number, moveAmount: number) => {
     // Aplicar efeito de zoom
     applyZoomEffect(k, deltaTime);
 
-    // Movimento dos backgrounds
+    // Movimento dos backgrounds - AMBOS SE MOVEM NA MESMA VELOCIDADE
     k.get("bg_cidade").forEach((bg: any) => bg.move(moveAmount, 0));
     k.get("bg_terra").forEach((bg: any) => bg.move(moveAmount, 0));
 
@@ -482,21 +592,24 @@ export function GameScene() {
       });
     }
 
-    // Reposicionamento dos backgrounds
+    // ✅ CORREÇÃO: Reposicionamento simétrico dos backgrounds
     const bgWidth = 2048 * Math.max(k.width() / 2048, k.height() / 762);
-    const backgrounds = k.get("bg_cidade").concat(k.get("bg_terra"));
+    const cidadeBackgrounds = k.get("bg_cidade");
+    const terraBackgrounds = k.get("bg_terra");
 
-    backgrounds.forEach((bg: any, index: number) => {
-      if (index % 2 === 0) { // bg1 de cada tipo
-        const otherBg = backgrounds[index + 1];
-        if (otherBg && bg.pos.x + bgWidth <= 0) {
-          bg.pos.x = otherBg.pos.x + bgWidth;
-        }
-      } else { // bg2 de cada tipo
-        const otherBg = backgrounds[index - 1];
-        if (otherBg && bg.pos.x + bgWidth <= 0) {
-          bg.pos.x = otherBg.pos.x + bgWidth;
-        }
+    // Reposicionar backgrounds da cidade
+    cidadeBackgrounds.forEach((bg: any, index: number) => {
+      if (bg.pos.x + bgWidth <= 0) {
+        const otherIndex = index === 0 ? 1 : 0;
+        bg.pos.x = cidadeBackgrounds[otherIndex].pos.x + bgWidth;
+      }
+    });
+
+    // Reposicionar backgrounds da terra
+    terraBackgrounds.forEach((bg: any, index: number) => {
+      if (bg.pos.x + bgWidth <= 0) {
+        const otherIndex = index === 0 ? 1 : 0;
+        bg.pos.x = terraBackgrounds[otherIndex].pos.x + bgWidth;
       }
     });
 
@@ -518,7 +631,7 @@ export function GameScene() {
         nextBg.current = null;
         transitionCooldown.current = COOLDOWN_DURATION;
 
-        console.log(`Transição suave completa! Novo cenário é ${currentBg.current}`);
+        console.log(`🎨 Transição suave completa! Novo cenário é ${currentBg.current}`);
       }
 
       if (isTransitioning.current && nextBg.current) {
@@ -533,7 +646,7 @@ export function GameScene() {
 
     // Timer para mudança de background
     backgroundSwitchTimer.current -= deltaTime;
-    if (backgroundSwitchTimer.current <= 0 && !nextBg.current && !isTransitioning.current) {
+    if (backgroundSwitchTimer.current <= 0 && !nextBg.current && !isTransitioning.current && transitionCooldown.current <= 0) {
       const shouldSwitchToTerra = (currentBg.current === 'cidade' && k.rand() < 0.3);
       const shouldSwitchToCidade = (currentBg.current === 'terra' && k.rand() < 0.8);
 
@@ -547,6 +660,7 @@ export function GameScene() {
             nextBg.current = 'terra';
             const bgTerra = k.get("bg_terra");
             if (bgTerra.length >= 2) {
+              // ✅ CORREÇÃO: Posicionamento simétrico inicial
               bgTerra[0].pos.x = 0;
               bgTerra[1].pos.x = bgWidth;
             }
@@ -555,6 +669,7 @@ export function GameScene() {
             nextBg.current = 'cidade';
             const bgCidade = k.get("bg_cidade");
             if (bgCidade.length >= 2) {
+              // ✅ CORREÇÃO: Posicionamento simétrico inicial
               bgCidade[0].pos.x = 0;
               bgCidade[1].pos.x = bgWidth;
             }
@@ -569,14 +684,14 @@ export function GameScene() {
       }
     }
   };
-  
+
   //Função para aumentar a velocidade
   const handleSpeedUp = () => {
     if (gamePaused.current || showPopup) return; // Não muda velocidade se pausado ou em evento
 
     setSpeedLevel(prevLevel => {
       const nextLevel = prevLevel >= MAX_SPEED_LEVEL ? 1 : prevLevel + 1;
-      
+
       let newMultiplier = 1;
       if (nextLevel === 2) newMultiplier = 1.5;
       if (nextLevel === 3) newMultiplier = 2.0;
@@ -595,65 +710,168 @@ export function GameScene() {
     console.log(`Jogo ${nextPausedState ? "pausado" : "despausado"}`);
   };
 
+  // ✅ NOVA FUNÇÃO: Retomar o jogo chamando o backend
+  const handleResume = async () => {
+    try {
+      console.log("🔄 Retomando jogo no backend...");
+      await GameService.resumeGame();
+      console.log("✅ Jogo retomado no backend");
+      togglePause(); // Despausa localmente após sucesso no backend
+    } catch (error) {
+      console.error("❌ Erro ao retomar jogo no backend:", error);
+      // Mesmo com erro, permite continuar localmente
+      togglePause();
+    }
+  };
+
   const handleRestart = () => {
     window.location.reload();
   };
 
-  const handleGoToProfile = () => {
+  const handleGoToProfile = async () => {
     const gameProgress = {
       vehicle,
       money,
       selectedRoute,
       currentFuel,
-      progress,
+      progress: (distanceTravelled.current / totalDistance) * 100, // ✅ USA A FONTE DA VERDADE
       currentPathIndex,
       pathProgress: pathProgressRef.current,
       gameTime,
       timestamp: Date.now(),
-      activeGameId: activeGameIdRef.current
+      activeGameId: activeGameIdRef.current,
+      distanceTravelled: distanceTravelled.current, // ✅ SALVA A DISTÂNCIA REAL
     };
     localStorage.setItem('savedGameProgress', JSON.stringify(gameProgress));
+
+    // ✅ SÓ PAUSAR SE O JOGO ESTIVER RODANDO
+    if (!isPaused) {
+      try {
+        await GameService.pauseGame();
+        console.log("✅ Jogo pausado no backend antes de ir para o perfil");
+      } catch (error) {
+        console.error("❌ Erro ao pausar jogo:", error);
+      }
+    } else {
+      console.log("ℹ️ Jogo já está pausado, não precisa pausar novamente");
+    }
+
+    // ✅ CORREÇÃO F5: Manter activeGameId no localStorage para restauração
+    if (activeGameIdRef.current) {
+      localStorage.setItem('activeGameId', activeGameIdRef.current.toString());
+    }
+
     navigate('/perfil');
   };
 
-  const handleSaveAndPause = () => {
+  const handleSaveAndPause = async () => {
     console.log("💾 Salvando progresso e pausando o jogo...");
     const gameProgress = {
       vehicle,
       money,
       selectedRoute,
       currentFuel,
-      progress,
+      progress: (distanceTravelled.current / totalDistance) * 100, // ✅ USA A FONTE DA VERDADE
       currentPathIndex,
       pathProgress: pathProgressRef.current,
       gameTime,
       timestamp: Date.now(),
-      activeGameId: activeGameIdRef.current
+      activeGameId: activeGameIdRef.current,
+      distanceTravelled: distanceTravelled.current, // ✅ SALVA A DISTÂNCIA REAL
     };
     localStorage.setItem('savedGameProgress', JSON.stringify(gameProgress));
+
+    // ✅ CHAMAR O BACKEND PARA PAUSAR A PARTIDA
+    try {
+      await GameService.pauseGame();
+      console.log("✅ Jogo pausado no backend");
+    } catch (error) {
+      console.error("❌ Erro ao pausar jogo no backend:", error);
+    }
+
     togglePause();
   };
 
+  // ✅✅✅ FUNÇÃO DE RESPOSTA A EVENTOS - CORREÇÃO FINAL ✅✅✅
   const handleOptionClick = (optionId: number) => {
     if (isResponding) return;
 
-    console.log("🎯 Processando escolha do evento - Opção ID:", optionId);
-    setIsResponding(true);
-    const distanciaAtual = (progressRef.current / 100) * totalDistance;
-    respondToEventMutation.mutate({ optionId, distancia: distanciaAtual });
-  };
+    if (!activeEvent) {
+      console.error("Nenhum evento ativo para responder");
+      return;
+    }
 
+    // ✅ VERIFICAÇÃO ESPECIAL PARA EVENTOS DE ABASTECIMENTO
+    if (activeEvent.evento.categoria === 'abastecimento') {
+      console.log(`⛽ Processando resposta de abastecimento - Opção: ${optionId}`);
+
+      if (optionId === -1) {
+        // Opção "Sim, abastecer"
+        console.log("✅ Jogador escolheu abastecer, abrindo modal de abastecimento...");
+        // ✅ Usar activeEvent ANTES de limpar
+        handleInitiateRefuel(activeEvent.posto_info || {});
+      } else {
+        // Opção "Não, seguir viagem"
+        console.log("❌ Jogador escolheu não abastecer, continuando viagem...");
+        gamePaused.current = false; // Despausa imediatamente
+      }
+
+      // ✅ Limpar estados DEPOIS de usar activeEvent
+      setShowPopup(false);
+      setActiveEvent(null);
+      processingEvent.current = false;
+
+      // ✅ CORREÇÃO CRÍTICA: NÃO chamar respondToEvent para abastecimento
+      // Eventos de abastecimento são virtuais e não existem no banco
+      console.log("🔇 Evento de abastecimento processado localmente (não enviado ao backend)");
+      return;
+    }
+
+    // ✅ PARA EVENTOS NORMAIS (NÃO DE ABASTECIMENTO)
+    console.log("🎯 Processando escolha do evento normal - Opção ID:", optionId);
+    setIsResponding(true);
+
+    // ✅ SEMPRE USAR A FONTE DA VERDADE PARA A DISTÂNCIA
+    respondToEventMutation.mutate({ optionId, distancia: distanceTravelled.current });
+  };
   // ============= INICIALIZAÇÃO DO JOGO =============
 
-  const initializeGame = (savedProgress?: any) => {
-    if (!vehicle || !vehicle.name) {
-      console.error("Dados do veículo não encontrados");
+  const initializeGame = (
+    initialVehicle: Vehicle,
+    initialMoney: number,
+    initialRoute: any, // ✅ PARÂMETRO ADICIONADO PARA A ROTA
+    restoredState?: any // ✅ PARÂMETRO PARA ESTADO RESTAURADO
+  ) => {
+    console.log("🚀 initializeGame chamado com:", {
+      vehicle: initialVehicle,
+      money: initialMoney,
+      route: initialRoute?.name,
+      hasRestoredState: !!restoredState
+    });
+
+    // ✅ LÓGICA MOVIDA DO useEffect REMOVIDO
+    if (initialRoute) {
+      const routeDistance = initialRoute.actualDistance || initialRoute.distance;
+      setTotalDistance(routeDistance);
+
+      const estimatedHours = initialRoute.estimatedTimeHours || initialRoute.estimatedTime || 7.5;
+      const targetGameDurationMinutes = 20;
+      gameSpeedMultiplier.current = (estimatedHours * 60) / targetGameDurationMinutes;
+      console.log(`🗺️ Distância total definida para: ${routeDistance}km`);
+    } else {
+      console.warn("⚠️ Rota não fornecida para initializeGame. A distância total pode estar incorreta.");
+    }
+
+    if (!initialVehicle || !initialVehicle.name) {
+      console.error("❌ Dados do veículo não encontrados");
+      console.error("📦 Veículo recebido:", initialVehicle);
+      console.error("🔍 Propriedades do veículo:", initialVehicle ? Object.keys(initialVehicle) : 'undefined');
       return;
     }
 
     if (!canvasRef.current) {
       console.error("Canvas não encontrado, tentando novamente...");
-      setTimeout(() => initializeGame(savedProgress), 100);
+      setTimeout(() => initializeGame(initialVehicle, initialMoney, initialRoute, restoredState), 100);
       return;
     }
 
@@ -661,16 +879,58 @@ export function GameScene() {
 
     if (!document.contains(canvasRef.current)) {
       console.error("Canvas não está no DOM, aguardando...");
-      setTimeout(() => initializeGame(savedProgress), 100);
+      setTimeout(() => initializeGame(initialVehicle, initialMoney, initialRoute, restoredState), 100);
       return;
     }
 
+    // ✅ CORREÇÃO: Limpar Kaboom anterior se existir
     if ((window as any).__kaboom_initiated__) {
-      (window as any).__kaboom_initiated__ = false;
+      console.log("🔄 Kaboom já iniciado, limpando instância anterior...");
+      try {
+        const k = (window as any).k;
+        if (k?.destroy) {
+          k.destroy();
+        }
+        (window as any).__kaboom_initiated__ = false;
+        (window as any).k = null;
+        console.log("✅ Instância anterior do Kaboom limpa");
+      } catch (error) {
+        console.error("❌ Erro ao limpar Kaboom:", error);
+      }
     }
 
-    console.log("Inicializando jogo com veículo:", vehicle.name, "Imagem:", vehicle.image);
+    console.log("Inicializando jogo com veículo:", initialVehicle.name, "Imagem:", initialVehicle.image);
     console.log("Combustível atual no início:", currentFuel);
+
+    // ✅ USE VALORES RESTAURADOS SE EXISTIREM
+    if (restoredState) {
+      // ✅ CALCULA A DISTÂNCIA TOTAL PRIMEIRO
+      const routeDistance = initialRoute?.actualDistance || initialRoute?.distance || totalDistance;
+      
+      // ✅ RESTAURA A FONTE DA VERDADE DIRETAMENTE
+      distanceTravelled.current = restoredState.distanceTravelled || 0;
+      progressRef.current = routeDistance > 0 ? (distanceTravelled.current / routeDistance) * 100 : 0;
+      setGameTime(restoredState.gameTime || 0);
+      triggeredGasStations.current = restoredState.triggeredGasStations || [];
+      activeGameIdRef.current = restoredState.activeGameId;
+
+      setProgress(progressRef.current);
+      setMoney(initialMoney);
+      setCurrentFuel(initialVehicle.currentFuel);
+
+      console.log("🔄 Estado restaurado:", {
+        distanceTravelled: distanceTravelled.current,
+        progress: progressRef.current,
+        gameTime: restoredState.gameTime,
+        routeDistance: routeDistance,
+        triggeredStations: triggeredGasStations.current.length
+      });
+    } else {
+      // ✅ INICIALIZA A FONTE DA VERDADE
+      distanceTravelled.current = 0;
+      progressRef.current = 0;
+      setProgress(0);
+    }
 
     handleResizeRef.current = () => {
       if (canvasRef.current) {
@@ -698,6 +958,9 @@ export function GameScene() {
 
       window.addEventListener('resize', handleResizeRef.current!);
       (window as any).__kaboom_initiated__ = true;
+      (window as any).k = k; // ✅ Salvar referência para cleanup
+      
+      console.log("✅ Kaboom inicializado com sucesso!");
 
       const {
         loadSprite,
@@ -734,6 +997,9 @@ export function GameScene() {
 
       destroyRef.current = destroy;
 
+      // ✅ CORREÇÃO: Verificar se é um sprite sheet ou imagem simples (antes do try para estar acessível)
+      const isSpriteSheet = initialVehicle.spriteSheet !== undefined;
+
       try {
         console.log("Tentando carregar sprites...");
 
@@ -741,17 +1007,25 @@ export function GameScene() {
         loadSprite("background_cidade", "/assets/background-cidade.png");
         loadSprite("background_terra", "/assets/background-terra.png");
 
-        const vehicleImageUrl = getVehicleImageUrl(vehicle.spriteSheet || vehicle.image);
-        console.log("Imagem original do veículo:", vehicle.image);
+        const vehicleImageUrl = getVehicleImageUrl(initialVehicle.spriteSheet || initialVehicle.image);
+        console.log("Imagem original do veículo:", initialVehicle.image);
         console.log("URL convertida para kaboom:", vehicleImageUrl);
 
-        loadSprite("car", vehicleImageUrl, {
-          sliceX: 2,
-          sliceY: 1,
-          anims: {
-            run: { from: 0, to: 1, loop: true, speed: 8 },
-          },
-        });
+        if (isSpriteSheet) {
+          // Carregar como sprite sheet com animação
+          loadSprite("car", vehicleImageUrl, {
+            sliceX: 2,
+            sliceY: 1,
+            anims: {
+              run: { from: 0, to: 1, loop: true, speed: 8 },
+            },
+          });
+          console.log("✅ Veículo carregado como sprite sheet animado");
+        } else {
+          // Carregar como imagem simples sem animação
+          loadSprite("car", vehicleImageUrl);
+          console.log("✅ Veículo carregado como imagem simples");
+        }
 
         // veiculos do trafego
         loadSprite("carro_1", "/assets/carro_trafego_1.png");
@@ -800,8 +1074,13 @@ export function GameScene() {
         const baseWidth = 600;
         const scaleFactor = (width() / baseWidth) * 0.3;
 
+        // ✅ CORREÇÃO: Criar carro com ou sem animação dependendo do tipo
+        const carSprite = isSpriteSheet
+          ? sprite("car", { anim: "run" })  // Com animação se for sprite sheet
+          : sprite("car");                   // Sem animação se for imagem simples
+
         const car = add([
-          sprite("car", { anim: "run" }),
+          carSprite,
           pos(width() * 0.08, roadYPosition),
           area(),
           body(),
@@ -866,11 +1145,13 @@ export function GameScene() {
           }
         });
 
+        // ✅✅✅ LÓGICA CENTRALIZADA E SIMPLIFICADA (SEM DETECÇÃO DE POSTOS) ✅✅✅
         onUpdate(() => {
           // ✅ MANTÉM: Proteção de pausa da versão atual
-          if (gamePaused.current) {
+          if (gamePaused.current || gameEnded) {
             return;
           }
+
           const deltaTime = dt();
 
           // --- LÓGICA DO TIMER DO QUIZ ---
@@ -898,34 +1179,29 @@ export function GameScene() {
             collisionCooldownRef.current = Math.max(0, collisionCooldownRef.current - deltaTime);
           }
 
-          //Aplica o multiplicador de velocidade
+          // ✅ LÓGICA VISUAL: CÁLCULO DA DISTÂNCIA PARA ANIMAÇÃO
+          const baseSpeedKmS = 0.025; // ~90 km/h em km/s
+          const gameSpeedFactor = 24; // Aceleração do tempo de jogo
+          const distanceThisFrame = baseSpeedKmS * speedMultiplierRef.current * deltaTime * gameSpeedFactor;
+
+          // ✅ ATUALIZA A ÚNICA FONTE DA VERDADE VISUALMENTE
+          distanceTravelled.current += distanceThisFrame;
+
+          // ✅ PROGRESS É APENAS UM REFLEXO DA DISTÂNCIA (PODE SER SOBRESCRITO PELO BACKEND)
+          const newProgress = Math.min(100, (distanceTravelled.current / totalDistance) * 100);
+          if (Math.abs(newProgress - progress) > 0.05) {
+            progressRef.current = newProgress;
+            setProgress(newProgress);
+          }
+
+          // ✅ REMOVIDO: Toda a lógica de detecção de postos daqui
+          // O backend agora decide quando mostrar eventos de abastecimento
+
+          //Aplica o multiplicador de velocidade ao movimento visual
           const moveAmount = -speed * speedMultiplierRef.current * deltaTime;
 
           // ✅ ADIÇÃO: Chamada para o sistema de background modular
           updateBackgroundSystem(k, deltaTime, moveAmount);
-
-          // ✅ MANTÉM: Toda a lógica da versão atual
-          const progressPercent = calculatePathProgress(deltaTime);
-          const previousProgress = progressRef.current;
-          progressRef.current = progressPercent;
-
-          if (Math.abs(progressPercent - progress) > 0.05) {
-            setProgress(progressPercent);
-          }
-
-          const routeDistance = totalDistance || 500;
-          const progressDelta = progressPercent - previousProgress;
-          const distanceInKm = (progressDelta / 100) * routeDistance;
-
-          if (distanceInKm > 0) {
-            // ✅ CONSUMO DE COMBUSTÍVEL AGORA É CONTROLADO PELO BACKEND VIA TICK
-            // A atualização da UI do combustível acontece via partidaTickMutation.onSuccess
-            const newGasolinePercent = (currentFuel / vehicle.maxCapacity) * 100;
-            setGasoline(newGasolinePercent);
-          }
-
-          // ✅ EVENTOS AGORA SÃO TRATADOS AUTOMATICAMENTE NO TICK
-          // Não precisamos mais verificar eventos separadamente
         });
       });
 
@@ -934,9 +1210,6 @@ export function GameScene() {
       setCurrentPathIndex(0);
       currentPathIndexRef.current = 0;
       pathProgressRef.current = 0;
-      progressRef.current = 0;
-      setProgress(0);
-      distanceTravelled.current = 0;
 
       obstacleTimerRef.current = 0;
       gamePaused.current = false;
@@ -963,32 +1236,104 @@ export function GameScene() {
 
     console.log("🚀 Lógica de inicialização única está rodando...");
 
-    const { selectedVehicle, selectedRoute: route, savedProgress } = location.state || {};
+    // ✅ PRIORIDADE 1: Verificar se há dados no location.state (vindo de "Continuar Jogo")
+    const { selectedVehicle, selectedRoute: route, savedProgress, cargoAmount, selectedChallenge, revisaoFeita } = location.state || {};
+    
+    console.log("📦 Location.state recebido:", {
+      hasVehicle: !!selectedVehicle,
+      hasRoute: !!route,
+      hasSavedProgress: !!savedProgress,
+      savedProgressData: savedProgress
+    });
 
+    // ✅ SE VEIO DO "CONTINUAR JOGO", RESTAURAR IMEDIATAMENTE
+    if (savedProgress && savedProgress.activeGameId && selectedVehicle && route) {
+      console.log("🟢 RESTAURANDO PARTIDA do location.state com ID:", savedProgress.activeGameId);
+      console.log("🔍 Dados recebidos:", {
+        vehicle: selectedVehicle.name,
+        route: route.name,
+        money: location.state?.availableMoney,
+        fuel: selectedVehicle.currentFuel,
+        progress: savedProgress.progress,
+        distanceTravelled: savedProgress.distanceTravelled
+      });
+
+      setActiveGameId(savedProgress.activeGameId);
+      activeGameIdRef.current = savedProgress.activeGameId;
+      
+      // Salvar no localStorage para persistência
+      localStorage.setItem('activeGameId', savedProgress.activeGameId.toString());
+
+      // ✅ USAR availableMoney do location.state
+      const restoredMoney = location.state?.availableMoney || money;
+
+      // ✅ CHAMAR O BACKEND PARA RETOMAR A PARTIDA
+      GameService.resumeGame()
+        .then(() => {
+          console.log("✅ Partida retomada no backend");
+          return GameService.getActiveGame();
+        })
+        .then((partidaAtualizada) => {
+          console.log("📊 Dados atualizados do backend:", partidaAtualizada);
+          
+          // ✅ ATUALIZAR savedProgress COM DADOS DO BACKEND
+          const progressoAtualizado = {
+            ...savedProgress,
+            distanceTravelled: partidaAtualizada.distancia_percorrida,
+            progress: partidaAtualizada.progresso || savedProgress.progress,
+            gameTime: partidaAtualizada.tempo_jogo_segundos || savedProgress.gameTime,
+            currentFuel: partidaAtualizada.combustivel_atual
+          };
+          
+          // Atualizar o veículo com combustível correto
+          const vehicleAtualizado = {
+            ...selectedVehicle,
+            currentFuel: partidaAtualizada.combustivel_atual
+          };
+          
+          console.log("🎮 Inicializando jogo com progresso restaurado:", progressoAtualizado);
+          initializeGame(vehicleAtualizado, partidaAtualizada.saldo, route, progressoAtualizado);
+        })
+        .catch((error) => {
+          console.error("❌ Erro ao retomar partida:", error);
+          // Mesmo com erro, tenta inicializar localmente
+          initializeGame(selectedVehicle, restoredMoney, route, savedProgress);
+        });
+
+      return;
+    }
+
+    // ✅ VERIFICAR SE É UM NOVO JOGO (precisa de mapaId)
     if (!selectedVehicle || !route?.id || !route?.mapaId) {
       console.error("❌ Dados insuficientes para criar partida. Redirecionando...");
-      alert("Erro: Dados do veículo ou rota incompletos.");
       navigate('/routes');
       return;
     }
 
-    if (savedProgress && savedProgress.activeGameId) {
-      console.log("🟢 Restaurando partida existente com ID:", savedProgress.activeGameId);
-      setActiveGameId(savedProgress.activeGameId);
-      activeGameIdRef.current = savedProgress.activeGameId;
-
-      initializeGame(savedProgress);
-      return;
+    // --- CÁLCULO DA CARGA INICIAL ---
+    let quantidade_carga_inicial = undefined;
+    if (cargoAmount && selectedChallenge?.peso_carga_kg) {
+      quantidade_carga_inicial = Math.round(selectedChallenge.peso_carga_kg * (cargoAmount / 100));
+      console.log(`📦 Carga inicial calculada: ${quantidade_carga_inicial}kg (${cargoAmount}% de ${selectedChallenge.peso_carga_kg}kg)`);
+    } else {
+      console.warn(`⚠️ Não foi possível calcular a carga inicial. Usando valor padrão do backend. Carga: ${cargoAmount}, Peso Total: ${selectedChallenge?.peso_carga_kg}`);
     }
+    // --------------------------------
+
+    // ✅ NOVO JOGO: Limpar localStorage antes de criar
+    console.log("🆕 Criando nova partida - limpando dados antigos do localStorage");
+    localStorage.removeItem('savedGameProgress');
 
     createGameMutation.mutateAsync({
       mapa: route.mapaId,
       rota: route.id,
       veiculo: parseInt(selectedVehicle.id, 10) || 1,
       saldo_inicial: money, // Passa o saldo da tela de abastecimento
-      combustivel_inicial: vehicle.currentFuel // Passa o combustível da tela de abastecimento
+      combustivel_inicial: vehicle.currentFuel, // Passa o combustível da tela de abastecimento
+      quantidade_carga_inicial: quantidade_carga_inicial,
+      revisao_preventiva_feita: !!revisaoFeita // ✅ NOVO CAMPO
     }).then(() => {
-      initializeGame(savedProgress);
+      initializeGame(vehicle, money, route); // Inicializa sem estado restaurado
     }).catch(error => {
       console.error("❌ Falha crítica na criação da partida, não inicializando Kaboom", error);
     });
@@ -996,13 +1341,24 @@ export function GameScene() {
     return () => {
       console.log("🧹 Limpando GameScene ao sair da página...");
       if ((window as any).__kaboom_initiated__) {
-        const k = (window as any).k;
-        if (k?.destroy) k.destroy();
-        (window as any).__kaboom_initiated__ = false;
+        try {
+          const k = (window as any).k;
+          if (k?.destroy) {
+            console.log("🗑️ Destruindo instância do Kaboom...");
+            k.destroy();
+          }
+          (window as any).__kaboom_initiated__ = false;
+          (window as any).k = null;
+          console.log("✅ Kaboom limpo com sucesso");
+        } catch (error) {
+          console.error("❌ Erro ao limpar Kaboom:", error);
+        }
       }
       if (handleResizeRef.current) {
         window.removeEventListener('resize', handleResizeRef.current);
       }
+      // ✅ CORREÇÃO F5: Resetar estado de inicialização
+      gameInitialized.current = false;
     };
   }, []);
 
@@ -1023,41 +1379,80 @@ export function GameScene() {
     };
   }, [activeEvent, gameEnded]);
 
-  // Inicializar estados
+  
+
   useEffect(() => {
-    const { savedProgress } = location.state || {};
+    const handleBeforeUnload = () => {
+      if (gameLoaded && !gameEnded && activeGameIdRef.current) {
+        const gameProgress = {
+          vehicle,
+          money,
+          selectedRoute,
+          currentFuel,
+          progress,
+          currentPathIndex,
+          pathProgress: pathProgressRef.current,
+          gameTime,
+          timestamp: Date.now(),
+          activeGameId: activeGameIdRef.current,
+          distanceTravelled: distanceTravelled.current
+        };
+        localStorage.setItem('savedGameProgress', JSON.stringify(gameProgress));
+        if (activeGameIdRef.current) {
+          localStorage.setItem('activeGameId', activeGameIdRef.current.toString());
+        }
+        console.log('💾 Progresso salvo antes de descarregar a página');
+      }
+    };
 
-    if (savedProgress) {
-      console.log("📄 Restaurando progresso salvo...");
-      setCurrentFuel(savedProgress.currentFuel);
-      setProgress(savedProgress.progress);
-      setCurrentPathIndex(savedProgress.currentPathIndex);
-      setGameTime(Math.max(0, savedProgress.gameTime || 0));
+    window.addEventListener('beforeunload', handleBeforeUnload);
 
-      progressRef.current = savedProgress.progress;
-      currentPathIndexRef.current = savedProgress.currentPathIndex;
-      pathProgressRef.current = savedProgress.pathProgress;
-    } else {
-      console.log("✨ Iniciando um novo jogo...");
-      setCurrentFuel(vehicle?.currentFuel || 0);
-      setGameTime(0);
-    }
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [gameLoaded, gameEnded, vehicle, money, selectedRoute, currentFuel, progress, currentPathIndex, gameTime]);
 
-    if (selectedRoute) {
-      const routeDistance = selectedRoute.actualDistance || selectedRoute.distance;
-      setTotalDistance(routeDistance);
+  useEffect(() => {
+    if (!gameLoaded || gameEnded || !activeGameIdRef.current) return;
 
-      const estimatedHours = selectedRoute.estimatedTimeHours || 7.5;
-      const targetGameDurationMinutes = 20;
-      gameSpeedMultiplier.current = (estimatedHours * 60) / targetGameDurationMinutes;
-    }
-  }, [vehicle, selectedRoute, location.state]);
+    const saveInterval = setInterval(() => {
+      const gameProgress = {
+        vehicle,
+        money,
+        selectedRoute,
+        currentFuel,
+        progress,
+        currentPathIndex,
+        pathProgress: pathProgressRef.current,
+        gameTime,
+        timestamp: Date.now(),
+        activeGameId: activeGameIdRef.current,
+        distanceTravelled: distanceTravelled.current
+      };
+      localStorage.setItem('savedGameProgress', JSON.stringify(gameProgress));
+      
+      // ✅ CORREÇÃO F5: Manter activeGameId sempre atualizado
+      if (activeGameIdRef.current) {
+        localStorage.setItem('activeGameId', activeGameIdRef.current.toString());
+      }
+      
+      console.log('💾 Progresso salvo automaticamente');
+    }, 2000); // A cada 2 segundos
+
+    return () => clearInterval(saveInterval);
+  }, [gameLoaded, gameEnded, vehicle, money, selectedRoute, currentFuel, progress, currentPathIndex, gameTime]);
 
   const [gasoline, setGasoline] = useState(() => {
     const fuelPercent = (currentFuel / vehicle.maxCapacity) * 100;
     console.log("Inicializando gasoline com:", fuelPercent, "%");
     return fuelPercent;
   });
+
+  // Sincroniza a barra de combustível com o valor atual vindo do backend/front
+  useEffect(() => {
+    const newGasolinePercent = (currentFuel / vehicle.maxCapacity) * 100;
+    setGasoline(newGasolinePercent);
+  }, [currentFuel, vehicle.maxCapacity]);
 
   // Validação de dados essenciais
   useEffect(() => {
@@ -1069,21 +1464,22 @@ export function GameScene() {
       }, 1000);
     }
   }, []);
-  
 
-  // Sistema de ticks periódicos
+  // ✅✅✅ SISTEMA DE TICKS PERIÓDICOS ATUALIZADO ✅✅✅
   useEffect(() => {
     tickTimerRef.current = setInterval(() => {
-      if (!gamePaused.current && !gameEnded && gameLoaded && activeGameIdRef.current) {
-        const distanciaAtual = (progressRef.current / 100) * totalDistance;
-        partidaTickMutation.mutate({ distancia_percorrida: distanciaAtual });
+      if (!gamePaused.current && !gameEnded && gameLoaded && activeGameIdRef.current && !showFuelModal) {
+        partidaTickMutation.mutate({
+          distancia_percorrida: distanceTravelled.current,
+          quer_abastecer: autoStopAtNextStation
+        });
       }
     }, 2000);
 
     return () => {
       if (tickTimerRef.current) clearInterval(tickTimerRef.current);
     };
-  }, [gameEnded, gameLoaded, totalDistance]);
+  }, [gameEnded, gameLoaded, totalDistance, autoStopAtNextStation, showFuelModal]);// ✅ ADICIONA autoStopAtNextStation ÀS DEPENDÊNCIAS
 
   // ✅ SISTEMA DE TEMPO CORRIGIDO - ACELERA SEMPRE NO FRONTEND
   useEffect(() => {
@@ -1164,42 +1560,6 @@ export function GameScene() {
     setShowMapModal(!showMapModal);
   };
 
-  const calculatePathProgress = (deltaTime: number) => {
-    if (!selectedRoute?.pathCoordinates || selectedRoute.pathCoordinates.length < 2) {
-      console.log("Usando fallback - sem pathCoordinates");
-      return calculateFallbackProgress(deltaTime);
-    }
-
-    const pathCoords = selectedRoute.pathCoordinates;
-    const totalSegments = pathCoords.length - 1;
-
-    const targetDurationSeconds = 600;
-    const segmentsPerSecond = totalSegments / targetDurationSeconds;
-    //Aplica o multiplicador de velocidade ao progresso
-    const segmentSpeed = segmentsPerSecond * speedMultiplierRef.current * deltaTime;
-
-    pathProgressRef.current += segmentSpeed;
-
-    if (pathProgressRef.current >= 1.0 && currentPathIndexRef.current < totalSegments - 1) {
-      currentPathIndexRef.current += 1;
-      setCurrentPathIndex(currentPathIndexRef.current);
-      pathProgressRef.current = 0;
-    }
-
-    const totalProgress = (currentPathIndexRef.current + pathProgressRef.current) / totalSegments;
-    const progressPercent = Math.min(100, Math.max(0, totalProgress * 100));
-
-    return progressPercent;
-  };
-
-  const calculateFallbackProgress = (deltaTime: number) => {
-    const routeDistance = totalDistance || 500;
-    //Aplica o multiplicador de velocidade ao progresso
-    distanceTravelled.current += deltaTime * gameSpeedMultiplier.current * 0.2 * speedMultiplierRef.current;
-    const progressKm = (distanceTravelled.current * routeDistance) / 5000;
-    return Math.min(100, Math.max(0, (progressKm / routeDistance) * 100));
-  };
-
   const getVehicleImageUrl = (vehicleImage: string) => {
     console.log("Convertendo imagem do veículo:", vehicleImage);
 
@@ -1268,10 +1628,15 @@ export function GameScene() {
   useEffect(() => {
     isQuizActiveRef.current = isQuizActive;
   }, [isQuizActive]);
+
+  // ✅ SINCRONIZA O REF COM O ESTADO DO EVENTO PRINCIPAL
+  useEffect(() => {
+    isMainEventActiveRef.current = isMainEventActive;
+  }, [isMainEventActive]);
+
   // 6. ADICIONE UM `useEffect` PARA GARANTIR A PRIORIDADE DOS EVENTOS PRINCIPAIS
   useEffect(() => {
     // COMPORTAMENTO CRÍTICO: Se um evento principal se torna ativo, o quiz deve ser fechado IMEDIATAMENTE
-    // NOTE: Será que não seria melhor esperar a resposta do quiz para aparecer o evento? (com delay de algusn segundos)
     if (isMainEventActive && isQuizActive) {
       console.warn("🚨 Evento principal tem prioridade! Fechando o quiz ativo.");
       handleCloseQuiz();
@@ -1395,14 +1760,14 @@ export function GameScene() {
           onClick={() => setIsRadioOpen(!isRadioOpen)}
           isRadioOpen={isRadioOpen}
         />
-        <div style={{ 
-            position: 'fixed', 
-            top: '7.8rem',  
-            left: '1.7rem' 
-          }}>
-            <AudioControl popupAlign="left"/>
-          </div>
-            <AudioManager />
+        <div style={{
+          position: 'fixed',
+          top: '7.8rem',
+          left: '1.7rem'
+        }}>
+          <AudioControl popupAlign="left" />
+        </div>
+        <AudioManager />
       </div>
       {isRadioOpen && (
         <div
@@ -1420,7 +1785,6 @@ export function GameScene() {
           />
         </div>
       )}
-      
 
       {/* Barra de progresso */}
       <div style={{
@@ -1542,63 +1906,94 @@ export function GameScene() {
         </div>
       </div>
 
-      {/* ✅ MODIFICAÇÃO: PAINEL DE CONTROLE REMOVIDO, FICANDO APENAS O BOTÃO */}
-      {gameLoaded && !showPopup && !isPaused && (
-        <div style={{
-          position: 'fixed',
-          bottom: '4vh', // Ajuste na posição para compensar a falta do painel
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 1001,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-          <button
-            onClick={handleSpeedUp}
-            style={{
-              background: 'linear-gradient(180deg, #6fd250 0%, #3a9c1e 100%)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '12px',
-              padding: '10px 25px',
-              fontFamily: "'Press Start 2P', cursive",
-              fontSize: '18px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              boxShadow: 'inset 0px -6px 0px rgba(0,0,0,0.3), 0px 4px 0px 0px #2a6f18',
-              transition: 'all 0.1s ease-out',
-              textShadow: '2px 2px 0px rgba(0,0,0,0.4)',
-              letterSpacing: '1px',
-              position: 'relative',
-              outline: 'none',
-            }}
-            onMouseDown={(e) => {
-              e.currentTarget.style.transform = 'translateY(2px)';
-              e.currentTarget.style.boxShadow = 'inset 0px -2px 0px rgba(0,0,0,0.3), 0px 2px 0px 0px #2a6f18';
-            }}
-            onMouseUp={(e) => {
-              e.currentTarget.style.transform = 'translateY(0px)';
-              e.currentTarget.style.boxShadow = 'inset 0px -6px 0px rgba(0,0,0,0.3), 0px 4px 0px 0px #2a6f18';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0px)';
-              e.currentTarget.style.boxShadow = 'inset 0px -6px 0px rgba(0,0,0,0.3), 0px 4px 0px 0px #2a6f18';
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.background = 'linear-gradient(180deg, #87e96b 0%, #4cb82d 100%)';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.background = 'linear-gradient(180deg, #6fd250 0%, #3a9c1e 100%)';
-            }}
-            title="Alterar Velocidade"
-          >
-            <span style={{ fontSize: '28px', lineHeight: '1', transform: 'translateY(-2px)' }}>▶️</span>
-            <span>{speedMultiplierRef.current.toFixed(1)}x</span>
-          </button>
-        </div>
+      {/* ✅ BOTÃO DE ABASTECIMENTO E VELOCIDADE */}
+      {gameLoaded && !isPaused && !showPopup && (
+        <>
+          {/* Botão de Parar no Posto */}
+          <div style={{
+            position: 'fixed',
+            bottom: '3vh',
+            left: '3vw',
+            zIndex: 1001,
+          }}>
+            <button
+              onClick={() => setAutoStopAtNextStation(!autoStopAtNextStation)}
+              style={{
+                padding: '10px 15px',
+                fontFamily: "'Silkscreen', monospace",
+                fontSize: '14px',
+                border: '2px solid black',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                backgroundColor: autoStopAtNextStation ? '#28a745' : '#f0f0f0',
+                color: autoStopAtNextStation ? 'white' : 'black',
+                boxShadow: '3px 3px 0px black',
+                transition: 'all 0.1s ease-in-out',
+              }}
+              onMouseDown={(e) => { e.currentTarget.style.transform = 'translateY(2px)'; e.currentTarget.style.boxShadow = '1px 1px 0px black'; }}
+              onMouseUp={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '3px 3px 0px black'; }}
+            >
+              ⛽ Parar no Próximo Posto: {autoStopAtNextStation ? 'LIGADO' : 'DESLIGADO'}
+            </button>
+          </div>
+
+          {/* Botão de controle de velocidade */}
+          <div style={{
+            position: 'fixed',
+            bottom: '4vh',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 1001,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            <button
+              onClick={handleSpeedUp}
+              style={{
+                background: 'linear-gradient(180deg, #6fd250 0%, #3a9c1e 100%)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '10px 25px',
+                fontFamily: "'Press Start 2P', cursive",
+                fontSize: '18px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                boxShadow: 'inset 0px -6px 0px rgba(0,0,0,0.3), 0px 4px 0px 0px #2a6f18',
+                transition: 'all 0.1s ease-out',
+                textShadow: '2px 2px 0px rgba(0,0,0,0.4)',
+                letterSpacing: '1px',
+                position: 'relative',
+                outline: 'none',
+              }}
+              onMouseDown={(e) => {
+                e.currentTarget.style.transform = 'translateY(2px)';
+                e.currentTarget.style.boxShadow = 'inset 0px -2px 0px rgba(0,0,0,0.3), 0px 2px 0px 0px #2a6f18';
+              }}
+              onMouseUp={(e) => {
+                e.currentTarget.style.transform = 'translateY(0px)';
+                e.currentTarget.style.boxShadow = 'inset 0px -6px 0px rgba(0,0,0,0.3), 0px 4px 0px 0px #2a6f18';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0px)';
+                e.currentTarget.style.boxShadow = 'inset 0px -6px 0px rgba(0,0,0,0.3), 0px 4px 0px 0px #2a6f18';
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(180deg, #87e96b 0%, #4cb82d 100%)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(180deg, #6fd250 0%, #3a9c1e 100%)';
+              }}
+              title="Alterar Velocidade"
+            >
+              <span style={{ fontSize: '28px', lineHeight: '1', transform: 'translateY(-2px)' }}>▶️</span>
+              <span>{speedMultiplierRef.current.toFixed(1)}x</span>
+            </button>
+          </div>
+        </>
       )}
 
       <canvas
@@ -1616,124 +2011,92 @@ export function GameScene() {
         }}
       />
 
-      {gameLoaded && (window as any).__kaboom_initiated__ && <RainEffect k={(window as any).k} />}
-
       {/* Modal de evento */}
       {showPopup && activeEvent && !gameEnded && (
         <div
           style={{
-            position: "fixed",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            backgroundColor: "#f9f9f9",
-            padding: "30px",
-            borderRadius: "15px",
-            boxShadow: "0 8px 25px rgba(0,0,0,0.2)",
-            textAlign: "center",
-            minWidth: "400px",
-            maxWidth: "600px",
-            zIndex: 2000,
-            border: "3px solid #333",
-            fontFamily: "'Silkscreen', monospace"
+            position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+            backgroundColor: "#f9f9f9", padding: "30px", borderRadius: "15px",
+            boxShadow: "0 8px 25px rgba(0,0,0,0.2)", textAlign: "center", minWidth: "400px",
+            maxWidth: "600px", zIndex: 2000, border: "3px solid #333", fontFamily: "'Silkscreen', monospace"
           }}
         >
           <div style={{
-            backgroundColor: activeEvent.evento.categoria === 'perigo' ? '#ff4444' :
-              activeEvent.evento.categoria === 'terreno' ? '#ff8800' : '#0077cc',
-            color: 'white',
-            padding: '5px 10px',
-            borderRadius: '20px',
-            fontSize: '12px',
-            fontWeight: 'bold',
-            marginBottom: '10px',
-            display: 'inline-block'
+            backgroundColor: activeEvent.evento.categoria === 'abastecimento' ? '#28a745' :
+              activeEvent.evento.categoria === 'perigo' ? '#ff4444' :
+                activeEvent.evento.categoria === 'terreno' ? '#ff8800' : '#0077cc',
+            color: 'white', padding: '5px 10px', borderRadius: '20px', fontSize: '12px',
+            fontWeight: 'bold', marginBottom: '10px', display: 'inline-block'
           }}>
-            {activeEvent.evento.categoria === 'perigo' ? '⚠️ ZONA DE PERIGO' :
-              activeEvent.evento.categoria === 'terreno' ? '🌄 ESTRADA DE TERRA' : '🛣️ EVENTO GERAL'}
+            {activeEvent.evento.categoria === 'abastecimento' ? '⛽ POSTO DE COMBUSTÍVEL' :
+              activeEvent.evento.categoria === 'perigo' ? '⚠️ ZONA DE PERIGO' :
+                activeEvent.evento.categoria === 'terreno' ? '🌄 ESTRADA DE TERRA' : '🛣️ EVENTO GERAL'}
           </div>
-
           <div className="font-[Silkscreen]" style={{ marginBottom: "10px" }}>
-            <p style={{
-              fontSize: "28px",
-              color: "#333",
-              marginBottom: "5px",
-              fontWeight: "bold"
-            }}>
+            <p style={{ fontSize: "28px", color: "#333", marginBottom: "5px", fontWeight: "bold" }}>
               {activeEvent.evento.nome}
             </p>
-            <p style={{
-              fontSize: "16px",
-              color: "#555"
-            }}>
+            <p style={{ fontSize: "16px", color: "#555" }}>
               {activeEvent.evento.descricao}
             </p>
           </div>
-
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              gap: "20px",
-              flexWrap: "wrap",
-              marginTop: "20px"
-            }}
-          >
+          <div style={{ display: "flex", justifyContent: "center", gap: "20px", flexWrap: "wrap", marginTop: "20px" }}>
             {activeEvent.evento.opcoes.map((opcao, index) => (
               <button
-                key={opcao.id}
-                onClick={() => handleOptionClick(opcao.id)}
-                disabled={isResponding}
+                key={opcao.id} onClick={() => handleOptionClick(opcao.id)} disabled={isResponding}
                 style={{
-                  padding: "15px 20px",
-                  borderRadius: "10px",
-                  border: "2px solid #fff",
-                  backgroundColor: index % 2 === 0 ? "#0077cc" : "#e63946",
-                  color: "white",
-                  fontSize: "14px",
-                  cursor: isResponding ? "not-allowed" : "pointer",
-                  transition: "all 0.3s ease",
-                  minWidth: "200px",
-                  textAlign: "center",
-                  lineHeight: "1.4",
-                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-                  opacity: isResponding ? 0.6 : 1
+                  padding: "15px 20px", borderRadius: "10px", border: "2px solid #fff",
+                  backgroundColor: activeEvent.evento.categoria === 'abastecimento'
+                    ? (opcao.id === -1 ? "#28a745" : "#6c757d")
+                    : (index % 2 === 0 ? "#0077cc" : "#e63946"),
+                  color: "white", fontSize: "14px", cursor: isResponding ? "not-allowed" : "pointer",
+                  transition: "all 0.3s ease", minWidth: "200px", textAlign: "center",
+                  lineHeight: "1.4", boxShadow: "0 2px 4px rgba(0,0,0,0.2)", opacity: isResponding ? 0.6 : 1
                 }}
                 onMouseOver={(e) => {
                   if (!isResponding) {
-                    e.currentTarget.style.backgroundColor = index % 2 === 0 ? "#005fa3" : "#c92a2a";
+                    if (activeEvent.evento.categoria === 'abastecimento') {
+                      e.currentTarget.style.backgroundColor = opcao.id === -1 ? "#218838" : "#5a6268";
+                    } else {
+                      e.currentTarget.style.backgroundColor = index % 2 === 0 ? "#005fa3" : "#c92a2a";
+                    }
                     e.currentTarget.style.transform = "scale(1.02)";
                     e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.3)";
                   }
                 }}
                 onMouseOut={(e) => {
                   if (!isResponding) {
-                    e.currentTarget.style.backgroundColor = index % 2 === 0 ? "#0077cc" : "#e63946";
+                    if (activeEvent.evento.categoria === 'abastecimento') {
+                      e.currentTarget.style.backgroundColor = opcao.id === -1 ? "#28a745" : "#6c757d";
+                    } else {
+                      e.currentTarget.style.backgroundColor = index % 2 === 0 ? "#0077cc" : "#e63946";
+                    }
                     e.currentTarget.style.transform = "scale(1)";
                     e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.2)";
                   }
                 }}
               >
-                {isResponding && respondToEventMutation.isPending ? (
-                  "⏳ Processando..."
-                ) : (
-                  opcao.descricao
-                )}
+                {isResponding && respondToEventMutation.isPending ? ("⏳ Processando...") : (opcao.descricao)}
               </button>
             ))}
           </div>
-
           {isResponding && (
-            <div style={{
-              marginTop: "15px",
-              fontSize: "14px",
-              color: "#666",
-              fontStyle: "italic"
-            }}>
+            <div style={{ marginTop: "15px", fontSize: "14px", color: "#666", fontStyle: "italic" }}>
               📄 Enviando sua escolha para o servidor...
             </div>
           )}
         </div>
+      )}
+
+      {/* ✅ MODAL DE ABASTECIMENTO - SÓ APARECE QUANDO showFuelModal = true */}
+      {showFuelModal && (
+        <FuelModalContainer
+          vehicle={{ ...vehicle, currentFuel }}
+          currentMoney={money}
+          selectedRoute={selectedRoute}
+          onComplete={handleFuelComplete}
+          onCancel={handleFuelCancel}
+        />
       )}
 
       {/* Mensagem de fim de jogo */}
@@ -1741,37 +2104,19 @@ export function GameScene() {
         <div
           className="endMessage"
           style={{
-            position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            backgroundColor: 'rgba(255, 255, 255, 0.98)',
-            border: '3px solid #000',
-            borderRadius: '15px',
-            padding: '30px',
-            textAlign: 'center',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-            zIndex: 2000,
-            maxWidth: '500px',
-            width: '90%'
+            position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+            backgroundColor: 'rgba(255, 255, 255, 0.98)', border: '3px solid #000',
+            borderRadius: '15px', padding: '30px', textAlign: 'center',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.3)', zIndex: 2000, maxWidth: '500px', width: '90%'
           }}
         >
-          <h2 style={{
-            color: finalGameResults.resultado === 'vitoria' ? "#00cc66" : "#cc3300",
-            marginBottom: "20px",
-            fontFamily: "'Silkscreen', monospace"
-          }}>
+          <h2 style={{ color: finalGameResults.resultado === 'vitoria' ? "#00cc66" : "#cc3300", marginBottom: "20px", fontFamily: "'Silkscreen', monospace" }}>
             {finalGameResults.resultado === 'vitoria' ? '🏁 Viagem Concluída! 🏁' : '❌ Fim de Jogo ❌'}
           </h2>
-
           <p style={{ fontSize: "16px", marginBottom: "25px", fontWeight: "bold" }}>
             {finalGameResults.motivo_finalizacao}
           </p>
-
-          <div style={{
-            backgroundColor: "#f8f9fa", padding: "20px", borderRadius: "10px",
-            marginBottom: "25px", textAlign: "left", border: "2px solid #e9ecef"
-          }}>
+          <div style={{ backgroundColor: "#f8f9fa", padding: "20px", borderRadius: "10px", marginBottom: "25px", textAlign: "left", border: "2px solid #e9ecef" }}>
             <h3 style={{ margin: "0 0 15px 0", color: "#333", textAlign: "center", fontFamily: "'Silkscreen', monospace" }}>
               📊 Resultados Finais
             </h3>
@@ -1785,50 +2130,14 @@ export function GameScene() {
               <strong>⏱️ Tempo Total:</strong> {formatTime(finalGameResults.tempo_real * 60)}
             </div>
           </div>
-
           <div style={{ display: "flex", gap: "15px", justifyContent: "center", flexWrap: "wrap" }}>
-            <button
-              onClick={() => navigate('/ranking')}
-              style={{
-                padding: "12px 24px",
-                backgroundColor: "#28a745",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                cursor: "pointer",
-                fontSize: "14px",
-                fontWeight: "bold"
-              }}
-            >
+            <button onClick={() => navigate('/ranking')} style={{ padding: "12px 24px", backgroundColor: "#28a745", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "14px", fontWeight: "bold" }}>
               🏆 Ver Ranking
             </button>
-            <button
-              onClick={() => navigate('/game-selection')}
-              style={{
-                padding: "12px 24px",
-                backgroundColor: "#0077cc",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                cursor: "pointer",
-                fontSize: "14px",
-                fontWeight: "bold"
-              }}
-            >
+            <button onClick={() => navigate('/game-selection')} style={{ padding: "12px 24px", backgroundColor: "#0077cc", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "14px", fontWeight: "bold" }}>
               🚚 Nova Viagem
             </button>
-            <button
-              onClick={() => navigate('/perfil')}
-              style={{
-                padding: "12px 24px",
-                backgroundColor: "#6c757d",
-                color: "white",
-                border: "none",
-                borderRadius: "8px",
-                cursor: "pointer",
-                fontSize: "14px"
-              }}
-            >
+            <button onClick={() => navigate('/perfil')} style={{ padding: "12px 24px", backgroundColor: "#6c757d", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "14px" }}>
               👤 Perfil
             </button>
           </div>
@@ -1838,24 +2147,11 @@ export function GameScene() {
       {/* Overlay de carregamento durante finalização */}
       {syncGameMutation.isPending && (
         <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1999
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center',
+          justifyContent: 'center', zIndex: 1999
         }}>
-          <div style={{
-            backgroundColor: 'white',
-            padding: '20px',
-            borderRadius: '10px',
-            textAlign: 'center',
-            border: '2px solid #000'
-          }}>
+          <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '10px', textAlign: 'center', border: '2px solid #000' }}>
             <div style={{ marginBottom: '10px', fontSize: '24px' }}>⏳</div>
             <p style={{ margin: 0, fontSize: '16px' }}>Finalizando partida...</p>
           </div>
@@ -1866,84 +2162,27 @@ export function GameScene() {
       {showMapModal && selectedRoute && (
         <div
           style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100vw",
-            height: "100vh",
-            backgroundColor: "rgba(0, 0, 0, 0.8)",
-            zIndex: 3000,
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            padding: "20px"
+            position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
+            backgroundColor: "rgba(0, 0, 0, 0.8)", zIndex: 3000, display: "flex",
+            justifyContent: "center", alignItems: "center", padding: "20px"
           }}
           onClick={handleMapModalToggle}
         >
           <div
             style={{
-              width: "95%",
-              height: "95%",
-              backgroundColor: "white",
-              borderRadius: "10px",
-              overflow: "hidden",
-              position: "relative",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.5)"
+              width: "95%", height: "95%", backgroundColor: "white", borderRadius: "10px",
+              overflow: "hidden", position: "relative", boxShadow: "0 10px 30px rgba(0,0,0,0.5)"
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                padding: '15px',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                boxSizing: 'border-box',
-                zIndex: 9999,
-              }}
-            >
-              <div
-                style={{
-                  backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                  color: 'white',
-                  padding: '10px 15px',
-                  borderRadius: '5px',
-                  fontFamily: '"Silkscreen", monospace',
-                  fontSize: '16px',
-                  fontWeight: 'bold',
-                }}
-              >
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxSizing: 'border-box', zIndex: 9999, }}>
+              <div style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)', color: 'white', padding: '10px 15px', borderRadius: '5px', fontFamily: '"Silkscreen", monospace', fontSize: '16px', fontWeight: 'bold', }}>
                 🗺️ {selectedRoute.name}
               </div>
-              <button
-                onClick={handleMapModalToggle}
-                style={{
-                  backgroundColor: '#e63946',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '50%',
-                  height: '45px',
-                  width: '45px', // Corrigido para ser um círculo perfeito
-                  fontSize: '20px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
-                  flexShrink: 0,
-                  marginLeft: '15px',
-                }}
-                title="Fechar mapa"
-              >
+              <button onClick={handleMapModalToggle} style={{ backgroundColor: '#e63946', color: 'white', border: 'none', borderRadius: '50%', height: '45px', width: '45px', fontSize: '20px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 10px rgba(0,0,0,0.3)', flexShrink: 0, marginLeft: '15px', }} title="Fechar mapa">
                 ×
               </button>
             </div>
-
             <div style={{ width: "100%", height: "100%" }}>
               <MapComponent
                 preSelectedRoute={selectedRoute}
@@ -1964,7 +2203,7 @@ export function GameScene() {
       {/* Menu de pausa */}
       <PauseMenu
         isVisible={isPaused}
-        onResume={togglePause}
+        onResume={handleResume}
         onRestart={handleRestart}
         onGoToProfile={handleGoToProfile}
       />

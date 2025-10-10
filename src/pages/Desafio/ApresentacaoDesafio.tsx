@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { ArrowLeft, Home, Loader2 } from 'lucide-react';
-import { ButtonHomeBack } from "@/components/ButtonHomeBack";
 import { AudioControl } from "@/components/AudioControl";
 import { fetchChallengesFromBackend, FrontendChallenge } from "../../services/challengeService";
 import { ChallengeCard } from "../../components/ChallengeCard";
@@ -41,11 +40,7 @@ export const ApresentacaoDesafioPage = () => {
         setCarregandoDesafios(true);
         setErro(null);
         
-        console.log("🔍 Iniciando carregamento de desafios...");
-        
         const challenges = await fetchChallengesFromBackend();
-        
-        console.log("🔍 Challenges recebidos:", challenges);
         
         if (challenges.length === 0) {
           setErro("Nenhum desafio encontrado no backend. Verifique se as seeds foram executadas.");
@@ -53,10 +48,7 @@ export const ApresentacaoDesafioPage = () => {
         }
         
         setAvailableChallenges(challenges);
-        console.log("🎯 Desafios carregados com sucesso:", challenges);
       } catch (error) {
-        console.error("❌ Erro ao carregar desafios:", error);
-        
         const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
         
         // Se for erro de autenticação, redirecionar para login
@@ -75,7 +67,7 @@ export const ApresentacaoDesafioPage = () => {
     };
 
     loadChallenges();
-  }, []);
+  }, [navigate]);
 
   // Sincronizar o carrossel com o índice atual
   useEffect(() => {
@@ -117,15 +109,6 @@ export const ApresentacaoDesafioPage = () => {
   const handleAceitarDesafio = () => {
     if (!currentChallenge) return;
 
-    console.log("🎯 DEBUG ApresentacaoDesafio - Desafio selecionado:", currentChallenge.id);
-    console.log("🎯 DEBUG ApresentacaoDesafio - Backend ID:", currentChallenge.backendId);
-    console.log("🎯 DEBUG ApresentacaoDesafio - Quantidade de carga:", selectedCargoAmount);
-    console.log("🎯 DEBUG ApresentacaoDesafio - Dados enviados:", {
-      desafio: currentChallenge,
-      challengeId: currentChallenge.backendId || currentChallenge.id,
-      cargoAmount: selectedCargoAmount
-    });
-
     setCarregando(true);
     setTimeout(() => {
       setCarregando(false);
@@ -165,18 +148,20 @@ export const ApresentacaoDesafioPage = () => {
             {erro || "Nenhum desafio disponível."}
           </h1>
           <div className="space-y-2">
-            <Button 
-              onClick={() => window.location.reload()} 
-              className="bg-red-600 text-white mr-2 text-base px-4 py-2"
-            >
-              Tentar Novamente
-            </Button>
-            <Button 
-              onClick={() => navigate('/game-selection')} 
-              className="bg-gray-600 text-white text-base px-4 py-2"
-            >
-              Voltar para Seleção de Jogos
-            </Button>
+            <Button
+              onClick={() => navigate('/tutorial')}
+              className="bg-[#e3922a] hover:bg-[#d4831f] text-black px-4 py-2 border-2 border-black rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-['Silkscreen'] h-12 flex items-center gap-2 transform transition-transform duration-300 hover:scale-105"
+          >
+              <ArrowLeft size={20} />
+              Voltar
+          </Button>
+          <Button
+              onClick={() => navigate("/perfil")}
+              className="bg-[#e3922a] hover:bg-[#d4831f] text-black px-4 py-2 border-2 border-black rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-['Silkscreen'] h-12 flex items-center gap-2 transform transition-transform duration-300 hover:scale-105"
+          >
+              <Home size={20} />
+              Perfil
+          </Button>
           </div>
         </div>
       </div>
@@ -187,29 +172,48 @@ export const ApresentacaoDesafioPage = () => {
   return (
     <div className="bg-white flex flex-row justify-center w-full">
       <div className="w-full min-h-screen [background:linear-gradient(180deg,rgba(32,2,89,1)_0%,rgba(121,70,213,1)_100%)] relative overflow-hidden z-10">
-        <div className="flex gap-5 absolute top-4 left-4 z-10">
-          <ButtonHomeBack onClick={() => navigate(-1)}><ArrowLeft/></ButtonHomeBack>
-          <ButtonHomeBack onClick={() => navigate("/perfil")}><Home/></ButtonHomeBack>
+        {/* ================================================================ */}
+        {/* ======================= BOTÕES ATUALIZADOS ===================== */}
+        {/* ================================================================ */}
+        <div className="flex gap-4 absolute top-4 left-4 z-10">
+          <Button
+              onClick={() => navigate(-1)}
+              className="bg-[#e3922a] hover:bg-[#d4831f] text-black px-4 py-2 border-2 border-black rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-['Silkscreen'] h-12 flex items-center gap-2 transform transition-transform duration-300 hover:scale-105"
+          >
+              <ArrowLeft size={20} />
+              Voltar
+          </Button>
+          <Button
+              onClick={() => navigate("/perfil")}
+              className="bg-[#e3922a] hover:bg-[#d4831f] text-black px-4 py-2 border-2 border-black rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-['Silkscreen'] h-12 flex items-center gap-2 transform transition-transform duration-300 hover:scale-105"
+          >
+              <Home size={20} />
+              Perfil
+          </Button>
         </div>
+        {/* ================================================================ */}
+        {/* ================================================================ */}
 
         <div className="absolute top-4 right-4 z-10">
           <AudioControl />
         </div>
 
-        <div className="pt-8   pb-8 px-4 flex flex-col justify-center items-center min-h-screen z-10">
+        <div className="pt-8 pb-8 px-4 flex flex-col justify-center items-center min-h-screen z-10">
           {/* Carrossel de desafios */}
-          <div className="relative w-full max-w-[1200px] px-4 sm:px-16">
+          <div className="relative w-full max-w-[1000px] mx-auto px-8 md:px-16">
             <Carousel
               setApi={setApi}
               className="w-full"
               opts={{
                 align: "center",
                 loop: true,
+                containScroll: "trimSnaps",
+                slidesToScroll: 1,
               }}
             >
-              <CarouselContent className="ml-2 justify-center items-center sm:-ml-4 py-6 px-4 mb-4">
+              <CarouselContent className="-ml-2 md:-ml-4 py-6 px-2 mb-4">
                 {availableChallenges.map((challenge) => (
-                  <CarouselItem key={challenge.id} className="basis-full pl-2 sm:pl-4">
+                  <CarouselItem key={challenge.id} className="pl-2 md:pl-4 basis-full">
                     <ChallengeCard
                       challenge={challenge}
                       selectedCargoAmount={selectedCargoAmount}
@@ -226,31 +230,12 @@ export const ApresentacaoDesafioPage = () => {
                 ))}
               </CarouselContent>
 
-              <CarouselPrevious className="hidden md:flex opacity-100 -left-16 h-14 w-14 bg-[#e3922a] hover:bg-[#d4831f] transition-all duration-300 ease-in-out hover:scale-110 text-white border-2 border-black rounded-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" />
-              <CarouselNext className="hidden transition-all duration-300 ease-in-out hover:scale-110 md:flex opacity-100 -right-16 h-14 w-14 bg-[#e3922a] hover:bg-[#d4831f] text-white border-2 border-black rounded-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" />
+              <CarouselPrevious className="hidden md:flex opacity-100 -left-12 h-12 w-12 bg-[#e3922a] hover:bg-[#d4831f] transition-all duration-300 ease-in-out hover:scale-110 text-white border-2 border-black rounded-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" />
+              <CarouselNext className="hidden transition-all duration-300 ease-in-out hover:scale-110 md:flex opacity-100 -right-12 h-12 w-12 bg-[#e3922a] hover:bg-[#d4831f] text-white border-2 border-black rounded-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" />
             </Carousel>
           </div>
-
-          {/* Indicadores na parte de baixo */}
-          {/* {availableChallenges.length > 1 && (
-            <div className="flex justify-center space-x-2 mt-6">
-              {availableChallenges.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => setCurrentChallengeIndex(index)}
-                  className={`w-3 h-3 rounded-full transition-all ${
-                    currentChallengeIndex === index
-                      ? 'bg-[#e3922a] scale-125'
-                      : 'bg-gray-400 hover:bg-gray-500'
-                  }`}
-                />
-              ))}
-            </div>
-          )} */}
         </div>
       </div>
     </div>
   );
 };
-
-export default ApresentacaoDesafioPage;
