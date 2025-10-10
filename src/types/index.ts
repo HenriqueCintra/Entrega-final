@@ -61,4 +61,17 @@ export interface TeamDetails {
   membros: TeamMember[];
   created_at: string;
   updated_at?: string;
+  stats: {
+    people: number;
+    partidas_total: number;
+    partidas_concluidas: number;
+    vitorias: number;
+    derrotas: number;
+    taxa_vitoria: number;
+    distance: number;
+    earnings: number;
+    eficiencia_media: number;
+    partidas_contabilizadas: number;
+    soma_eficiencia: number;
+  };
 }
