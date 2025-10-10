@@ -53,7 +53,7 @@ interface EventData {
 export function GameScene() {
 
   const [isMainEventActive, setIsMainEventActive] = useState(false);
-  // ✅ REMOVIDO: quizTimerRef - Agora usamos marcos de progresso
+  const quizTimerRef = useRef(0);
   const [isQuizActive, setIsQuizActive] = useState(false);
   const [currentQuiz, setCurrentQuiz] = useState<PerguntaQuiz | null>(null);
   const isQuizActiveRef = useRef(false);
@@ -138,7 +138,7 @@ export function GameScene() {
   // ✅ ADIÇÃO: Estados para sistema de background da versão antiga
   const currentBg = useRef<'cidade' | 'terra'>('cidade');
   const nextBg = useRef<'cidade' | 'terra' | null>(null);
-  // ✅ REMOVIDO: backgroundSwitchTimer - Agora usamos marcos de progresso
+  const backgroundSwitchTimer = useRef(0);
   const transitionProgress = useRef(0);
   const isTransitioning = useRef(false);
   const transitionCooldown = useRef(0);
@@ -162,11 +162,11 @@ export function GameScene() {
   });
 
   //estados CHuva
-   const rainCycleTimerRef = useRef<number>(0);
-   const rainControllerRef = useRef<any>(null);
-   const isRainActiveRef = useRef(false);
+  const rainCycleTimerRef = useRef<number>(0);
+  const rainControllerRef = useRef<any>(null);
+  const isRainActiveRef = useRef(false);
 
-  
+
   // Estados vindos dos parâmetros de navegação
   const [vehicle] = useState<Vehicle>(() => {
     console.log("Estado recebido no jogo:", location.state);
@@ -282,13 +282,23 @@ export function GameScene() {
 
       // ✅ VERIFICA SE HÁ EVENTO PENDENTE RETORNADO PELO TICK
       if (tickResult.evento_pendente && !activeEvent && !showPopup) {
+
+        // ==================================================================
+        // ✅✅✅ AQUI ESTÁ A SOLUÇÃO! ✅✅✅
+        // Antes de mostrar o novo evento, verificamos se um quiz está ativo.
+        if (isQuizActiveRef.current) {
+          console.warn("🚨 Evento principal (ou abastecimento) tem prioridade! Fechando o quiz ativo.");
+          handleCloseQuiz(); // Expulsa o quiz da tela na hora!
+        }
+        // ==================================================================
+
         const eventoPendente = tickResult.evento_pendente;
         console.log(`🎲 Evento pendente detectado no tick: "${eventoPendente.evento.nome}" (categoria: ${eventoPendente.evento.categoria})`);
 
         // ✅ VERIFICA SE É UM EVENTO DE ABASTECIMENTO
         if (eventoPendente.evento.categoria === 'abastecimento') {
           console.log('⛽ Evento de ABASTECIMENTO detectado! Desligando toggle...');
-          setAutoStopAtNextStation(false); // ✅ DESLIGA O TOGGLE AUTOMATICAMENTE
+          setAutoStopAtNextStation(false); // ✅ DESLIGA O TOGGLE AUTOMATICamente
         } else {
           console.log("🚨 Evento principal ativado, quizzes serão suprimidos.");
           setIsMainEventActive(true); // INFORMA QUE UM EVENTO PRINCIPAL ESTÁ ATIVO
@@ -510,7 +520,7 @@ export function GameScene() {
         setGameEnded(true);
         setShowEndMessage(true);
         gamePaused.current = true;
-        
+
         // ✅ CORREÇÃO F5: Limpar dados da partida ativa ao finalizar
         localStorage.removeItem('activeGameId');
         localStorage.removeItem('savedGameProgress');
@@ -912,7 +922,7 @@ export function GameScene() {
     if (restoredState) {
       // ✅ CALCULA A DISTÂNCIA TOTAL PRIMEIRO
       const routeDistance = initialRoute?.actualDistance || initialRoute?.distance || totalDistance;
-      
+
       // ✅ RESTAURA A FONTE DA VERDADE DIRETAMENTE
       distanceTravelled.current = restoredState.distanceTravelled || 0;
       progressRef.current = routeDistance > 0 ? (distanceTravelled.current / routeDistance) * 100 : 0;
@@ -965,7 +975,7 @@ export function GameScene() {
       window.addEventListener('resize', handleResizeRef.current!);
       (window as any).__kaboom_initiated__ = true;
       (window as any).k = k; // ✅ Salvar referência para cleanup
-      
+
       console.log("✅ Kaboom inicializado com sucesso!");
 
       const {
@@ -999,7 +1009,7 @@ export function GameScene() {
         onSceneLeave
       } = k;
 
-       k.loadSound("rain", "audio/rainSound.mp3");
+      k.loadSound("rain", "audio/rainSound.mp3");
 
       destroyRef.current = destroy;
 
@@ -1044,7 +1054,7 @@ export function GameScene() {
         loadSprite("carro_8", "/assets/carro_trafego_8.png");
         loadSprite("moto_1", "/assets/moto_trafego_1.png");
 
-       
+
 
 
         console.log("Todos os sprites carregados com sucesso");
@@ -1247,7 +1257,7 @@ export function GameScene() {
 
     // ✅ PRIORIDADE 1: Verificar se há dados no location.state (vindo de "Continuar Jogo")
     const { selectedVehicle, selectedRoute: route, savedProgress, cargoAmount, selectedChallenge, revisaoFeita } = location.state || {};
-    
+
     console.log("📦 Location.state recebido:", {
       hasVehicle: !!selectedVehicle,
       hasRoute: !!route,
@@ -1269,7 +1279,7 @@ export function GameScene() {
 
       setActiveGameId(savedProgress.activeGameId);
       activeGameIdRef.current = savedProgress.activeGameId;
-      
+
       // Salvar no localStorage para persistência
       localStorage.setItem('activeGameId', savedProgress.activeGameId.toString());
 
@@ -1284,7 +1294,7 @@ export function GameScene() {
         })
         .then((partidaAtualizada) => {
           console.log("📊 Dados atualizados do backend:", partidaAtualizada);
-          
+
           // ✅ ATUALIZAR savedProgress COM DADOS DO BACKEND
           const progressoAtualizado = {
             ...savedProgress,
@@ -1293,13 +1303,13 @@ export function GameScene() {
             gameTime: partidaAtualizada.tempo_jogo_segundos || savedProgress.gameTime,
             currentFuel: partidaAtualizada.combustivel_atual
           };
-          
+
           // Atualizar o veículo com combustível correto
           const vehicleAtualizado = {
             ...selectedVehicle,
             currentFuel: partidaAtualizada.combustivel_atual
           };
-          
+
           console.log("🎮 Inicializando jogo com progresso restaurado:", progressoAtualizado);
           initializeGame(vehicleAtualizado, partidaAtualizada.saldo, route, progressoAtualizado);
         })
@@ -1388,7 +1398,7 @@ export function GameScene() {
     };
   }, [activeEvent, gameEnded]);
 
-  
+
 
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -1439,12 +1449,12 @@ export function GameScene() {
         distanceTravelled: distanceTravelled.current
       };
       localStorage.setItem('savedGameProgress', JSON.stringify(gameProgress));
-      
+
       // ✅ CORREÇÃO F5: Manter activeGameId sempre atualizado
       if (activeGameIdRef.current) {
         localStorage.setItem('activeGameId', activeGameIdRef.current.toString());
       }
-      
+
       console.log('💾 Progresso salvo automaticamente');
     }, 2000); // A cada 2 segundos
 
