@@ -53,7 +53,7 @@ interface EventData {
 export function GameScene() {
 
   const [isMainEventActive, setIsMainEventActive] = useState(false);
-  const quizTimerRef = useRef(0);
+  // ✅ REMOVIDO: quizTimerRef - Agora usamos marcos de progresso
   const [isQuizActive, setIsQuizActive] = useState(false);
   const [currentQuiz, setCurrentQuiz] = useState<PerguntaQuiz | null>(null);
   const isQuizActiveRef = useRef(false);
@@ -106,6 +106,10 @@ export function GameScene() {
   const handleResizeRef = useRef<(() => void) | null>(null);
   const [isRadioOpen, setIsRadioOpen] = useState(false);
 
+  // ✅ NOVOS REFS: Controle de marcos de progresso para eventos
+  const backgroundTransitionsDone = useRef<number[]>([]);
+  const quizMilestonesTriggered = useRef<number[]>([]);
+
   //CONTROLE DE VELOCIDADE
   const [speedLevel, setSpeedLevel] = useState(1); // 1 = 1x, 2 = 1.5x, 3 = 2x
   const speedMultiplierRef = useRef(1);
@@ -134,7 +138,7 @@ export function GameScene() {
   // ✅ ADIÇÃO: Estados para sistema de background da versão antiga
   const currentBg = useRef<'cidade' | 'terra'>('cidade');
   const nextBg = useRef<'cidade' | 'terra' | null>(null);
-  const backgroundSwitchTimer = useRef(0);
+  // ✅ REMOVIDO: backgroundSwitchTimer - Agora usamos marcos de progresso
   const transitionProgress = useRef(0);
   const isTransitioning = useRef(false);
   const transitionCooldown = useRef(0);
@@ -644,43 +648,45 @@ export function GameScene() {
       }
     }
 
-    // Timer para mudança de background
-    backgroundSwitchTimer.current -= deltaTime;
-    if (backgroundSwitchTimer.current <= 0 && !nextBg.current && !isTransitioning.current && transitionCooldown.current <= 0) {
-      const shouldSwitchToTerra = (currentBg.current === 'cidade' && k.rand() < 0.3);
-      const shouldSwitchToCidade = (currentBg.current === 'terra' && k.rand() < 0.8);
+    // ✅ NOVO: Lógica de transição baseada em progresso (a cada 1/4 do jogo: 25%, 50%, 75%)
+    const progress = progressRef.current;
+    const transitionMilestones = [25, 50, 75]; // Marcos de 1/4, 1/2 e 3/4 do jogo
 
-      if (shouldSwitchToTerra || shouldSwitchToCidade) {
-        startZoomEffect();
+    for (const milestone of transitionMilestones) {
+      // Verifica se o progresso passou do marco E se a transição ainda não foi feita
+      if (progress >= milestone && !backgroundTransitionsDone.current.includes(milestone)) {
+        // Verifica se não há outra transição em andamento
+        if (!isTransitioning.current && !nextBg.current && transitionCooldown.current <= 0) {
+          console.log(`🎨 Marco de transição de cenário ativado: ${milestone}%`);
 
-        k.wait(ZOOM_CONFIG.LEAD_IN_TIME, () => {
-          const bgWidth = 2048 * Math.max(k.width() / 2048, k.height() / 762);
+          // Marca este marco como concluído para não repetir
+          backgroundTransitionsDone.current.push(milestone);
 
-          if (shouldSwitchToTerra) {
-            nextBg.current = 'terra';
-            const bgTerra = k.get("bg_terra");
-            if (bgTerra.length >= 2) {
-              // ✅ CORREÇÃO: Posicionamento simétrico inicial
-              bgTerra[0].pos.x = 0;
-              bgTerra[1].pos.x = bgWidth;
+          // Inicia o efeito de zoom
+          startZoomEffect();
+
+          // Aguarda o zoom inicial antes de começar a transição de fade
+          k.wait(ZOOM_CONFIG.LEAD_IN_TIME, () => {
+            const bgWidth = 2048 * Math.max(k.width() / 2048, k.height() / 762);
+
+            // Alterna o cenário
+            const targetBg = currentBg.current === 'cidade' ? 'terra' : 'cidade';
+            nextBg.current = targetBg;
+
+            const bgToActivate = k.get(`bg_${targetBg}`);
+            if (bgToActivate.length >= 2) {
+              bgToActivate[0].pos.x = 0;
+              bgToActivate[1].pos.x = bgWidth;
             }
-            console.log("🎬 Iniciando FADE: cidade → terra");
-          } else if (shouldSwitchToCidade) {
-            nextBg.current = 'cidade';
-            const bgCidade = k.get("bg_cidade");
-            if (bgCidade.length >= 2) {
-              // ✅ CORREÇÃO: Posicionamento simétrico inicial
-              bgCidade[0].pos.x = 0;
-              bgCidade[1].pos.x = bgWidth;
-            }
-            console.log("🎬 Iniciando FADE: terra → cidade");
-          }
 
-          isTransitioning.current = true;
-          transitionProgress.current = 0;
-        });
+            console.log(`🎬 Iniciando FADE: ${currentBg.current} → ${targetBg}`);
+            isTransitioning.current = true;
+            transitionProgress.current = 0;
+          });
 
-        backgroundSwitchTimer.current = k.rand(15, 25);
+          // Sai do loop para fazer apenas uma transição por vez
+          break;
+        }
       }
     }
   };
@@ -1067,8 +1073,7 @@ export function GameScene() {
         const bg_terra_1 = add([sprite("background_terra"), pos(0, bgOffsetY), scale(bgScale), z(0), "bg_terra", opacity(0)]);
         const bg_terra_2 = add([sprite("background_terra"), pos(bgWidth, bgOffsetY), scale(bgScale), z(0), "bg_terra", opacity(0)]);
 
-        // Inicializar timer de transição
-        backgroundSwitchTimer.current = rand(2, 4);
+        // ✅ REMOVIDO: backgroundSwitchTimer - Agora usamos marcos de progresso
 
         const roadYPosition = height() * 0.48;
         const baseWidth = 600;
@@ -1154,18 +1159,22 @@ export function GameScene() {
 
           const deltaTime = dt();
 
-          // --- LÓGICA DO TIMER DO QUIZ ---
-          quizTimerRef.current += deltaTime; // Modifica o ref diretamente
+          // ✅ NOVO: Lógica de quiz baseada em progresso (a cada 1/10 do jogo: 10%, 20%, 30%...)
+          const progress = progressRef.current;
+          const quizMilestones = [10, 20, 30, 40, 50, 60, 70, 80, 90]; // A cada 10% (equivale a ~2 min em um jogo de 20 min)
 
-          // A cada 10 segundos para teste (ou 60 para a versão final)
-          if (quizTimerRef.current >= 10) { // Verificamos o valor atual do ref
-            quizTimerRef.current = 0; // Resetamos o ref
-            // CONDIÇÃO FUNDAMENTAL: Só dispara o quiz se um evento principal NÃO estiver ativo
-            if (!isMainEventActive && !isQuizActiveRef.current) {
-              console.log("⏰ Timer do quiz disparado! Solicitando pergunta...");
-              handleTriggerQuiz();
-            } else {
-              console.log("⏰ Quiz adiado, pois um evento principal ou outro quiz já está ativo.");
+          for (const milestone of quizMilestones) {
+            if (progress >= milestone && !quizMilestonesTriggered.current.includes(milestone)) {
+              quizMilestonesTriggered.current.push(milestone); // Marca como feito
+
+              // CONDIÇÃO FUNDAMENTAL: Só dispara o quiz se um evento principal NÃO estiver ativo
+              if (!isMainEventActive && !isQuizActiveRef.current) {
+                console.log(`🎯 Marco de Quiz atingido: ${milestone}%. Solicitando pergunta...`);
+                handleTriggerQuiz();
+              } else {
+                console.log(`🎯 Quiz do marco ${milestone}% adiado, pois um evento principal ou outro quiz já está ativo.`);
+              }
+              break; // Dispara apenas um quiz por vez
             }
           }
 

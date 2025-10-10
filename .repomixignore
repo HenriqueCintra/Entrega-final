@@ -133,3 +133,5 @@ src/pages/mapaRota/paths/route4Path.ts
 
 # Ou se quiser ignorar todos os paths dessa pasta:
 # src/pages/mapaRota/paths/
+
+src/pages/mapaRota/challenges/
