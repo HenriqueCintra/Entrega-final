@@ -106,6 +106,10 @@ export function GameScene() {
   const handleResizeRef = useRef<(() => void) | null>(null);
   const [isRadioOpen, setIsRadioOpen] = useState(false);
 
+  // ✅ NOVOS REFS: Controle de marcos de progresso para eventos
+  const backgroundTransitionsDone = useRef<number[]>([]);
+  const quizMilestonesTriggered = useRef<number[]>([]);
+
   //CONTROLE DE VELOCIDADE
   const [speedLevel, setSpeedLevel] = useState(1); // 1 = 1x, 2 = 1.5x, 3 = 2x
   const speedMultiplierRef = useRef(1);
@@ -158,11 +162,11 @@ export function GameScene() {
   });
 
   //estados CHuva
-   const rainCycleTimerRef = useRef<number>(0);
-   const rainControllerRef = useRef<any>(null);
-   const isRainActiveRef = useRef(false);
+  const rainCycleTimerRef = useRef<number>(0);
+  const rainControllerRef = useRef<any>(null);
+  const isRainActiveRef = useRef(false);
 
-  
+
   // Estados vindos dos parâmetros de navegação
   const [vehicle] = useState<Vehicle>(() => {
     console.log("Estado recebido no jogo:", location.state);
@@ -278,13 +282,23 @@ export function GameScene() {
 
       // ✅ VERIFICA SE HÁ EVENTO PENDENTE RETORNADO PELO TICK
       if (tickResult.evento_pendente && !activeEvent && !showPopup) {
+
+        // ==================================================================
+        // ✅✅✅ AQUI ESTÁ A SOLUÇÃO! ✅✅✅
+        // Antes de mostrar o novo evento, verificamos se um quiz está ativo.
+        if (isQuizActiveRef.current) {
+          console.warn("🚨 Evento principal (ou abastecimento) tem prioridade! Fechando o quiz ativo.");
+          handleCloseQuiz(); // Expulsa o quiz da tela na hora!
+        }
+        // ==================================================================
+
         const eventoPendente = tickResult.evento_pendente;
         console.log(`🎲 Evento pendente detectado no tick: "${eventoPendente.evento.nome}" (categoria: ${eventoPendente.evento.categoria})`);
 
         // ✅ VERIFICA SE É UM EVENTO DE ABASTECIMENTO
         if (eventoPendente.evento.categoria === 'abastecimento') {
           console.log('⛽ Evento de ABASTECIMENTO detectado! Desligando toggle...');
-          setAutoStopAtNextStation(false); // ✅ DESLIGA O TOGGLE AUTOMATICAMENTE
+          setAutoStopAtNextStation(false); // ✅ DESLIGA O TOGGLE AUTOMATICamente
         } else {
           console.log("🚨 Evento principal ativado, quizzes serão suprimidos.");
           setIsMainEventActive(true); // INFORMA QUE UM EVENTO PRINCIPAL ESTÁ ATIVO
@@ -506,7 +520,7 @@ export function GameScene() {
         setGameEnded(true);
         setShowEndMessage(true);
         gamePaused.current = true;
-        
+
         // ✅ CORREÇÃO F5: Limpar dados da partida ativa ao finalizar
         localStorage.removeItem('activeGameId');
         localStorage.removeItem('savedGameProgress');
@@ -644,43 +658,45 @@ export function GameScene() {
       }
     }
 
-    // Timer para mudança de background
-    backgroundSwitchTimer.current -= deltaTime;
-    if (backgroundSwitchTimer.current <= 0 && !nextBg.current && !isTransitioning.current && transitionCooldown.current <= 0) {
-      const shouldSwitchToTerra = (currentBg.current === 'cidade' && k.rand() < 0.3);
-      const shouldSwitchToCidade = (currentBg.current === 'terra' && k.rand() < 0.8);
+    // ✅ NOVO: Lógica de transição baseada em progresso (a cada 1/4 do jogo: 25%, 50%, 75%)
+    const progress = progressRef.current;
+    const transitionMilestones = [25, 50, 75]; // Marcos de 1/4, 1/2 e 3/4 do jogo
 
-      if (shouldSwitchToTerra || shouldSwitchToCidade) {
-        startZoomEffect();
+    for (const milestone of transitionMilestones) {
+      // Verifica se o progresso passou do marco E se a transição ainda não foi feita
+      if (progress >= milestone && !backgroundTransitionsDone.current.includes(milestone)) {
+        // Verifica se não há outra transição em andamento
+        if (!isTransitioning.current && !nextBg.current && transitionCooldown.current <= 0) {
+          console.log(`🎨 Marco de transição de cenário ativado: ${milestone}%`);
 
-        k.wait(ZOOM_CONFIG.LEAD_IN_TIME, () => {
-          const bgWidth = 2048 * Math.max(k.width() / 2048, k.height() / 762);
+          // Marca este marco como concluído para não repetir
+          backgroundTransitionsDone.current.push(milestone);
 
-          if (shouldSwitchToTerra) {
-            nextBg.current = 'terra';
-            const bgTerra = k.get("bg_terra");
-            if (bgTerra.length >= 2) {
-              // ✅ CORREÇÃO: Posicionamento simétrico inicial
-              bgTerra[0].pos.x = 0;
-              bgTerra[1].pos.x = bgWidth;
+          // Inicia o efeito de zoom
+          startZoomEffect();
+
+          // Aguarda o zoom inicial antes de começar a transição de fade
+          k.wait(ZOOM_CONFIG.LEAD_IN_TIME, () => {
+            const bgWidth = 2048 * Math.max(k.width() / 2048, k.height() / 762);
+
+            // Alterna o cenário
+            const targetBg = currentBg.current === 'cidade' ? 'terra' : 'cidade';
+            nextBg.current = targetBg;
+
+            const bgToActivate = k.get(`bg_${targetBg}`);
+            if (bgToActivate.length >= 2) {
+              bgToActivate[0].pos.x = 0;
+              bgToActivate[1].pos.x = bgWidth;
             }
-            console.log("🎬 Iniciando FADE: cidade → terra");
-          } else if (shouldSwitchToCidade) {
-            nextBg.current = 'cidade';
-            const bgCidade = k.get("bg_cidade");
-            if (bgCidade.length >= 2) {
-              // ✅ CORREÇÃO: Posicionamento simétrico inicial
-              bgCidade[0].pos.x = 0;
-              bgCidade[1].pos.x = bgWidth;
-            }
-            console.log("🎬 Iniciando FADE: terra → cidade");
-          }
 
-          isTransitioning.current = true;
-          transitionProgress.current = 0;
-        });
+            console.log(`🎬 Iniciando FADE: ${currentBg.current} → ${targetBg}`);
+            isTransitioning.current = true;
+            transitionProgress.current = 0;
+          });
 
-        backgroundSwitchTimer.current = k.rand(15, 25);
+          // Sai do loop para fazer apenas uma transição por vez
+          break;
+        }
       }
     }
   };
@@ -906,7 +922,7 @@ export function GameScene() {
     if (restoredState) {
       // ✅ CALCULA A DISTÂNCIA TOTAL PRIMEIRO
       const routeDistance = initialRoute?.actualDistance || initialRoute?.distance || totalDistance;
-      
+
       // ✅ RESTAURA A FONTE DA VERDADE DIRETAMENTE
       distanceTravelled.current = restoredState.distanceTravelled || 0;
       progressRef.current = routeDistance > 0 ? (distanceTravelled.current / routeDistance) * 100 : 0;
@@ -959,7 +975,7 @@ export function GameScene() {
       window.addEventListener('resize', handleResizeRef.current!);
       (window as any).__kaboom_initiated__ = true;
       (window as any).k = k; // ✅ Salvar referência para cleanup
-      
+
       console.log("✅ Kaboom inicializado com sucesso!");
 
       const {
@@ -993,7 +1009,7 @@ export function GameScene() {
         onSceneLeave
       } = k;
 
-       k.loadSound("rain", "audio/rainSound.mp3");
+      k.loadSound("rain", "audio/rainSound.mp3");
 
       destroyRef.current = destroy;
 
@@ -1038,7 +1054,7 @@ export function GameScene() {
         loadSprite("carro_8", "/assets/carro_trafego_8.png");
         loadSprite("moto_1", "/assets/moto_trafego_1.png");
 
-       
+
 
 
         console.log("Todos os sprites carregados com sucesso");
@@ -1067,8 +1083,7 @@ export function GameScene() {
         const bg_terra_1 = add([sprite("background_terra"), pos(0, bgOffsetY), scale(bgScale), z(0), "bg_terra", opacity(0)]);
         const bg_terra_2 = add([sprite("background_terra"), pos(bgWidth, bgOffsetY), scale(bgScale), z(0), "bg_terra", opacity(0)]);
 
-        // Inicializar timer de transição
-        backgroundSwitchTimer.current = rand(2, 4);
+        // ✅ REMOVIDO: backgroundSwitchTimer - Agora usamos marcos de progresso
 
         const roadYPosition = height() * 0.48;
         const baseWidth = 600;
@@ -1154,18 +1169,22 @@ export function GameScene() {
 
           const deltaTime = dt();
 
-          // --- LÓGICA DO TIMER DO QUIZ ---
-          quizTimerRef.current += deltaTime; // Modifica o ref diretamente
+          // ✅ NOVO: Lógica de quiz baseada em progresso (a cada 1/10 do jogo: 10%, 20%, 30%...)
+          const progress = progressRef.current;
+          const quizMilestones = [10, 20, 30, 40, 50, 60, 70, 80, 90]; // A cada 10% (equivale a ~2 min em um jogo de 20 min)
 
-          // A cada 10 segundos para teste (ou 60 para a versão final)
-          if (quizTimerRef.current >= 10) { // Verificamos o valor atual do ref
-            quizTimerRef.current = 0; // Resetamos o ref
-            // CONDIÇÃO FUNDAMENTAL: Só dispara o quiz se um evento principal NÃO estiver ativo
-            if (!isMainEventActive && !isQuizActiveRef.current) {
-              console.log("⏰ Timer do quiz disparado! Solicitando pergunta...");
-              handleTriggerQuiz();
-            } else {
-              console.log("⏰ Quiz adiado, pois um evento principal ou outro quiz já está ativo.");
+          for (const milestone of quizMilestones) {
+            if (progress >= milestone && !quizMilestonesTriggered.current.includes(milestone)) {
+              quizMilestonesTriggered.current.push(milestone); // Marca como feito
+
+              // CONDIÇÃO FUNDAMENTAL: Só dispara o quiz se um evento principal NÃO estiver ativo
+              if (!isMainEventActive && !isQuizActiveRef.current) {
+                console.log(`🎯 Marco de Quiz atingido: ${milestone}%. Solicitando pergunta...`);
+                handleTriggerQuiz();
+              } else {
+                console.log(`🎯 Quiz do marco ${milestone}% adiado, pois um evento principal ou outro quiz já está ativo.`);
+              }
+              break; // Dispara apenas um quiz por vez
             }
           }
 
@@ -1238,7 +1257,7 @@ export function GameScene() {
 
     // ✅ PRIORIDADE 1: Verificar se há dados no location.state (vindo de "Continuar Jogo")
     const { selectedVehicle, selectedRoute: route, savedProgress, cargoAmount, selectedChallenge, revisaoFeita } = location.state || {};
-    
+
     console.log("📦 Location.state recebido:", {
       hasVehicle: !!selectedVehicle,
       hasRoute: !!route,
@@ -1260,7 +1279,7 @@ export function GameScene() {
 
       setActiveGameId(savedProgress.activeGameId);
       activeGameIdRef.current = savedProgress.activeGameId;
-      
+
       // Salvar no localStorage para persistência
       localStorage.setItem('activeGameId', savedProgress.activeGameId.toString());
 
@@ -1275,7 +1294,7 @@ export function GameScene() {
         })
         .then((partidaAtualizada) => {
           console.log("📊 Dados atualizados do backend:", partidaAtualizada);
-          
+
           // ✅ ATUALIZAR savedProgress COM DADOS DO BACKEND
           const progressoAtualizado = {
             ...savedProgress,
@@ -1284,13 +1303,13 @@ export function GameScene() {
             gameTime: partidaAtualizada.tempo_jogo_segundos || savedProgress.gameTime,
             currentFuel: partidaAtualizada.combustivel_atual
           };
-          
+
           // Atualizar o veículo com combustível correto
           const vehicleAtualizado = {
             ...selectedVehicle,
             currentFuel: partidaAtualizada.combustivel_atual
           };
-          
+
           console.log("🎮 Inicializando jogo com progresso restaurado:", progressoAtualizado);
           initializeGame(vehicleAtualizado, partidaAtualizada.saldo, route, progressoAtualizado);
         })
@@ -1379,7 +1398,7 @@ export function GameScene() {
     };
   }, [activeEvent, gameEnded]);
 
-  
+
 
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -1430,12 +1449,12 @@ export function GameScene() {
         distanceTravelled: distanceTravelled.current
       };
       localStorage.setItem('savedGameProgress', JSON.stringify(gameProgress));
-      
+
       // ✅ CORREÇÃO F5: Manter activeGameId sempre atualizado
       if (activeGameIdRef.current) {
         localStorage.setItem('activeGameId', activeGameIdRef.current.toString());
       }
-      
+
       console.log('💾 Progresso salvo automaticamente');
     }, 2000); // A cada 2 segundos
 
