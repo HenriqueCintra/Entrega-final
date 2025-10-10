@@ -87,6 +87,7 @@ interface PartidaResponse {
 }
 
 interface RespondResponse {
+  efeitos_aplicados: never[];
   detail: string;
   partida: PartidaResponse;
 }
@@ -319,6 +320,18 @@ export const GameService = {
       return response.data;
     } catch (error) {
       console.error('❌ Erro ao buscar partida ativa:', error);
+      throw error;
+    }
+  },
+
+  async getPartida(id: number): Promise<PartidaResponse> {
+    console.log(`🎮 Buscando partida com ID: ${id}...`);
+    try {
+      const response = await api.get<PartidaResponse>(`/jogo1/partidas/${id}/`);
+      console.log('✅ Partida encontrada:', response.data.id);
+      return response.data;
+    } catch (error) {
+      console.error(`❌ Erro ao buscar partida ${id}:`, error);
       throw error;
     }
   },
