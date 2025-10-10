@@ -9,22 +9,37 @@ export interface TeamMember {
 export const teamMembers: TeamMember[] = [
   
   {
+    name: "Severino Gomes",
+    role: "Product Owner, Professor do IFBA",
+    description: "Doutorando em Agroecologia e Desenvolvimento Territorial na instituição de ensino Universidade Federal do Vale do São Francisco - Univasf.",
+    github: "https://github.com/severinogomes-source",
+    linkedin: "https://www.linkedin.com/in/severino-gomes-41a76428b/"
+  },
+  {
+    name: "Michel Batista",
+    role: "Product Manager, Professor do IFBA",
+    description: "Graduado em Matemática pela Universidade de Pernambuco (2016) e graduação em Ciência da Computação pela Faculdade de Ciências Aplicadas e Sociais de Petrolina",
+    github: "https://github.com/michelFB",
+    linkedin: "https://www.linkedin.com/in/michel-ferreira-7b12181b/"
+  },
+
+  {
     name: "Aurélio Ribeiro",
-    role: "Scrum Master, Cientista de Dados e Desenvolvedor Front-end",
+    role: "Scrum Master,  Desenvolvedor Full Stack",
     description: "Último período de Engenharia da Computação, com experiência em desenvolvimento web, mobile e machine learning. Trabalhou com Flutter, React, Next.js, Node.js e Django, além de projetos de análise de dados com redes LSTM, GRU e ARIMA. Membro da empresa júnior, com foco em sistemas modernos, aplicações inteligentes e escaláveis.",
     github: "https://github.com/aureliodeboa",
     linkedin: "https://www.linkedin.com/in/aurelioribeiro/"
   },
   {
     name: "Andressa Carvalho",
-    role: "Desenvolvedor, Ciência de Dados",
+    role: "Desenvolvedora e Ciêntista  de Dados",
     description: "Cientista de Dados e iniciante Full-Stack, com foco em implementação de aplicações com Machine Learning. Residente em Ciência de Dados durante a residência ResTIC36 e desenvolvedora no projeto Syscondo, liderando o projeto ProSpectraWeb. Habilidades em Python, TypeScript, Next.js, Sklearn, Scipy e comunicação assertiva.",
     github: "https://github.com/xndrxssx",
     linkedin: "https://www.linkedin.com/in/andressa-carvalho-6b09b2312"
   },
   {
     name: "Alielson Ferreira",
-    role: "Analista de Testes, Desenvolvedor Backend",
+    role: "Analista de Testes e Desenvolvedor Backend",
     description: "Bacharel em Ciência da Computação pela UFPB (2023). Participou de projeto de pesquisa com interface web para predição de interações entre resíduos de aminoácidos em polipeptídeos, utilizando React e Python. Concluiu residência em Testes de Software pelo RESTIC 36. Habilidades em Python, JavaScript e Machine Learning, com foco em desenvolvimento back-end.",
     github: "https://github.com/alielsonfp",
     linkedin: " https://www.linkedin.com/in/alielsonferreira/"
@@ -45,7 +60,7 @@ export const teamMembers: TeamMember[] = [
   },
   {
     name: "Stharley",
-    role: "Desenvolvedor, Product Owner, Backend",
+    role: "Desenvolvedor Backend",
     description: "Desenvolvedor Back-End e graduando em Engenharia de Computação pela UNIVASF. Experiência com C/C++, Python, Go, Swift, Kotlin, SQL, JavaScript, Java, além de Git, GNU/Linux, Django/DRF, Node.js, Express, PostgreSQL e Docker. Entusiasta de performance e alto desempenho em software, com interesse em algoritmos eficientes, arquitetura de sistemas, sistemas distribuídos e aplicações containerizadas.",
     github: "https://github.com/sth4rley",
     linkedin: "https://www.linkedin.com/in/stharl/"
