@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import kaboom from "kaboom";
-import kaplay from "kaplay";
+
 import './game.css';
 import { PartidaData } from "../../types/ranking";
 import { Vehicle } from "../../types/vehicle";
@@ -18,6 +18,7 @@ import type {
   KaboomCtx
 } from "kaboom";
 import { setupRainSystem } from "@/components/rainSystem";
+import { RainEffect } from "@/components/RainEffect";
 import { EventResultModal } from './EventResultModal';
 import { QuizModal } from "../../components/QuizModal"; // Componente do Quiz
 import { PerguntaQuiz, ResponderQuizPayload, RespostaQuizResult } from "../../api/gameService"; // Tipos e serviços
@@ -25,7 +26,7 @@ import RadioToggle from '@/components/RadioToggle';
 import TruckRadio from '@/components/TruckRadio';
 import { AudioControl } from "../../components/AudioControl";
 import { AudioManager } from "../../components/AudioManager";
-//import { setupRainSystem } from "@/components/rainSystem";
+
 // Interface para eventos vindos da API
 interface EventData {
   id: number;
@@ -143,6 +144,11 @@ export function GameScene() {
     maxZoom: ZOOM_CONFIG.MAX_ZOOM,
     originalZoom: 1.0,
   });
+
+  //estados CHuva
+   const rainCycleTimerRef = useRef<number>(0);
+   const rainControllerRef = useRef<any>(null);
+   const isRainActiveRef = useRef(false);
 
   
   // Estados vindos dos parâmetros de navegação
@@ -841,9 +847,8 @@ export function GameScene() {
           }
         });
 
-              // --- chuva ---
-          // tudo da cena principal
-          setupRainSystem(k); // <- agora preso ao ciclo da cena
+        //chuva
+        rainControllerRef.current = setupRainSystem(k)
 
         onUpdate("traffic_car", (trafficCar) => {
           if (trafficCar.behavior === "ultrapassagem" && !trafficCar.isChangingLane && trafficCar.pos.x > (car.pos.x + car.width - 150)) {
@@ -1065,20 +1070,6 @@ export function GameScene() {
     }
   }, []);
   
-useEffect(() => {
-  if (!gameLoaded) return;
-
-  const k = (window as any).k;
-  if (!k) return;
-
-  // Garante que só vai existir UMA chuva no jogo
-  const rainController = setupRainSystem(k);
-
-  return () => {
-    rainController.stopRain();
-  };
-}, [gameLoaded]);
-
 
   // Sistema de ticks periódicos
   useEffect(() => {
@@ -1624,6 +1615,8 @@ useEffect(() => {
           zIndex: 1
         }}
       />
+
+      {gameLoaded && (window as any).__kaboom_initiated__ && <RainEffect k={(window as any).k} />}
 
       {/* Modal de evento */}
       {showPopup && activeEvent && !gameEnded && (
