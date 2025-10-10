@@ -44,6 +44,12 @@ const getSpriteName = (modelName: string) => {
       return 'caminhao_medio';
     case 'carreta':
       return 'carreta';
+    case 'Caminhão trucado':
+      return 'caminhao_trucado';
+    case 'Bitrem':
+      return 'bitrem';
+    case 'Rodotrem':
+      return 'rodotrem';
     default:
       return 'caminhao_medio';
   }

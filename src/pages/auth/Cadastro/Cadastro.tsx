@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent } from "../../../components/ui/card";
 import { ArrowLeft, AlertCircle } from 'lucide-react';
-import { ButtonHomeBack } from "@/components/ButtonHomeBack";
 import { AudioControl } from "@/components/AudioControl";
 import AuthService from "../../../api/authService";
 
@@ -141,11 +140,21 @@ export const Cadastro = () => {
           src="/nuvemright.png"
         />
 
-        {/* Botão de navegação */}
+        {/* ================================================================ */}
+        {/* ======================= BOTÃO DE VOLTAR ======================== */}
+        {/* ================================================================ */}
         <div className="absolute top-14 left-[33px]">
-          <ButtonHomeBack onClick={() => navigate("/")}><ArrowLeft /></ButtonHomeBack>
+          <Button
+            onClick={() => navigate("/")}
+            className="bg-[#e3922a] hover:bg-[#d4831f] text-black px-4 py-2 border-2 border-black rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-['Silkscreen'] h-12 flex items-center gap-2 transform transition-transform duration-300 hover:scale-105"
+          >
+            <ArrowLeft size={20} />
+            Voltar
+          </Button>
         </div>
-
+        {/* ================================================================ */}
+        {/* ================================================================ */}
+        
         {/* Controle de áudio */}
         <div className="absolute top-14 right-[33px]">
           <AudioControl />

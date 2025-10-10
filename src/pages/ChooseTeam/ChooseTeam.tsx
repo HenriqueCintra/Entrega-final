@@ -7,9 +7,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import TeamCard from '../../components/TeamCard';
 import CreateTeamButton from '../../components/CreateTeamButton';
 import SelectTeamButton from '../../components/SelectTeamButton';
-import { ButtonHomeBack } from '@/components/ButtonHomeBack';
+import { Button } from '../../components/ui/button'; 
 import { AudioControl } from '@/components/AudioControl';
-import { ArrowLeft, House, LogIn } from 'lucide-react';
+import { ArrowLeft, LogIn } from 'lucide-react'; 
 
 export const ChooseTeam = () => {
     const navigate = useNavigate();
@@ -29,7 +29,7 @@ export const ChooseTeam = () => {
         return null;
     }
 
-    // Se já está em uma equipe, redireciona para o perfil
+    // Se já está em uma equipe, redireciona para a seleção de jogo
     if (user.equipe) {
         navigate('/game-selection');
         return null;
@@ -99,14 +99,20 @@ export const ChooseTeam = () => {
             <img className="w-[436px] h-[170px] absolute bottom-[30px] right-[27px] object-cover animate-float-left opacity-75 scale-110 z-0" alt="Nuvem" src="/nuvemright.png" />
 
             <div className="relative z-10 flex flex-col flex-1 overflow-y-auto">
-                <div className="flex gap-5 mt-14 ml-8">
-                    <ButtonHomeBack onClick={() => navigate(-1)}>
-                        <ArrowLeft />
-                    </ButtonHomeBack>
-                    <ButtonHomeBack onClick={() => navigate("/perfil")}>
-                        <House />
-                    </ButtonHomeBack>
+                {/* ================================================================ */}
+                {/* ======================= BOTÃO DE VOLTAR ======================== */}
+                {/* ================================================================ */}
+                <div className="absolute top-14 left-[33px]">
+                    <Button
+                        onClick={() => navigate(-1)}
+                        className="bg-[#e3922a] hover:bg-[#d4831f] text-black px-4 py-2 border-2 border-black rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-['Silkscreen'] h-12 flex items-center gap-2 transform transition-transform duration-300 hover:scale-105"
+                    >
+                        <ArrowLeft size={20} />
+                        Voltar
+                    </Button>
                 </div>
+                {/* ================================================================ */}
+                {/* ================================================================ */}
 
                 <div className="absolute top-14 right-8">
                     <AudioControl />
@@ -143,9 +149,9 @@ export const ChooseTeam = () => {
                                     onClick={handleJoinWithCode}
                                     disabled={joinTeamMutation.isPending || !inviteCode.trim()}
                                     className="bg-green-500 text-black font-bold p-3 border-2 border-black
-                           hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all 
-                           hover:-translate-x-[2px] hover:-translate-y-[2px] 
-                           disabled:opacity-50 disabled:cursor-not-allowed"
+                                        hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all 
+                                        hover:-translate-x-[2px] hover:-translate-y-[2px] 
+                                        disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {joinTeamMutation.isPending ? '...' : <LogIn size={24} />}
                                 </button>

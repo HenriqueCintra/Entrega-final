@@ -87,6 +87,7 @@ interface PartidaResponse {
 }
 
 interface RespondResponse {
+  efeitos_aplicados: never[];
   detail: string;
   partida: PartidaResponse;
 }

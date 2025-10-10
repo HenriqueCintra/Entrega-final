@@ -61,6 +61,12 @@ export const PerfilPage = () => {
     queryClient.invalidateQueries({ queryKey: ['partidaAtiva'] });
   }, [queryClient]);
 
+  // ✅ LIMPAR CACHE AO MONTAR O COMPONENTE
+  useEffect(() => {
+    console.log('🔄 PerfilPage montado - invalidando cache de partidas...');
+    queryClient.invalidateQueries({ queryKey: ['partidaAtiva'] });
+  }, [queryClient]);
+
 
   const handlePlayNow = () => {
     // ✅ LIMPAR CACHE ANTES DE INICIAR NOVO JOGO
