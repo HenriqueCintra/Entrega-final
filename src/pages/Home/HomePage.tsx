@@ -58,7 +58,7 @@ export const HomePage = () => {
       {/* Container com scroll */}
       <div className="w-full h-full overflow-y-auto overflow-x-hidden">
         {/* Header com botões */}
-        <header className="relative z-10 flex justify-between items-center px-8 py-6">
+        <header className="relative z-30 flex justify-between items-center px-8 py-6">
           <div className="flex items-center gap-3">
             <img src="/Logoifba.png" alt="Logo IFBA" className="h-16 w-auto" />
             <h1 className="[font-family:'Silkscreen',Helvetica] font-bold text-white text-2xl">
