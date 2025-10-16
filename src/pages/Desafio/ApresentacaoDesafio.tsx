@@ -14,52 +14,62 @@ import {
   type CarouselApi,
 } from '@/components/ui/carousel';
 
+const STORAGE_KEY = 'challenge_flow_data';
+
+const saveToSessionStorage = (data: any) => {
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+      ...data,
+      timestamp: Date.now()
+    }));
+  } catch (error) {
+    console.error("Erro ao salvar no sessionStorage:", error);
+  }
+};
+
 export const ApresentacaoDesafioPage = () => {
   const navigate = useNavigate();
 
-  // Estados para gerenciar os desafios do backend
   const [availableChallenges, setAvailableChallenges] = useState<FrontendChallenge[]>([]);
   const [currentChallengeIndex, setCurrentChallengeIndex] = useState(0);
-  const [carregando, setCarregando] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   const [carregandoDesafios, setCarregandoDesafios] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [api, setApi] = useState<CarouselApi>();
 
-  // Estados para seleção de carga
-  const [selectedCargoAmount, setSelectedCargoAmount] = useState(100); // Em percentual (100% = carga completa)
+  const [selectedCargoAmount, setSelectedCargoAmount] = useState(100);
   const [customCargoInput, setCustomCargoInput] = useState("100");
   const [showCustomInput, setShowCustomInput] = useState(false);
 
   const currentChallenge = availableChallenges[currentChallengeIndex];
+  const canInteract = !carregandoDesafios && !erro && !isNavigating && !!currentChallenge;
 
-
-  // Carregar desafios do backend ao montar o componente
   useEffect(() => {
     const loadChallenges = async () => {
       try {
         setCarregandoDesafios(true);
         setErro(null);
-        
+
         const challenges = await fetchChallengesFromBackend();
-        
+
         if (challenges.length === 0) {
           setErro("Nenhum desafio encontrado no backend. Verifique se as seeds foram executadas.");
           return;
         }
-        
+
         setAvailableChallenges(challenges);
+
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-        
-        // Se for erro de autenticação, redirecionar para login
+
         if (errorMessage.includes('não autenticado') || errorMessage.includes('Sessão expirada')) {
-          navigate('/login', { 
+          navigate('/login', {
             state: { from: { pathname: '/desafios' } },
-            replace: true 
+            replace: true
           });
           return;
         }
-        
+
         setErro(errorMessage);
       } finally {
         setCarregandoDesafios(false);
@@ -69,14 +79,12 @@ export const ApresentacaoDesafioPage = () => {
     loadChallenges();
   }, [navigate]);
 
-  // Sincronizar o carrossel com o índice atual
   useEffect(() => {
     if (api) {
       api.scrollTo(currentChallengeIndex);
     }
   }, [api, currentChallengeIndex]);
 
-  // Sincronizar o índice quando o carrossel mudar
   useEffect(() => {
     if (!api) return;
 
@@ -107,22 +115,51 @@ export const ApresentacaoDesafioPage = () => {
   };
 
   const handleAceitarDesafio = () => {
-    if (!currentChallenge) return;
+    if (!canInteract) return;
 
-    setCarregando(true);
-    setTimeout(() => {
-      setCarregando(false);
-      // Passa o desafio selecionado e a quantidade de carga para a próxima tela
-      navigate("/select-vehicle", { state: { 
-        desafio: currentChallenge,
-        challengeId: currentChallenge.backendId || currentChallenge.id,
-        cargoAmount: selectedCargoAmount
-      } });
-    }, 1500);
+    if (currentChallengeIndex < 0 || currentChallengeIndex >= availableChallenges.length) {
+      alert("Erro ao selecionar desafio. Tente recarregar a página.");
+      return;
+    }
+
+    const challengeToNavigate = availableChallenges[currentChallengeIndex];
+
+    if (!challengeToNavigate) {
+      alert("Erro ao carregar dados do desafio. Tente novamente.");
+      return;
+    }
+
+    if (!challengeToNavigate.id) {
+      alert("Erro: Desafio inválido (sem ID). Por favor, selecione outro desafio.");
+      return;
+    }
+
+    const requiredFields = ['name', 'routes'];
+    const missingFields = requiredFields.filter(field => !challengeToNavigate[field]);
+
+    if (missingFields.length > 0) {
+      alert(`Erro: Desafio incompleto (faltam: ${missingFields.join(', ')}). Tente outro desafio.`);
+      return;
+    }
+
+    setIsNavigating(true);
+
+    const navigationData = {
+      desafio: challengeToNavigate,
+      challengeId: challengeToNavigate.backendId || challengeToNavigate.id,
+      cargoAmount: selectedCargoAmount,
+      navigatedAt: new Date().toISOString(),
+      sourceScreen: 'ApresentacaoDesafio'
+    };
+
+    saveToSessionStorage(navigationData);
+
+    navigate("/select-vehicle", {
+      state: navigationData,
+      replace: false
+    });
   };
 
-
-  // Tela de carregamento
   if (carregandoDesafios) {
     return (
       <div className="flex h-screen items-center justify-center bg-gradient-to-b from-purple-600 to-blue-600 text-center p-4">
@@ -139,7 +176,6 @@ export const ApresentacaoDesafioPage = () => {
     );
   }
 
-  // Tela de erro
   if (erro || !currentChallenge) {
     return (
       <div className="flex h-screen items-center justify-center bg-gradient-to-b from-red-400 to-red-600 text-center p-4">
@@ -149,57 +185,52 @@ export const ApresentacaoDesafioPage = () => {
           </h1>
           <div className="space-y-2">
             <Button
-              onClick={() => navigate('/tutorial')}
-              className="bg-[#e3922a] hover:bg-[#d4831f] text-black px-4 py-2 border-2 border-black rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-['Silkscreen'] h-12 flex items-center gap-2 transform transition-transform duration-300 hover:scale-105"
-          >
-              <ArrowLeft size={20} />
-              Voltar
-          </Button>
-          <Button
-              onClick={() => navigate("/perfil")}
-              className="bg-[#e3922a] hover:bg-[#d4831f] text-black px-4 py-2 border-2 border-black rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-['Silkscreen'] h-12 flex items-center gap-2 transform transition-transform duration-300 hover:scale-105"
-          >
-              <Home size={20} />
-              Perfil
-          </Button>
+              onClick={() => navigate('/tutorial')}
+              className="bg-[#e3922a] hover:bg-[#d4831f] text-black px-4 py-2 border-2 border-black rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-['Silkscreen'] h-12 flex items-center gap-2 transform transition-transform duration-300 hover:scale-105"
+            >
+              <ArrowLeft size={20} />
+              Voltar
+            </Button>
+            <Button
+              onClick={() => navigate("/perfil")}
+              className="bg-[#e3922a] hover:bg-[#d4831f] text-black px-4 py-2 border-2 border-black rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-['Silkscreen'] h-12 flex items-center gap-2 transform transition-transform duration-300 hover:scale-105"
+            >
+              <Home size={20} />
+              Perfil
+            </Button>
           </div>
         </div>
       </div>
     );
   }
 
-
   return (
     <div className="bg-white flex flex-row justify-center w-full">
       <div className="w-full min-h-screen [background:linear-gradient(180deg,rgba(32,2,89,1)_0%,rgba(121,70,213,1)_100%)] relative overflow-hidden z-10">
-        {/* ================================================================ */}
-        {/* ======================= BOTÕES ATUALIZADOS ===================== */}
-        {/* ================================================================ */}
         <div className="flex gap-4 absolute top-4 left-4 z-10">
           <Button
-              onClick={() => navigate(-1)}
-              className="bg-[#e3922a] hover:bg-[#d4831f] text-black px-4 py-2 border-2 border-black rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-['Silkscreen'] h-12 flex items-center gap-2 transform transition-transform duration-300 hover:scale-105"
+            onClick={() => navigate(-1)}
+            disabled={!canInteract}
+            className="bg-[#e3922a] hover:bg-[#d4831f] text-black px-4 py-2 border-2 border-black rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-['Silkscreen'] h-12 flex items-center gap-2 transform transition-transform duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-              <ArrowLeft size={20} />
-              Voltar
+            <ArrowLeft size={20} />
+            Voltar
           </Button>
           <Button
-              onClick={() => navigate("/perfil")}
-              className="bg-[#e3922a] hover:bg-[#d4831f] text-black px-4 py-2 border-2 border-black rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-['Silkscreen'] h-12 flex items-center gap-2 transform transition-transform duration-300 hover:scale-105"
+            onClick={() => navigate("/perfil")}
+            disabled={!canInteract}
+            className="bg-[#e3922a] hover:bg-[#d4831f] text-black px-4 py-2 border-2 border-black rounded-md shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-['Silkscreen'] h-12 flex items-center gap-2 transform transition-transform duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-              <Home size={20} />
-              Perfil
+            <Home size={20} />
+            Perfil
           </Button>
         </div>
-        {/* ================================================================ */}
-        {/* ================================================================ */}
 
         <div className="absolute top-4 right-4 z-10">
           <AudioControl />
         </div>
 
         <div className="pt-8 pb-8 px-4 flex flex-col justify-center items-center min-h-screen z-10">
-          {/* Carrossel de desafios */}
           <div className="relative w-full max-w-[1000px] mx-auto px-8 md:px-16">
             <Carousel
               setApi={setApi}
@@ -224,14 +255,20 @@ export const ApresentacaoDesafioPage = () => {
                       showCustomInput={showCustomInput}
                       setShowCustomInput={setShowCustomInput}
                       onAcceptChallenge={handleAceitarDesafio}
-                      isLoading={carregando}
+                      isLoading={isNavigating}
                     />
                   </CarouselItem>
                 ))}
               </CarouselContent>
 
-              <CarouselPrevious className="hidden md:flex opacity-100 -left-12 h-12 w-12 bg-[#e3922a] hover:bg-[#d4831f] transition-all duration-300 ease-in-out hover:scale-110 text-white border-2 border-black rounded-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" />
-              <CarouselNext className="hidden transition-all duration-300 ease-in-out hover:scale-110 md:flex opacity-100 -right-12 h-12 w-12 bg-[#e3922a] hover:bg-[#d4831f] text-white border-2 border-black rounded-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" />
+              <CarouselPrevious
+                className="hidden md:flex opacity-100 -left-12 h-12 w-12 bg-[#e3922a] hover:bg-[#d4831f] transition-all duration-300 ease-in-out hover:scale-110 text-white border-2 border-black rounded-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!canInteract}
+              />
+              <CarouselNext
+                className="hidden transition-all duration-300 ease-in-out hover:scale-110 md:flex opacity-100 -right-12 h-12 w-12 bg-[#e3922a] hover:bg-[#d4831f] text-white border-2 border-black rounded-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!canInteract}
+              />
             </Carousel>
           </div>
         </div>

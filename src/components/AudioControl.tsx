@@ -34,7 +34,7 @@ popupAlign = 'right' }) => {
       {/* Backdrop */}
       {isOpen && (
         <div 
-          className="fixed inset-0 z-40"
+          className="fixed inset-0 z-20"
           onClick={() => setIsOpen(false)}
         />
       )}
@@ -52,7 +52,7 @@ popupAlign = 'right' }) => {
 
         {/* Popup */}
         {isOpen && (
-          <div className={`absolute top-16 ${popupAlign === 'right' ? 'right-0' : 'left-0'} z-50 bg-white rounded-2xl shadow-2xl p-6 w-72 border border-gray-200`}>
+          <div className={`absolute top-16 ${popupAlign === 'right' ? 'right-0' : 'left-0'} z-[60] bg-white rounded-2xl shadow-2xl p-6 w-72 border border-gray-200`}>
             <h3 className="text-lg font-bold text-gray-800 mb-4">Configurações de Áudio</h3>
 
             {/* Volume da Música */}

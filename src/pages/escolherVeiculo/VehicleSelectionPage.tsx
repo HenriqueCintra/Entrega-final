@@ -20,20 +20,41 @@ import {
   CalendarDays,
   MapPin,
   DollarSign,
-  ArrowLeft,
-  Home,
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { ButtonHomeBack } from "@/components/ButtonHomeBack";
 import { AudioControl } from "@/components/AudioControl";
 
-// TODO: Ajustar imagens, (adicionar imagens ao banco?)
 import caminhaoMedioPng from '@/assets/caminhao_medio.png';
 import camihaoPequenoPng from '@/assets/caminhao_pequeno.png';
 import carretaPng from '@/assets/carreta.png';
 import camhionetePng from '@/assets/caminhonete.png';
 
-// FIXME: Ajustar imagens para cada tipo de veiculo (permitir o envio de imagens ou ter um conjunto de imagens selecionaveis via admin?)
+const STORAGE_KEY = 'challenge_flow_data';
+
+const getFromSessionStorage = () => {
+  try {
+    const data = sessionStorage.getItem(STORAGE_KEY);
+    if (data) {
+      return JSON.parse(data);
+    }
+    return null;
+  } catch (error) {
+    console.error("Erro ao ler sessionStorage:", error);
+    return null;
+  }
+};
+
+const saveToSessionStorage = (data: any) => {
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+      ...data,
+      timestamp: Date.now()
+    }));
+  } catch (error) {
+    console.error("Erro ao salvar no sessionStorage:", error);
+  }
+};
+
 const getSpriteName = (modelName: string) => {
   switch (modelName.toLowerCase()) {
     case 'caminhonete':
@@ -44,18 +65,17 @@ const getSpriteName = (modelName: string) => {
       return 'caminhao_medio';
     case 'carreta':
       return 'carreta';
-    case 'Caminhão trucado':
-      return 'caminhao_trucado';
-    case 'Bitrem':
+    case 'caminhão trucado':
+      return 'caminhao_Trucado';
+    case 'bitrem':
       return 'bitrem';
-    case 'Rodotrem':
+    case 'rodotrem':
       return 'rodotrem';
     default:
       return 'caminhao_medio';
   }
 };
 
-// Componente VehicleCard atualizado com novo design
 interface VehicleCardProps {
   vehicle: Vehicle;
   isSelected: boolean;
@@ -64,12 +84,12 @@ interface VehicleCardProps {
   requiredCapacity: number | null;
 }
 
-const VehicleCard: React.FC<VehicleCardProps> = ({ 
-  vehicle, 
-  isSelected, 
-  onSelect, 
-  isEnabled, 
-  requiredCapacity 
+const VehicleCard: React.FC<VehicleCardProps> = ({
+  vehicle,
+  isSelected,
+  onSelect,
+  isEnabled,
+  requiredCapacity
 }) => (
   <div
     className={`
@@ -85,7 +105,7 @@ const VehicleCard: React.FC<VehicleCardProps> = ({
         CARGA ALTA (Req: {requiredCapacity}kg)
       </div>
     )}
-    
+
     <div>
       <div className="flex justify-center mb-4">
         <img src={vehicle.image} alt={vehicle.name} className="h-32 sm:h-48 object-contain" />
@@ -94,7 +114,7 @@ const VehicleCard: React.FC<VehicleCardProps> = ({
       <h3 className="[font-family:'Silkscreen',Helvetica] text-center text-lg sm:text-xl font-bold mb-3 text-gray-800">
         {vehicle.name}
       </h3>
-      
+
       <div className="space-y-2 text-sm">
         <div className={`flex items-center justify-between p-2 rounded border ${!isEnabled && requiredCapacity && vehicle.capacity < requiredCapacity ? 'bg-red-100 border-red-400' : 'bg-gray-50'}`}>
           <span className="[font-family:'Silkscreen',Helvetica] text-xs">🧱 Capacidade:</span>
@@ -119,41 +139,29 @@ const VehicleCard: React.FC<VehicleCardProps> = ({
   </div>
 );
 
-
 export const VehicleSelectionPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Recebe o desafio selecionado da página anterior
-  const selectedChallenge = location.state?.desafio;
-  const challengeId = location.state?.challengeId;
-  const cargoAmount = location.state?.cargoAmount; // Adicionado para carregar a carga
+  const storedData = location.state ? null : getFromSessionStorage();
 
-  // Estados para guardar os veículos da API, o estado de loading e possíveis erros.
+  const selectedChallenge = location.state?.desafio || storedData?.desafio;
+  const challengeId = location.state?.challengeId || storedData?.challengeId;
+  const cargoAmount = location.state?.cargoAmount || storedData?.cargoAmount;
+
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [requiredCapacity, setRequiredCapacity] = useState<number | null>(null);
-
-  // Estados para os dados do desafio
   const [challengeData, setChallengeData] = useState<any | null>(null);
-
-  // Debug: verificar se os dados estão sendo recebidos
-  console.log("🚗 DEBUG VehicleSelection - challengeId recebido:", challengeId);
-  console.log("🚗 DEBUG VehicleSelection - selectedChallenge:", selectedChallenge);
-  console.log("🚗 DEBUG VehicleSelection - location.state:", location.state);
-  console.log("🚗 DEBUG VehicleSelection - challengeData state:", challengeData);
-
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null); // Inicia como nulo
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [availableMoney] = useState(10000);
   const [api, setApi] = useState<CarouselApi>();
 
-  // useEffect para buscar os dados da API quando o componente for montado.
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Buscar veículos
         const vehiclesUrl = `${import.meta.env.VITE_API_URL}/jogo1/veiculos/`;
         const vehiclesResponse = await fetch(vehiclesUrl);
         if (!vehiclesResponse.ok) {
@@ -173,44 +181,35 @@ export const VehicleSelectionPage = () => {
           spriteSheet: `/assets/${getSpriteName(apiVehicle.modelo)}_sheet.png`,
           spriteName: getSpriteName(apiVehicle.modelo),
           maxCapacity: apiVehicle.capacidade_combustivel,
-          currentFuel: 0, // Tanque sempre vazio - usuário deve abastecer
+          currentFuel: 0,
           cost: parseFloat(apiVehicle.preco),
         }));
 
         setVehicles(formattedVehicles);
         if (formattedVehicles.length > 0) {
-          setSelectedIndex(0); // Define o primeiro veículo como selecionado por padrão
+          setSelectedIndex(0);
         }
 
         let finalChallengeData = selectedChallenge;
 
         if (challengeId) {
-          console.log("🔍 DEBUG - Tentando buscar desafio com ID:", challengeId);
           const challengeUrl = `${import.meta.env.VITE_API_URL}/jogo1/mapas/${challengeId}/`;
           const challengeResponse = await fetch(challengeUrl);
 
           if (challengeResponse.ok) {
             const apiData = await challengeResponse.json();
-            console.log("🎯 DEBUG - Dados brutos da API:", apiData);
             setChallengeData(apiData);
-            finalChallengeData = apiData; // Prioriza dados frescos da API
+            finalChallengeData = apiData;
           } else {
-            // Se a busca da API falhar, usa o que veio do state
-            console.error("❌ Erro ao carregar desafio da API, usando dados do state como fallback.");
             setChallengeData(selectedChallenge);
           }
         }
-        
-        // LÓGICA CORRIGIDA PARA CALCULAR O PESO NECESSÁRIO
+
         if (finalChallengeData?.peso_carga_kg && cargoAmount) {
-            const calculatedWeight = Math.round(finalChallengeData.peso_carga_kg * (cargoAmount / 100));
-            setRequiredCapacity(calculatedWeight);
-            console.log(`⚖️ Peso da carga REAL definido: ${calculatedWeight}kg (${cargoAmount}% de ${finalChallengeData.peso_carga_kg}kg)`);
+          const calculatedWeight = Math.round(finalChallengeData.peso_carga_kg * (cargoAmount / 100));
+          setRequiredCapacity(calculatedWeight);
         } else if (finalChallengeData?.peso_carga_kg) {
-            setRequiredCapacity(finalChallengeData.peso_carga_kg);
-            console.log(`⚖️ Usando peso da carga TOTAL como fallback: ${finalChallengeData.peso_carga_kg}kg`);
-        } else {
-            console.warn("⚠️ Não foi possível determinar o peso da carga do desafio.");
+          setRequiredCapacity(finalChallengeData.peso_carga_kg);
         }
 
       } catch (e) {
@@ -256,14 +255,18 @@ export const VehicleSelectionPage = () => {
     }
 
     if (selectedVehicle.cost <= availableMoney) {
+      const navigationData = {
+        selectedVehicle: selectedVehicle,
+        availableMoney: availableMoney - selectedVehicle.cost,
+        selectedChallenge: challengeData || selectedChallenge,
+        challengeId: challengeId,
+        cargoAmount: cargoAmount
+      };
+
+      saveToSessionStorage(navigationData);
+
       navigate('/routes', {
-        state: {
-          selectedVehicle: selectedVehicle,
-          availableMoney: availableMoney - selectedVehicle.cost,
-          selectedChallenge: challengeData || selectedChallenge,
-          challengeId: challengeId,
-          cargoAmount: cargoAmount
-        }
+        state: navigationData
       });
     }
   };
@@ -292,8 +295,8 @@ export const VehicleSelectionPage = () => {
             {error}
           </p>
           <div className="flex gap-2 justify-center">
-            <Button 
-              onClick={() => window.location.reload()} 
+            <Button
+              onClick={() => window.location.reload()}
               className="bg-[#e3922a] hover:bg-[#d4831f] text-white border-2 border-black [font-family:'Silkscreen',Helvetica]"
             >
               Tentar Novamente
@@ -309,8 +312,7 @@ export const VehicleSelectionPage = () => {
   return (
     <div className="bg-white flex flex-row justify-center w-full min-h-screen">
       <div className="w-full min-h-screen [background:linear-gradient(180deg,rgba(32,2,89,1)_0%,rgba(121,70,213,1)_100%)] relative overflow-hidden flex flex-col">
-        
-        {/* Header com botões de navegação e saldo */}
+
         <div className="flex justify-between items-center p-4 relative z-10">
           <div className="absolute top-4 left-4">
             <Button
@@ -321,7 +323,6 @@ export const VehicleSelectionPage = () => {
             </Button>
           </div>
 
-          {/* Controle de áudio */}
           <div className="absolute top-4 right-4 flex gap-2">
             <AudioControl />
             <div className="font-['Silkscreen'] bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 border border-black rounded-md shadow-md flex items-center justify-center h-10">
@@ -330,15 +331,13 @@ export const VehicleSelectionPage = () => {
           </div>
         </div>
 
-        {/* Conteúdo principal */}
         <div className="px-4 pb-8 flex flex-col items-center min-h-0 flex-1">
-          
-          {/* Informações do desafio */}
+
           <div className="bg-white rounded-[18px] border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] w-full max-w-4xl p-4 sm:p-6 mb-4 mt-2">
             <h2 className="[font-family:'Silkscreen',Helvetica] text-xl sm:text-2xl text-[#e3922a] font-bold text-center mb-2">
               {challengeData?.nome || "DESAFIO DE ENTREGA: JUAZEIRO A SALVADOR!"}
             </h2>
-            
+
             {challengeData?.descricao && (
               <div className="[font-family:'Silkscreen',Helvetica] text-sm sm:text-base text-gray-700 text-center max-w-3xl mx-auto mb-2">
                 {challengeData.descricao}
@@ -350,7 +349,7 @@ export const VehicleSelectionPage = () => {
                 📊 Dificuldade: {challengeData.dificuldade}
               </div>
             )}
-            
+
             {!challengeData?.descricao && (
               <div className="flex items-center justify-center gap-2 text-sm sm:text-lg text-gray-700 [font-family:'Silkscreen',Helvetica]">
                 <span role="img" aria-label="carga">🧱</span> 1100kg
@@ -358,12 +357,10 @@ export const VehicleSelectionPage = () => {
             )}
           </div>
 
-          {/* Título da seleção de veículos */}
           <h1 className="[font-family:'Silkscreen',Helvetica] text-2xl sm:text-3xl mb-4 text-center text-white font-bold">
             ESCOLHA UM CAMINHÃO
           </h1>
 
-          {/* Carrossel de veículos */}
           <div className="relative w-full max-w-[1200px] px-4 sm:px-16 mb-4">
             <Carousel
               setApi={setApi}
@@ -376,7 +373,7 @@ export const VehicleSelectionPage = () => {
               <CarouselContent className="-ml-2 sm:-ml-4 py-6">
                 {vehicles.map((vehicle, index) => {
                   const isEnabled = requiredCapacity ? vehicle.capacity >= requiredCapacity : true;
-                  
+
                   return (
                     <CarouselItem key={vehicle.id} className="basis-full sm:basis-auto md:basis-1/2 lg:basis-1/3 pl-2 sm:pl-4">
                       <VehicleCard
@@ -396,22 +393,19 @@ export const VehicleSelectionPage = () => {
             </Carousel>
           </div>
 
-          {/* Indicadores para mobile */}
           {vehicles.length > 1 && (
             <div className="flex gap-2 mt-2 mb-4 md:hidden">
               {vehicles.map((_, index) => (
                 <div
                   key={index}
-                  className={`w-2 h-2 rounded-full transition-colors ${
-                    selectedIndex === index ? 'bg-[#e3922a]' : 'bg-white/50'
-                  }`}
+                  className={`w-2 h-2 rounded-full transition-colors ${selectedIndex === index ? 'bg-[#e3922a]' : 'bg-white/50'
+                    }`}
                 />
               ))}
             </div>
           )}
         </div>
 
-        {/* Modal de confirmação */}
         {selectedVehicle && (
           <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
             <DialogContent className="sm:max-w-md [font-family:'Silkscreen',Helvetica] border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
@@ -420,7 +414,7 @@ export const VehicleSelectionPage = () => {
                   Veículo Selecionado
                 </DialogTitle>
               </DialogHeader>
-              
+
               <div className="space-y-4 text-sm">
                 <div className="bg-gray-50 p-4 rounded-lg border-2 border-gray-200">
                   <div className="flex items-center gap-4 mb-3">
@@ -431,7 +425,7 @@ export const VehicleSelectionPage = () => {
                       </p>
                     </div>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="bg-white p-2 rounded border">
                       <span className="text-gray-600">Capacidade:</span>
@@ -456,34 +450,34 @@ export const VehicleSelectionPage = () => {
                   <h4 className="font-semibold mb-2 text-base text-[#e3922a]">Detalhes da Compra</h4>
                   <div className="text-sm space-y-2">
                     <p className="flex items-center gap-2">
-                      <CalendarDays size={16} className="text-[#e3922a]" /> 
+                      <CalendarDays size={16} className="text-[#e3922a]" />
                       <span>Data/Hora: Agora</span>
                     </p>
                     <p className="flex items-center gap-2">
-                      <MapPin size={16} className="text-[#e3922a]" /> 
+                      <MapPin size={16} className="text-[#e3922a]" />
                       <span>Local de Retirada: Base</span>
                     </p>
                     <div className="bg-[#e3922a] text-white p-2 rounded border-2 border-black mt-3">
                       <p className="[font-family:'Silkscreen',Helvetica] flex items-center justify-center gap-2 text-lg font-bold">
-                        <DollarSign size={16} /> 
+                        <DollarSign size={16} />
                         Total: R$ {selectedVehicle.cost.toLocaleString()}
                       </p>
                     </div>
                   </div>
                 </div>
               </div>
-              
+
               <DialogFooter className="pt-4 gap-2">
-                <Button 
-                  onClick={handleConfirm} 
-                  className="bg-green-600 hover:bg-green-700 [font-family:'Silkscreen',Helvetica] border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]" 
+                <Button
+                  onClick={handleConfirm}
+                  className="bg-green-600 hover:bg-green-700 [font-family:'Silkscreen',Helvetica] border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
                   disabled={availableMoney < selectedVehicle.cost}
                 >
                   {availableMoney < selectedVehicle.cost ? "Dinheiro Insuficiente" : "Confirmar"}
                 </Button>
-                <Button 
-                  variant="destructive" 
-                  onClick={() => setShowConfirmation(false)} 
+                <Button
+                  variant="destructive"
+                  onClick={() => setShowConfirmation(false)}
                   className="[font-family:'Silkscreen',Helvetica] border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
                 >
                   Cancelar
