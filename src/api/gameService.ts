@@ -1,6 +1,8 @@
-import api from './config';
-import { Map as Desafio } from '../types';
-import { TeamData, RankingApiResponse } from '../types/ranking';
+// src/api/gameService.ts
+
+import api from "./config";
+import { Map as Desafio } from "../types";
+import { TeamData, RankingApiResponse } from "../types/ranking";
 
 interface PartidaResponse {
   id: number;
@@ -14,20 +16,16 @@ interface PartidaResponse {
   distancia_percorrida: number;
   status: "concluido" | "em_andamento" | "pausado" | "cancelada";
   tempo_jogo?: number;
-  tempo_jogo_segundos?: number; // ✅ ADICIONADO
+  tempo_jogo_segundos?: number;
   resultado?: "vitoria" | "derrota";
   motivo_finalizacao?: string;
   eficiencia?: number;
   saldo_inicial?: number;
   quantidade_carga_inicial?: number;
   progresso?: number;
-  
-  // ✅ NOVOS CAMPOS: IDs das relações
   mapa: number;
   rota: number;
   veiculo: number;
-  
-  // ✅ NOVOS CAMPOS: Dados completos aninhados
   veiculo_detalhes?: {
     id: number;
     modelo: string;
@@ -37,7 +35,6 @@ interface PartidaResponse {
     preco: number;
     autonomia: number;
   };
-  
   rota_detalhes?: {
     id: number;
     nome: string;
@@ -51,7 +48,6 @@ interface PartidaResponse {
     fuelStop: any[];
     pathCoordinates: any[];
   };
-  
   mapa_detalhes?: {
     id: number;
     nome: string;
@@ -65,14 +61,13 @@ interface PartidaResponse {
     imagem: string;
     peso_carga_kg: number;
   };
-  
   eventos_ocorridos?: Array<{
     id: number;
     evento: {
       id: number;
       nome: string;
       descricao: string;
-      tipo: 'positivo' | 'negativo';
+      tipo: "positivo" | "negativo";
       categoria: string;
       opcoes: Array<{
         id: number;
@@ -128,13 +123,15 @@ interface MapResponse {
   rotas: RouteResponse[];
 }
 
-// ✅ INTERFACE ATUALIZADA PARA O TICK COM INTENÇÃO DE ABASTECIMENTO
+// ✅ ATUALIZADO: Interface para o tick com mais dados de progresso
 interface TickData {
   distancia_percorrida: number;
-  quer_abastecer?: boolean; // ✅ NOVO CAMPO: Intenção do jogador
+  quer_abastecer?: boolean;
+  saldo?: number;
+  combustivel_atual?: number;
+  tempo_jogo_segundos?: number;
 }
 
-// ✅ INTERFACE PARA RESULTADO DO TICK COM EVENTOS ESPECIAIS DE ABASTECIMENTO
 interface TickResult extends PartidaResponse {
   evento_pendente?: {
     id: number;
@@ -142,7 +139,7 @@ interface TickResult extends PartidaResponse {
       id: number;
       nome: string;
       descricao: string;
-      tipo: 'positivo' | 'negativo' | 'neutro';
+      tipo: "positivo" | "negativo" | "neutro";
       categoria: string;
       opcoes: Array<{
         id: number;
@@ -153,7 +150,7 @@ interface TickResult extends PartidaResponse {
     momento: string;
     ordem: number;
     opcao_escolhida: null;
-    posto_info?: any; // ✅ NOVO CAMPO: Dados específicos do posto para eventos de abastecimento
+    posto_info?: any;
   };
 }
 
@@ -182,39 +179,43 @@ export interface RespostaQuizResult {
 }
 
 export const GameService = {
-
   async sortearQuiz(): Promise<PerguntaQuiz> {
-    console.log('🧠 Buscando nova pergunta do quiz...');
+    console.log("🧠 Buscando nova pergunta do quiz...");
     try {
-      const response = await api.get<PerguntaQuiz>('/jogo1/quizzes/sortear/');
-      console.log('✅ Pergunta recebida:', response.data.texto);
+      const response = await api.get<PerguntaQuiz>("/jogo1/quizzes/sortear/");
+      console.log("✅ Pergunta recebida:", response.data.texto);
       return response.data;
     } catch (error) {
-      console.error('❌ Erro ao sortear quiz:', error);
+      console.error("❌ Erro ao sortear quiz:", error);
       throw error;
     }
   },
 
-  async responderQuiz(payload: ResponderQuizPayload): Promise<RespostaQuizResult> {
-    console.log('🙋‍♂️ Enviando resposta do quiz:', payload);
+  async responderQuiz(
+    payload: ResponderQuizPayload
+  ): Promise<RespostaQuizResult> {
+    console.log("🙋‍♂️ Enviando resposta do quiz:", payload);
     try {
-      const response = await api.post<RespostaQuizResult>('/jogo1/quizzes/responder/', payload);
-      console.log('✅ Resposta do quiz processada:', response.data.detail);
+      const response = await api.post<RespostaQuizResult>(
+        "/jogo1/quizzes/responder/",
+        payload
+      );
+      console.log("✅ Resposta do quiz processada:", response.data.detail);
       return response.data;
     } catch (error) {
-      console.error('❌ Erro ao responder quiz:', error);
+      console.error("❌ Erro ao responder quiz:", error);
       throw error;
     }
   },
 
   async getMaps(): Promise<Desafio[]> {
-    console.log('🗺️ Buscando mapas da API...');
+    console.log("🗺️ Buscando mapas da API...");
     try {
-      const response = await api.get('/jogo1/mapas/');
-      console.log('✅ Mapas recebidos:', response.data.length, 'mapas');
+      const response = await api.get("/jogo1/mapas/");
+      console.log("✅ Mapas recebidos:", response.data.length, "mapas");
       return response.data;
     } catch (error) {
-      console.error('❌ Erro ao buscar mapas:', error);
+      console.error("❌ Erro ao buscar mapas:", error);
       throw error;
     }
   },
@@ -223,7 +224,7 @@ export const GameService = {
     console.log(`🗺️ Buscando desafio específico com ID: ${id}...`);
     try {
       const response = await api.get<MapResponse>(`/jogo1/mapas/${id}/`);
-      console.log('✅ Desafio recebido:', response.data.nome);
+      console.log("✅ Desafio recebido:", response.data.nome);
       return response.data;
     } catch (error) {
       console.error(`❌ Erro ao buscar desafio ${id}:`, error);
@@ -232,94 +233,108 @@ export const GameService = {
   },
 
   async getRanking(): Promise<RankingApiResponse> {
-    console.log('🏆 Buscando ranking de eficiência da API...');
+    console.log("🏆 Buscando ranking de eficiência da API...");
     try {
-      const response = await api.get('/jogo1/ranking/');
-      console.log('✅ Ranking recebido:', response.data.length, 'equipes');
+      const response = await api.get("/jogo1/ranking/");
+      console.log("✅ Ranking recebido:", response.data.length, "equipes");
       if (Array.isArray(response.data)) {
         response.data.forEach((equipe: TeamData) => {
-          console.log(`🏅 ${equipe.nome}: ${equipe.eficiencia_media.toFixed(1)}% eficiência, ${equipe.stats.vitorias} vitórias`);
+          console.log(
+            `🏅 ${equipe.nome}: ${equipe.eficiencia_media.toFixed(
+              1
+            )}% eficiência, ${equipe.stats.vitorias} vitórias`
+          );
         });
       }
       return response.data;
     } catch (error) {
-      console.error('❌ Erro ao buscar ranking:', error);
+      console.error("❌ Erro ao buscar ranking:", error);
       throw error;
     }
   },
 
   async getTeamById(teamId: number): Promise<TeamData | null> {
-    console.log('🔍 Buscando equipe por ID:', teamId);
+    console.log("🔍 Buscando equipe por ID:", teamId);
     try {
       const ranking = await this.getRanking();
-      const team = ranking.find(t => t.id === teamId) || null;
+      const team = ranking.find((t) => t.id === teamId) || null;
       if (team) {
-        console.log('✅ Equipe encontrada:', team.nome);
+        console.log("✅ Equipe encontrada:", team.nome);
       } else {
-        console.log('❌ Equipe não encontrada para ID:', teamId);
+        console.log("❌ Equipe não encontrada para ID:", teamId);
       }
       return team;
     } catch (error) {
-      console.error('❌ Erro ao buscar equipe por ID:', error);
+      console.error("❌ Erro ao buscar equipe por ID:", error);
       throw error;
     }
   },
 
   async getTeamPosition(teamName: string): Promise<number | null> {
-    console.log('🔍 Buscando posição da equipe:', teamName);
+    console.log("🔍 Buscando posição da equipe:", teamName);
     try {
       const ranking = await this.getRanking();
-      const index = ranking.findIndex(t => t.nome === teamName);
+      const index = ranking.findIndex((t) => t.nome === teamName);
       const position = index !== -1 ? index + 1 : null;
 
       if (position) {
-        console.log('✅ Posição encontrada:', position);
+        console.log("✅ Posição encontrada:", position);
       } else {
-        console.log('❌ Equipe não encontrada no ranking:', teamName);
+        console.log("❌ Equipe não encontrada no ranking:", teamName);
       }
 
       return position;
     } catch (error) {
-      console.error('❌ Erro ao buscar posição da equipe:', error);
+      console.error("❌ Erro ao buscar posição da equipe:", error);
       throw error;
     }
   },
 
   async getVehicles(): Promise<VehicleResponse[]> {
-    console.log('🚛 Buscando veículos da API...');
+    console.log("🚛 Buscando veículos da API...");
     try {
-      const response = await api.get('/jogo1/veiculos/');
-      console.log('✅ Veículos recebidos:', response.data.length, 'veículos');
+      const response = await api.get("/jogo1/veiculos/");
+      console.log("✅ Veículos recebidos:", response.data.length, "veículos");
       return response.data;
     } catch (error) {
-      console.error('❌ Erro ao buscar veículos:', error);
+      console.error("❌ Erro ao buscar veículos:", error);
       throw error;
     }
   },
 
-  async respondToEvent(optionId: number, distancia_percorrida: number): Promise<RespondResponse> {
-    console.log(`✋ Respondendo evento com opção ${optionId} na distância ${distancia_percorrida.toFixed(2)}km`);
+  async respondToEvent(
+    optionId: number,
+    distancia_percorrida: number
+  ): Promise<RespondResponse> {
+    console.log(
+      `✋ Respondendo evento com opção ${optionId} na distância ${distancia_percorrida.toFixed(
+        2
+      )}km`
+    );
     try {
-      const response = await api.post<RespondResponse>('/jogo1/eventos/responder/', {
-        opcao_id: optionId,
-        distancia_percorrida: distancia_percorrida
-      });
-      console.log('✅ Resposta do evento processada:', response.data.detail);
+      const response = await api.post<RespondResponse>(
+        "/jogo1/eventos/responder/",
+        {
+          opcao_id: optionId,
+          distancia_percorrida: distancia_percorrida,
+        }
+      );
+      console.log("✅ Resposta do evento processada:", response.data.detail);
       return response.data;
     } catch (error) {
-      console.error('❌ Erro ao responder evento:', error);
+      console.error("❌ Erro ao responder evento:", error);
       throw error;
     }
   },
 
   async getActiveGame(): Promise<PartidaResponse> {
-    console.log('🎮 Buscando partida ativa...');
+    console.log("🎮 Buscando partida ativa...");
     try {
-      const response = await api.get<PartidaResponse>('/jogo1/partidas/ativa/');
-      console.log('✅ Partida ativa encontrada:', response.data.id);
+      const response = await api.get<PartidaResponse>("/jogo1/partidas/ativa/");
+      console.log("✅ Partida ativa encontrada:", response.data.id);
       return response.data;
     } catch (error) {
-      console.error('❌ Erro ao buscar partida ativa:', error);
+      console.error("❌ Erro ao buscar partida ativa:", error);
       throw error;
     }
   },
@@ -328,7 +343,7 @@ export const GameService = {
     console.log(`🎮 Buscando partida com ID: ${id}...`);
     try {
       const response = await api.get<PartidaResponse>(`/jogo1/partidas/${id}/`);
-      console.log('✅ Partida encontrada:', response.data.id);
+      console.log("✅ Partida encontrada:", response.data.id);
       return response.data;
     } catch (error) {
       console.error(`❌ Erro ao buscar partida ${id}:`, error);
@@ -341,153 +356,199 @@ export const GameService = {
     rota: number;
     veiculo: number;
     saldo_inicial?: number;
-    combustivel_inicial?: number
+    combustivel_inicial?: number;
   }): Promise<PartidaResponse> {
-    console.log('🚀 Criando nova partida com dados:', gameData);
+    console.log("🚀 Criando nova partida com dados:", gameData);
     if (!gameData.mapa || !gameData.rota || !gameData.veiculo) {
-      const error = new Error('Dados inválidos para criar partida');
-      console.error('❌ Dados incompletos:', gameData);
+      const error = new Error("Dados inválidos para criar partida");
+      console.error("❌ Dados incompletos:", gameData);
       throw error;
     }
-    if (typeof gameData.mapa !== 'number' || typeof gameData.rota !== 'number' || typeof gameData.veiculo !== 'number') {
-      const error = new Error('IDs devem ser números válidos');
-      console.error('❌ Tipos inválidos:', { mapa: typeof gameData.mapa, rota: typeof gameData.rota, veiculo: typeof gameData.veiculo });
+    if (
+      typeof gameData.mapa !== "number" ||
+      typeof gameData.rota !== "number" ||
+      typeof gameData.veiculo !== "number"
+    ) {
+      const error = new Error("IDs devem ser números válidos");
+      console.error("❌ Tipos inválidos:", {
+        mapa: typeof gameData.mapa,
+        rota: typeof gameData.rota,
+        veiculo: typeof gameData.veiculo,
+      });
       throw error;
     }
     try {
-      const response = await api.post<PartidaResponse>('/jogo1/partidas/nova/', gameData);
-      console.log('✅ Partida criada com sucesso! ID:', response.data.id);
-      console.log('💰 Saldo inicial:', response.data.saldo);
-      console.log('⛽ Combustível inicial:', response.data.combustivel_atual);
+      const response = await api.post<PartidaResponse>(
+        "/jogo1/partidas/nova/",
+        gameData
+      );
+      console.log("✅ Partida criada com sucesso! ID:", response.data.id);
+      console.log("💰 Saldo inicial:", response.data.saldo);
+      console.log("⛽ Combustível inicial:", response.data.combustivel_atual);
       return response.data;
     } catch (error: any) {
-      console.error('❌ Erro ao criar partida:', error);
+      console.error("❌ Erro ao criar partida:", error);
       if (error.response) {
-        console.error('📋 Status do erro:', error.response.status);
-        console.error('📋 Dados do erro:', error.response.data);
+        console.error("📋 Status do erro:", error.response.status);
+        console.error("📋 Dados do erro:", error.response.data);
         if (error.response.status === 400) {
-          throw new Error(`IDs inválidos: ${JSON.stringify(error.response.data)}`);
+          throw new Error(
+            `IDs inválidos: ${JSON.stringify(error.response.data)}`
+          );
         }
       }
       throw error;
     }
   },
 
-  // ✅✅✅ FUNÇÃO DE TICK ATUALIZADA COM SUPORTE A ABASTECIMENTO ✅✅✅
   async partidaTick(data: TickData): Promise<TickResult> {
-    const logQueuer = data.quer_abastecer ? ' (🔍 PROCURANDO POSTO)' : '';
-    console.log(`⏱️ Enviando tick: ${data.distancia_percorrida.toFixed(2)}km${logQueuer}`);
+    const logQueuer = data.quer_abastecer ? " (🔍 PROCURANDO POSTO)" : "";
+    console.log(
+      `⏱️ Enviando tick para salvar progresso: ${data.distancia_percorrida.toFixed(
+        2
+      )}km${logQueuer}`
+    );
 
     try {
-      const response = await api.post<PartidaResponse>('/jogo1/partidas/tick/', data);
-      console.log('✅ Tick processado - Tempo oficial:', response.data.tempo_jogo?.toFixed(2), 'min');
+      const response = await api.post<PartidaResponse>(
+        "/jogo1/partidas/tick/",
+        data
+      );
+      console.log(
+        "✅ Tick processado - Tempo oficial:",
+        response.data.tempo_jogo?.toFixed(2),
+        "min"
+      );
 
-      // ✅ VERIFICA SE O BACKEND RETORNOU UM EVENTO_PENDENTE
       if (response.data.eventos_ocorridos) {
-        const eventoPendente = response.data.eventos_ocorridos.find(evento => evento.opcao_escolhida === null);
+        const eventoPendente = response.data.eventos_ocorridos.find(
+          (evento) => evento.opcao_escolhida === null
+        );
 
         if (eventoPendente) {
           const categoria = eventoPendente.evento.categoria;
-          const isAbastecimento = categoria === 'abastecimento';
+          const isAbastecimento = categoria === "abastecimento";
 
-          console.log(`🎲 Evento pendente detectado: "${eventoPendente.evento.nome}" (${categoria})`);
+          console.log(
+            `🎲 Evento pendente detectado: "${eventoPendente.evento.nome}" (${categoria})`
+          );
 
           if (isAbastecimento) {
-            console.log('⛽ Evento de ABASTECIMENTO detectado - Frontend deve mostrar modal de posto');
+            console.log(
+              "⛽ Evento de ABASTECIMENTO detectado - Frontend deve mostrar modal de posto"
+            );
           } else {
-            console.log('🎭 Evento NORMAL detectado - Frontend deve mostrar modal de evento');
+            console.log(
+              "🎭 Evento NORMAL detectado - Frontend deve mostrar modal de evento"
+            );
           }
 
           return {
             ...response.data,
-            evento_pendente: eventoPendente
+            evento_pendente: eventoPendente,
           };
         }
       }
 
-      // ✅ VERIFICA SE HÁ EVENTO_PENDENTE DIRETO NA RESPOSTA (PARA EVENTOS DE ABASTECIMENTO)
       if ((response as any).data.evento_pendente) {
         const eventoPendente = (response as any).data.evento_pendente;
-        console.log(`⛽ Evento de abastecimento retornado diretamente: "${eventoPendente.evento.nome}"`);
+        console.log(
+          `⛽ Evento de abastecimento retornado diretamente: "${eventoPendente.evento.nome}"`
+        );
 
         return {
           ...response.data,
-          evento_pendente: eventoPendente
+          evento_pendente: eventoPendente,
         };
       }
 
-      // Sem eventos pendentes
-      console.log('✅ Tick processado sem eventos pendentes');
+      console.log("✅ Tick processado sem eventos pendentes");
       return response.data;
-
     } catch (error) {
-      console.error('❌ Erro no tick:', error);
+      console.error("❌ Erro no tick:", error);
       throw error;
     }
   },
 
-  // ✅✅✅ NOVA FUNÇÃO DE ABASTECIMENTO ✅✅✅
-  async processarAbastecimento(data: { litros: number; custo: number }): Promise<PartidaResponse> {
-    console.log('⛽ Processando abastecimento:', data);
+  async processarAbastecimento(data: {
+    litros: number;
+    custo: number;
+  }): Promise<PartidaResponse> {
+    console.log("⛽ Processando abastecimento:", data);
     try {
-      const response = await api.post<PartidaResponse>('/jogo1/partidas/abastecer/', data);
-      console.log('✅ Abastecimento processado pelo backend:', response.data);
+      const response = await api.post<PartidaResponse>(
+        "/jogo1/partidas/abastecer/",
+        data
+      );
+      console.log("✅ Abastecimento processado pelo backend:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ Erro ao processar abastecimento:', error);
+      console.error("❌ Erro ao processar abastecimento:", error);
       throw error;
     }
   },
 
   async pauseGame(): Promise<{ detail: string }> {
-    console.log('⏸️ Pausando jogo...');
+    console.log("⏸️ Pausando jogo...");
     try {
-      const response = await api.post<{ detail: string }>('/jogo1/partidas/pausar/');
-      console.log('✅ Jogo pausado:', response.data.detail);
+      const response = await api.post<{ detail: string }>(
+        "/jogo1/partidas/pausar/"
+      );
+      console.log("✅ Jogo pausado:", response.data.detail);
       return response.data;
     } catch (error) {
-      console.error('❌ Erro ao pausar jogo:', error);
+      console.error("❌ Erro ao pausar jogo:", error);
       throw error;
     }
   },
 
   async resumeGame(): Promise<{ detail: string }> {
-    console.log('▶️ Retomando jogo...');
+    console.log("▶️ Retomando jogo...");
     try {
-      const response = await api.post<{ detail: string }>('/jogo1/partidas/continuar/');
-      console.log('✅ Jogo retomado:', response.data.detail);
+      const response = await api.post<{ detail: string }>(
+        "/jogo1/partidas/continuar/"
+      );
+      console.log("✅ Jogo retomado:", response.data.detail);
       return response.data;
     } catch (error) {
-      console.error('❌ Erro ao retomar jogo:', error);
+      console.error("❌ Erro ao retomar jogo:", error);
       throw error;
     }
   },
 
-  async syncGameProgress(progressData: { tempo_decorrido_segundos: number }): Promise<PartidaResponse> {
-    console.log('🔄 Sincronizando progresso do jogo...', progressData);
+  async syncGameProgress(progressData: {
+    tempo_decorrido_segundos: number;
+  }): Promise<PartidaResponse> {
+    console.log("🔄 Sincronizando progresso do jogo...", progressData);
     try {
-      const response = await api.post<PartidaResponse>('/jogo1/partidas/sincronizar/', progressData);
-      console.log('✅ Progresso sincronizado');
-      if (response.data.status === 'concluido') {
-        console.log('🏁 Partida finalizada!');
-        console.log('🏆 Resultado:', response.data.resultado);
+      const response = await api.post<PartidaResponse>(
+        "/jogo1/partidas/sincronizar/",
+        progressData
+      );
+      console.log("✅ Progresso sincronizado");
+      if (response.data.status === "concluido") {
+        console.log("🏁 Partida finalizada!");
+        console.log("🏆 Resultado:", response.data.resultado);
         if (response.data.eficiencia !== undefined) {
-          console.log('📊 Eficiência calculada:', response.data.eficiencia + '%');
+          console.log(
+            "📊 Eficiência calculada:",
+            response.data.eficiencia + "%"
+          );
         }
-        console.log('💯 Pontuação final:', response.data.pontuacao);
+        console.log("💯 Pontuação final:", response.data.pontuacao);
       }
       return response.data;
     } catch (error) {
-      console.error('❌ Erro ao sincronizar progresso:', error);
+      console.error("❌ Erro ao sincronizar progresso:", error);
       throw error;
     }
   },
 
   async saveGameState(gameState: any) {
-    return await api.post('/game/save-state/', gameState);
+    return await api.post("/game/save-state/", gameState);
   },
 
   async loadGameState(matchId: string) {
     return await api.get(`/game/load-state/${matchId}/`);
-  }
+  },
 };
